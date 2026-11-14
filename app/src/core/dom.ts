@@ -114,7 +114,7 @@ export function openDrawer(title: string, bodyHtml: Html | string, footHtml?: Ht
   d.innerHTML = String(html`<div class="grab" aria-hidden="true"></div><header>${h ? drawerHeroHtml({ ...h, kicker: title === 'Loading…' ? h.kicker : title }) : html`<h2>${title}</h2>`}<button class="round" type="button" data-onclick="App.closeDrawer()" aria-label="Close">${ICON_X}</button></header><div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`);
   if (!wasOpen) S.drawerReturn = document.activeElement as HTMLElement | null;
   d.setAttribute('aria-label', String(title === 'Loading…' && h ? h.name : title));
-  d.classList.add('open'); d.setAttribute('aria-hidden', 'false'); d.inert = false; el('scrim').classList.add('open');
+  d.classList.add('open'); d.setAttribute('aria-hidden', 'false'); d.inert = false; el('app').inert = true; el('scrim').classList.add('open');      // the page behind can't be tabbed into while the drawer is up
   if (!wasOpen) setTimeout(() => { const f = d.querySelector<HTMLElement>('input:not([type=hidden]):not([type=checkbox]):not([type=date]), select'); if (f && innerWidth > 900) f.focus(); }, 280);
 }
 export function closeDrawer() {
@@ -124,7 +124,7 @@ export function closeDrawer() {
   const my = S.drawerTok = (S.drawerTok || 0) + 1;
   const shut = () => {
     if (S.drawerTok !== my) return;
-    d.classList.remove('open'); d.setAttribute('aria-hidden', 'true'); el('scrim').classList.remove('open');
+    d.classList.remove('open'); d.setAttribute('aria-hidden', 'true'); el('scrim').classList.remove('open'); el('app').inert = false;
     const back = S.drawerReturn; S.drawerReturn = null;
     if (back && back.isConnected && back.focus && d.contains(document.activeElement)) back.focus({ preventScroll: true });
     d.inert = true;   // off screen, so Tab skips its buttons

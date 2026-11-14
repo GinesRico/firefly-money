@@ -112,7 +112,7 @@ function fmtFor<T extends Intl.NumberFormat | Intl.DateTimeFormat>(key: string, 
   if (!f) { f = make(loc); FMT.set(k, f); }
   return f;
 }
-export const money = (n: number, dec = 2) => fmtFor('$' + S.currency + dec, loc => new Intl.NumberFormat(loc, { style: 'currency', currency: S.currency, minimumFractionDigits: dec, maximumFractionDigits: dec })).format(n || 0);
+export const money = (n: number, dec = 2) => fmtFor('$' + S.currency + dec, loc => new Intl.NumberFormat(loc, { style: 'currency', currency: S.currency, minimumFractionDigits: dec, maximumFractionDigits: dec })).format(!n || Math.abs(n) < 0.5 * 10 ** -dec ? 0 : n);   // a sum that rounds to nothing prints $0.00, never -$0.00
 export const money0 = (n: number) => money(n, 0);
 // A plain number with the locale's grouping (1,234 or 1.234)
 export const fmtNum = (n: number, dec = 0) => fmtFor('n' + dec, loc => new Intl.NumberFormat(loc, { minimumFractionDigits: 0, maximumFractionDigits: dec })).format(n || 0);

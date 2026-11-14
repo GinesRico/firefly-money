@@ -1,14 +1,15 @@
 import { type Html, html, htmlList } from '../core/html';
-import { api, getAll } from '../core/api';
+import { getAll } from '../core/api';
 import { App, absDiff, arr, fmtDate, fmtDay, money, money0, monthRange, nowMonth, sumDiff, todayIso, type ApiData } from '../core/base';
 import { head, icon } from '../core/dom';
 import { normGroup } from '../core/feed';
 import { addDays, daysBetween } from '../core/helpers';
-import { type Lists, isAsset, isLiab, lists } from '../core/lists';
+import { type Lists, lists } from '../core/lists';
 import { VIEWS } from '../core/router';
 import { fcHorizon, forecastModel, horizonText, shortText } from './forecast';
 import { compareRange, monthSpan } from './reports';
 import { insight } from '../features/refunds';
+import { netWorthOn } from '../features/networth';
 
 /* ================= Ask: plain questions answered from your Firefly data =================
    No AI: the question is matched against a few kinds Money knows how to answer, and every answer shows how it was
@@ -98,7 +99,7 @@ async function answer(q: Question, L: Lists): Promise<Answer> {
   const r = q.range, p = { start: r.start, end: r.end };
   if (q.intent === 'spentOn' && q.target) {
     const t = q.target, prevM = monthRange(...nowMonth()).start === r.start ? monthRange(nowMonth()[0], nowMonth()[1] - 1) : null;
-    const [now, before] = await Promise.all([api(INSIGHT[t.kind], { params: p }), prevM ? api(INSIGHT[t.kind], { params: { start: prevM.start, end: prevM.end } }).catch(() => null) : null]);
+    const [now, before] = await Promise.all([insight(INSIGHT[t.kind], p), prevM ? insight(INSIGHT[t.kind], { start: prevM.start, end: prevM.end }).catch(() => null) : null]);
     const v = sumOf(now, t), b = before ? sumOf(before, t) : null;
     return { title: html`You spent <strong>${money(v)}</strong> on ${t.name} ${r.label}.`,
       lines: b != null ? [row('Last month', money(b) + ' (' + pctText(v, b) + ')')] : [],
@@ -164,9 +165,9 @@ async function answer(q: Question, L: Lists): Promise<Answer> {
       more: { label: 'Open the forecast', href: '#/forecast' } };
   }
   if (q.intent === 'networth') {
-    const own = L.accounts.filter(a => a.active && (isAsset(a) || isLiab(a))), assets = own.filter(isAsset).reduce((s, a) => s + a.balance, 0), debts = own.filter(isLiab).reduce((s, a) => s + a.balance, 0);
+    const [pt] = await netWorthOn([todayIso()]), assets = pt.assets, debts = -pt.debts;
     return { title: html`Your net worth is <strong>${money0(assets + debts)}</strong>.`, lines: [row('Accounts', money0(assets)), row('Loans & debts', money0(debts))],
-      how: 'Today’s balances of your active accounts, cards and loans in ' + 'your main currency, added up.', more: { label: 'Accounts', href: '#/accounts' } };
+      how: 'Today’s balances of the accounts, cards and loans counted in net worth (Accounts → Include in net worth), in your main currency, added up.', more: { label: 'Accounts', href: '#/accounts' } };
   }
   return { title: html`I couldn’t read that as a question I know, so here’s a search for it.`, how: 'Try one of the examples below.', more: { label: 'Search transactions for “' + q.words + '”', href: '#/transactions?search=' + encodeURIComponent(q.words) } };
 }
