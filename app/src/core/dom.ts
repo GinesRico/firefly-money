@@ -159,7 +159,8 @@ export function monthNav() {
   return html`<div class="month"><button class="round" data-onclick="App.shiftMonth(-1)" aria-label="Previous month">${ICON_PREV}</button><span title="${fmtDate(r.start)} – ${fmtDate(r.end)}"><i class="ml">${r.label}</i><i class="ms">${r.short} ${r.y}</i>${r.start.endsWith('-01') ? '' : html`<small class="cycle">${fmtDay(r.start)} – ${fmtDay(r.end)}</small>`}</span><button class="round" data-onclick="App.shiftMonth(1)" aria-label="Next month"${isNow ? ' disabled' : ''}>${ICON_NEXT}</button>${ahead !== 0 ? html`<button class="btn small" style="margin-left:6px" data-onclick="App.thisMonth()">Today</button>` : html`<button class="btn small today-gap" style="margin-left:6px" aria-hidden="true" tabindex="-1" disabled>Today</button>`}<button class="btn small" style="margin-left:6px" data-onclick="App.allTime()">All time</button></div>`;
 }
 export function head(title: string | Html, sub: string | Html, actions?: string | Html) {
-  return html`<div class="head"><div><h1>${title}</h1>${sub ? html`<p class="sub">${sub}</p>` : ''}</div><div class="actions">${actions || ''}</div></div>`;
+  // Under the title, when an account is in another currency: the rate the page's totals use (features/fxnote.ts)
+  return html`<div class="head"><div><h1>${title}</h1>${sub ? html`<p class="sub">${sub}</p>` : ''}${App.fxNote ? App.fxNote() : ''}</div><div class="actions">${actions || ''}</div></div>`;
 }
 /* ---------- Empty states: a drawn icon, what the page is for, and the one thing to do next ---------- */
 const EMPTY_ICONS: Record<string, string> = {

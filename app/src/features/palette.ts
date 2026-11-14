@@ -1,6 +1,6 @@
 import { type Html, html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
-import { App, S, arr, el, fmtDay, money, money0 } from '../core/base';
+import { App, S, arr, el, fmtDay, money, money0, moneyIn } from '../core/base';
 import { NAV, closeDrawer } from '../core/dom';
 import { normGroup, payeeOf, signed } from '../core/feed';
 import { LS } from '../core/helpers';
@@ -89,7 +89,7 @@ export async function openPalette() {
   if (el('palette').hidden) return;
   const items = baseItems();
   if (L) {
-    L.accounts.filter(a => a.active && (isAsset(a) || isLiab(a))).forEach(a => items.push({ label: a.name, kind: isCard(a) ? 'Credit card' : isLiab(a) ? 'Loan' : 'Account', sub: isLiab(a) ? money(a.debt) + ' owed' : money(a.balance), keys: a.number, go: '#/account/' + a.id }));
+    L.accounts.filter(a => a.active && (isAsset(a) || isLiab(a))).forEach(a => items.push({ label: a.name, kind: isCard(a) ? 'Credit card' : isLiab(a) ? 'Loan' : 'Account', sub: isLiab(a) ? moneyIn((a.nat || a).debt, a.currency) + ' owed' : moneyIn((a.nat || a).balance, a.currency), keys: a.number, go: '#/account/' + a.id }));
     L.budgets.filter(b => b.active).forEach(b => items.push({ label: b.name, kind: 'Budget', keys: b.notes, go: '#/transactions?budget=' + b.id }));
     L.categories.forEach(c => items.push({ label: c.name, kind: 'Category', keys: c.notes, go: '#/transactions?category=' + c.id }));
     L.tags.forEach(t => items.push({ label: t.name, kind: 'Tag', go: '#/transactions?tag=' + t.id }));

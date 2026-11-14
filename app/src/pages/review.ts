@@ -23,7 +23,7 @@ export function reviewQueue(raw: ApiData[], reviewedAt: string, done: string[]) 
    arriving in another as income. A pair with the same amount within 4 days is offered as one transfer. */
 export type XferPair = { id: string, out: Group, in: Group, amount: number };
 export function matchTransfers(groups: Group[], own: Set<string>, skip: Set<string>) {
-  const one = (g: Group) => g.splits.length === 1 ? g.splits[0] : null;
+  const one = (g: Group) => g.splits.length === 1 && !g.splits[0].cur ? g.splits[0] : null;      // not foreign-currency ones: their amounts here are converted, and the transfer made from a pair is written to Firefly
   const outs = groups.filter(g => g.type === 'withdrawal' && one(g) && own.has(one(g)!.source_id) && !own.has(one(g)!.destination_id));
   const ins = groups.filter(g => g.type === 'deposit' && one(g) && own.has(one(g)!.destination_id) && !own.has(one(g)!.source_id));
   const used = new Set<string>(), out: XferPair[] = [];

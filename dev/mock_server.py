@@ -357,6 +357,9 @@ class H(BaseHTTPRequestHandler):
             elif re.match(r'^/tile/\d+/\d+/\d+\.png$', u.path):   # stands in for nginx's map pictures: a plain grid square
                 body = b'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#ecebe4"/><path d="M0 .5H256M.5 0V256M0 128H256M128 0V256" stroke="#d6d4ca"/></svg>'
                 self.send_response(200); self.send_header('Content-Type', 'image/svg+xml'); self.end_headers(); self.wfile.write(body)
+            elif re.match(r'^/fx/[ab]/USD(/[A-Z,]+)?$', u.path):   # stands in for nginx's exchange-rate proxy (core/fx.ts)
+                body = json.dumps({'base': 'USD', 'date': '2026-01-02', 'rates': {'INR': 83.9, 'EUR': 0.92, 'JPY': 150.25}}).encode()
+                self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers(); self.wfile.write(body)
             else: self.send_response(404); self.end_headers()
             return
         if u.path == '/api/money-alive':       # Money's own "I'm here" (default.conf.template): no Firefly, no sign-in

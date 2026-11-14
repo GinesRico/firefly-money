@@ -1,11 +1,11 @@
 import { type Html, html, htmlList } from '../core/html';
 import { AuthError, api, type ApiError } from '../core/api';
 import { showLogin } from '../core/auth';
-import { type ApiData, App, S, arr, el, fmtDate, fmtDay, isoDate, money, num, sameName, todayIso, type AppApi, type Field } from '../core/base';
+import { type ApiData, App, S, arr, el, fmtDate, fmtDay, isoDate, money, moneyIn, approx, num, sameName, todayIso, type AppApi, type Field } from '../core/base';
 import { LS } from '../core/helpers';
 import { BUZZ_SAVE, buzz } from '../core/haptics';
 import { closeDrawer, confirmBox, formError, heroParts, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
-import { type Group, amtInner, avatarHtml, normGroup, payeeOf, signed } from '../core/feed';
+import { type Group, amtInner, avatarHtml, normGroup, payeeOf, signed, signedNative } from '../core/feed';
 import { hoursText, lensOn } from '../core/worklens';
 import { type Account, invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
 import { REFUND_TAG, isRefundTag, refundLinkType } from './refunds';
@@ -38,7 +38,9 @@ export function prefillLast(f: TxForm, last: LastTx, ownIds: Set<string>, preset
   if (!preset.account && last.acc && last.acc[t] && ownIds.has(last.acc[t])) f.main = f.src = last.acc[t];
   if (!preset.category && !preset.description && last.cat && last.cat[t]) f.splits[0].category = f.catPre = last.cat[t];
 }
-export function newTx(preset: { type?: string, date?: string, account?: string, description?: string, amount?: string, counter?: string, category?: string, budget?: string, bill?: string, dest?: string } = {}) {
+export function newTx(preset: { type?: string, date?: string, account?: string, description?: string, amount?: string, counter?: string, category?: string, budget?: string, bill?: string, dest?: string,
+  // A payment into an account in another currency: what it gets in its own currency (fa in fc), with amount the main-currency figure
+  fa?: string, fc?: string } = {}) {
   const L = S.lists!; S.drawerHero = null;
   const firstAsset = (L.own.find(a => isAsset(a) && !isCard(a)) || L.own[0] || {}).id || '';
   S.form = { id: '', type: preset.type || 'withdrawal', date: preset.date || todayIso(), title: '', main: preset.account || firstAsset, src: preset.account || firstAsset, dst: '', rules: true, splits: [blankSplit()] };
@@ -47,6 +49,13 @@ export function newTx(preset: { type?: string, date?: string, account?: string, 
   if (preset.amount) S.form.splits[0].amount = preset.amount;
   for (const k of ['counter', 'category', 'budget', 'bill'] as const) if (preset[k]) S.form.splits[0][k] = preset[k]!;
   if (preset.dest) S.form.dst = preset.dest;
+  if (preset.fa && preset.fc) {
+    // Firefly keeps a transfer in the paying account's currency. Paid from an account in the same currency, the
+    // amount is simply that figure; from any other, the amount is the paying side and this is the foreign amount.
+    const src = L.byId[S.form.src];
+    if (src && src.currency === preset.fc) S.form.splits[0].amount = preset.fa;
+    else { S.form.splits[0].fa = preset.fa; S.form.splits[0].fc = preset.fc; }
+  }
   renderTxForm();
 }
 const EDITABLE = ['withdrawal', 'deposit', 'transfer'];
@@ -57,19 +66,24 @@ function formOf(g: Group): TxForm {
     id: g.id, type: g.type, date: String(g.date).slice(0, 10), title: g.title, rules: false,
     main: g.type === 'deposit' ? f.destination_id : f.source_id, src: f.source_id, dst: f.destination_id,
     splits: g.splits.map(s => {
-      const x: SplitForm = { jid: s.jid, description: s.description, amount: String(s.amount), counter: g.type === 'deposit' ? s.source_name : s.destination_name,
+      const x: SplitForm = { jid: s.jid, description: s.description, amount: String(s.native), counter: g.type === 'deposit' ? s.source_name : s.destination_name,
         category: s.category, budget: s.budget_id, bill: s.bill_id, tags: s.tags.join(', '), notes: s.notes, fa: s.fa, fc: s.fc, orig: {} };
       const { orig, ...fields } = x; x.orig = fields;
       return x;
     }),
   };
 }
+// A foreign-currency transaction's amount at the top of the drawer: its own currency, then the main-currency figure
+function heroNative(g: Group, accountId: string | undefined, v: number) {
+  const xfer = !accountId && g.type === 'transfer', nv = xfer ? g.nativeTotal || 0 : signedNative(g, accountId);
+  return (!xfer && nv > 0 ? '+' : '') + moneyIn(nv, g.cur!) + (g.unconv ? ' · not converted' : ' · ' + approx(Math.abs(xfer ? g.total : v)));
+}
 export async function editTx(id: string) {
   const meta = S.txMeta && S.txMeta[id], row = document.querySelector<HTMLElement>('#view tr[data-gid="' + id + '"]');
   if (meta) {
     const g = meta.g, v = signed(g, meta.accountId);
     S.drawerHero = { id, av: avatarHtml(g, 'lg'), name: payeeOf(g).name, date: g.date, kicker: 'Transaction',
-      amount: !meta.accountId && g.type === 'transfer' ? money(g.total) : (v > 0 ? '+' : '') + money(v) + (v < 0 && lensOn() && hoursText(v) ? ' · ' + hoursText(v) + ' of work' : '') };
+      amount: g.cur ? heroNative(g, meta.accountId, v) : !meta.accountId && g.type === 'transfer' ? money(g.total) : (v > 0 ? '+' : '') + money(v) + (v < 0 && lensOn() && hoursText(v) ? ' · ' + hoursText(v) + ' of work' : '') };
   } else S.drawerHero = null;
   // The list already has the whole transaction, so the form opens filled in straight away; the copy fetched
   // from Firefly III replaces it only if it differs and you haven't started editing.

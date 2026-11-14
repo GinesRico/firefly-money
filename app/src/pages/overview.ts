@@ -2,11 +2,12 @@ import { type Html, html, htmlList } from '../core/html';
 import { api, getAll, sleep } from '../core/api';
 import { paceForecast } from '../features/projections';
 import { monthEnd } from '../features/predict';
-import { ALL_START, App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, noneHref, nowMonth, num, sumDiff, todayIso, txHref, type ApiData, type Period, viewPeriod, viewYM } from '../core/base';
+import { ALL_START, App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, noneHref, nowMonth, num, sumDiff, todayIso, txHref, type ApiData, type Period, viewPeriod, viewYM, spentSum } from '../core/base';
 import { head, monthNav } from '../core/dom';
-import { normGroup, rankCats, txRows } from '../core/feed';
+import { acctAmt, normGroup, rankCats, txRows } from '../core/feed';
 import { addDays, budgetAlert, daysBetween } from '../core/helpers';
 import { type Account, isAsset, isCard, isLiab, lists } from '../core/lists';
+import { FX } from '../core/fx';
 import { VIEWS, quiet } from '../core/router';
 import { type Unusual, loadUnusual } from '../features/unusual';
 import { gettingStarted } from '../features/started';
@@ -47,8 +48,8 @@ VIEWS[''] = async (r, paint) => {
   const cards = own.filter(isCard), loans = own.filter(isLiab);
   // What the balance tiles list, by their settings: closed (inactive) accounts, zero balances, paid-off debts
   const shown = (k: string, test: (a: Account) => boolean, settled: (a: Account) => boolean) => L.accounts.filter(a => test(a) && (a.active || tileOpt(k, 'closed')) && (tileOpt(k, k === 'cash' ? 'zero' : 'paidOff') || !settled(a)));
-  const cashShown = shown('cash', a => isAsset(a) && !isCard(a), a => !a.balance);
-  const cardsShown = shown('cards', isCard, a => a.balance >= 0), loansShown = shown('loans', isLiab, l => !l.debt);
+  const cashShown = shown('cash', a => isAsset(a) && !isCard(a), a => !a.balance && !a.unconv);
+  const cardsShown = shown('cards', isCard, a => (a.nat || a).balance >= 0), loansShown = shown('loans', isLiab, l => !(l.nat || l).debt);
   // Everything is requested at once (the main numbers first, so they reach Firefly first). The page is drawn
   // as soon as those are in; the slower cards show placeholders and fill in when their data arrives.
   // Refunds come off spending (see refunds.ts): fetched once for the chart's months, and the other ranges use those when they fit
@@ -88,8 +89,10 @@ VIEWS[''] = async (r, paint) => {
   if (r.at) { await Promise.all([coreP, slowP]).catch(() => {}); return; }     // loading a month ahead: the data is all it needs
   const [summary, catNow, catPrev, noCatNow, noCatPrev, trend, recent, budgets, limits, bills, uncat, allTot, prevSoFar] = await coreP;
   const nwKey = Object.keys(summary || {}).find(k => k.startsWith('net-worth-in'));
-  const computedNW = own.filter(isAsset).reduce((s, a) => s + a.balance, 0) - loans.reduce((s, l) => s + l.debt, 0);
-  const netWorth = nwKey ? num(summary[nwKey].monetary_value) : computedNW;
+  const computedNW = own.filter(a => isAsset(a) && a.netWorth).reduce((s, a) => s + a.balance, 0) - loans.filter(l => l.netWorth).reduce((s, l) => s + l.debt, 0);
+  // Firefly's own net worth figure only counts the main currency (or converts with its stored rates), so with accounts
+  // in other currencies the figure is worked out here from balances converted at today's rate (core/fx.ts)
+  const netWorth = nwKey && !FX.needed.length ? num(summary[nwKey].monetary_value) : computedNW;
   const last = all ? allTot! : trend[trend.length - 1], before = all || trend.length < 2 ? { spend: 0 } : soFar ? { spend: prevSoFar || 0 } : trend[trend.length - 2];
 
   // categories
@@ -200,7 +203,7 @@ function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { un
     if (d) items.push(html`<a class="row" href="#/bills"><span class="name">📅 ${b.attributes.name} ${d < t ? html`<span class="up">overdue since ${fmtDay(d)}</span>` : 'due ' + fmtDay(d)}</span><span class="num">${money(billAmount(b.attributes))}</span></a>`);
   });
   if (!future) budgets.forEach(b => {
-    const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0));
+    const lim = limits[String(b.id)], spent = spentSum(b);
     if (lim && lim.amount && spent > lim.amount) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">⚠️ ${b.attributes.name} is over budget</span><span class="num up">${money0(spent - lim.amount)} over</span></a>`);
     else if (lim && lim.amount && spent >= lim.amount * budgetAlert() / 100) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">◔ ${b.attributes.name} is at ${Math.round(spent / lim.amount * 100)}%</span><span class="num">${money0(lim.amount - spent)} left</span></a>`);
   });
@@ -244,14 +247,15 @@ function spendingPanel(cats: CatRow[], future: boolean, all: boolean, count = 6,
   return html`<section class="panel"><h2>Where it went</h2><p class="lead">Spending by category ${all ? 'of all time' : 'this month'}${cmp ? ', against last month' : ''}</p>${chart || html`<p class="empty">${future ? 'This month hasn’t started yet.' : 'No spending recorded ' + (all ? 'yet.' : 'this month.')}</p>`}</section>`;
 }
 // A card row: the whole row opens the account; Pay now (owed > 0) opens a transfer to the card for what is owed, like Pay now on a bill
-export function payRow(a: Account, v: number, paidOff: boolean, sparks: any = {}) {
-  const main = html`<span class="name">${a.name}</span>${sparks[a.id] ? App.sparkline(sparks[a.id], paidOff) : ''}<span class="num">${paidOff && !v ? html`<span class="down">Paid off</span>` : money(v)}</span>`;
+export function payRow(a: Account, v: number, paidOff: boolean, sparks: any = {}, nv = v) {      // nv: the same figure in the account's own currency
+  const main = html`<span class="name">${a.name}</span>${sparks[a.id] ? App.sparkline(sparks[a.id], paidOff) : ''}<span class="num">${paidOff && !v ? html`<span class="down">Paid off</span>` : acctAmt(a, nv, v)}</span>`;
   if (!(paidOff && v > 0)) return html`<a class="row" href="#/account/${a.id}">${main}</a>`;
   return html`<div class="row payrow"><a class="rowmain" href="#/account/${a.id}">${main}</a><button type="button" class="btn small primary" data-onclick="App.cardPay('${a.id}')" aria-label="Pay ${a.name} now">Pay now</button></div>`;
 }
 function balancesPanel(title: string, lead: string, items: Account[], val: (a: Account) => number, paidOff: boolean, sparks: any = {}, invest: Account[] = []) {
-  const rows = htmlList([...items].sort((a, b) => val(b) - val(a)).map(a => payRow(a, val(a), paidOff, sparks)));
-  return html`<section class="panel"><h2>${title}</h2><p class="lead">${lead}</p>${items.length ? html`<div class="total num">${money0(items.reduce((s, a) => s + val(a), 0))}</div><div class="list">${rows}</div>` : html`<p class="empty">None yet.</p>`}${invest.length ? html`<a class="row" href="#/accounts" style="margin-top:6px;padding-top:10px;border-top:1px solid var(--line);text-decoration:none;color:inherit"><span class="name">Investments</span><span class="num neutral" style="text-decoration:none">${money0(invest.reduce((s, a) => s + val(a), 0))}</span></a>` : ''}</section>`;
+  const rows = htmlList([...items].sort((a, b) => val(b) - val(a)).map(a => payRow(a, val(a), paidOff, sparks, a.nat ? val({ ...a, ...a.nat }) : val(a))));
+  const left = [...new Set([...items, ...invest].filter(a => a.unconv).map(a => a.currency))];
+  return html`<section class="panel"><h2>${title}</h2><p class="lead">${lead}</p>${items.length ? html`<div class="total num">${money0(items.reduce((s, a) => s + val(a), 0))}</div>${left.length ? html`<p class="sub-s fx-left">Leaves out ${left.join(', ')} (not converted)</p>` : ''}<div class="list">${rows}</div>` : html`<p class="empty">None yet.</p>`}${invest.length ? html`<a class="row" href="#/accounts" style="margin-top:6px;padding-top:10px;border-top:1px solid var(--line);text-decoration:none;color:inherit"><span class="name">Investments</span><span class="num neutral" style="text-decoration:none">${money0(invest.reduce((s, a) => s + val(a), 0))}</span></a>` : ''}</section>`;
 }
 function loansPanel(loans: Account[], prog: any = {}) {
   // The biggest four; the rest are a tap away on Loans, so one long list doesn't set the height of its whole row
@@ -264,7 +268,7 @@ function loansPanel(loans: Account[], prog: any = {}) {
     if (months) bits.push('about ' + months + ' month' + (months === 1 ? '' : 's') + ' to go at ' + money0(pr.monthly) + '/mo');
     else if (l.debt) bits.push('no payments in the last 3 months');
     if (!l.debt) bits.push('Paid off');
-    return html`<div style="padding:11px 0;border-top:1px solid var(--line)"><a class="row" href="#/account/${l.id}" style="text-decoration:none"><span class="name">${l.name}</span><span class="num">${money0(l.debt)}</span></a>${paid ? html`<div class="track"><div class="fill good" style="width:${paid.toFixed(1)}%"></div></div>` : ''}<div class="sub-s">${bits.join(' · ')}</div></div>`;
+    return html`<div style="padding:11px 0;border-top:1px solid var(--line)"><a class="row" href="#/account/${l.id}" style="text-decoration:none"><span class="name">${l.name}</span><span class="num">${acctAmt(l, (l.nat || l).debt, l.debt, money0)}</span></a>${paid ? html`<div class="track"><div class="fill good" style="width:${paid.toFixed(1)}%"></div></div>` : ''}<div class="sub-s">${bits.join(' · ')}</div></div>`;
   }));
   return html`<section class="panel"><div class="panel-head"><h2>Loans</h2><a class="link" href="#/loans">Plan payoff</a></div><p class="lead">Remaining balance and payoff progress</p>${loans.length ? html`<div class="total num" style="margin-bottom:4px">${money0(loans.reduce((s, l) => s + l.debt, 0))}</div><div class="loan-rows">${rows}${more ? html`<a class="row more" href="#/loans" style="padding:11px 0;border-top:1px solid var(--line)"><span class="name">${more} more</span><span class="neutral">→</span></a>` : ''}</div>` : html`<p class="empty">No loans.</p>`}</section>`;
 }
@@ -325,14 +329,14 @@ function trendsPanel(labels: string[], months: ApiData[][], ranges: Period[]) {
 // Each budget as a ring of how much of it is used, and what's left
 function budgetsMini(budgets: ApiData[], limits: Record<string, BudgetLimit>, all: boolean, unset = true, cur: Period | null = null) {
   const rows = htmlList(budgets.filter(b => b.attributes.active !== false && (unset || all || limits[String(b.id)])).map(b => {
-    const spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0)), lim = limits[String(b.id)];
+    const spent = spentSum(b), lim = limits[String(b.id)];
     const pct = lim && lim.amount ? spent / lim.amount * 100 : 0, cls = !lim ? '' : pct > 100 ? 'over' : pct >= budgetAlert() ? 'warn' : 'good';
     const sub = lim ? pct > 100 ? html`<span class="up">${money0(spent - lim.amount)} over</span>` : html`${money0(lim.amount - spent)} left` : html`${money0(spent)} spent`;
     return html`<a class="bring" href="#/transactions?budget=${b.id}">${ring(pct, cls, '', lim ? '' : '–')}<span class="name">${b.attributes.name}</span><span class="sub-s num">${sub}</span></a>`;
   }));
   // How many are running ahead of their month (the Budgets page has each one's history and pace)
   const t = todayIso(), ahead = !cur ? 0 : budgets.filter(b => {
-    const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0)), p = b.attributes.active !== false && lim ? budgetPace(spent, lim.amount, cur.start, cur.end, t, budgetAlert()) : null;
+    const lim = limits[String(b.id)], spent = spentSum(b), p = b.attributes.active !== false && lim ? budgetPace(spent, lim.amount, cur.start, cur.end, t, budgetAlert()) : null;
     return p && (p.tone === 'warn' || p.tone === 'over');
   }).length;
   return html`<section class="panel"><div class="panel-head"><h2>Budgets</h2><a class="link" href="#/budgets">Insights</a></div><p class="lead">${all ? 'Spent of all time' : 'This month'}${ahead ? html` · <span class="up">${ahead} over or near limit</span>` : ''}</p>${rows ? html`<div class="brings">${rows}</div>` : html`<p class="empty">No budgets yet.</p>`}</section>`;

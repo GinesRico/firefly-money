@@ -1667,6 +1667,22 @@
   /* ---------- Hours of work (core/worklens.ts): under money out in the feed ---------- */
   .tbl.feed tr[data-gid] td.amt:has(.hrs) { flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px; }
   .tbl .amt .hrs { font-size: 11.5px; font-weight: 500; color: var(--muted); letter-spacing: .01em; }
+
+  /* ---------- Foreign currencies (core/fx.ts) ----------
+     .fx-eq: the main-currency figure under an amount in another currency ("≈ $1,490.20"), in a quieter style.
+     .fx-note: the line under a page's title saying what rate the totals use (features/fxnote.ts). */
+  .fx-eq { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); letter-spacing: .01em; line-height: 1.3; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .fx-eq.fx-no { color: var(--warn); }
+  .kpi .val .fx-eq { text-align: left; font-size: 12.5px; margin-top: 2px; }
+  .tbl.feed tr[data-gid] td.amt.fx { flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px; }
+  .head > div:has(> .fx-note) { min-width: 0; max-width: 100%; }
+  .fx-note { display: inline-flex; align-items: center; gap: 4px; width: max-content; max-width: calc(100% + 8px); min-height: 28px; margin: 4px 0 0 -8px; padding: 2px 8px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+  .fx-note:hover { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); }
+  .fx-note:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .fx-note.warn { color: var(--warn); } .fx-note.bad { color: var(--spend); }
+  .fx-note .fx-go { opacity: .6; }
+  .fx-rate { display: block; }
+  .fx-left { margin: 2px 0 6px; color: var(--warn); }
   .set-num { width: 110px; text-align: right; }
 
   /* ---------- Net worth time scrubber (features/networth.ts) ---------- */
