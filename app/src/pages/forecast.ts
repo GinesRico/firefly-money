@@ -84,6 +84,7 @@ export async function forecastModel(sel: string, horizon: number, withWhatIfs = 
   incomes.forEach(inc => incomeDates(inc, from, to).forEach(d => add(d, inc.name, inc.salary ? 'Payday' : 'Income', inc.amount, inc.name)));
   recs.forEach(r => {
     const at = r.attributes; if (at.active === false) return;
+    if (bills.some(b => b.attributes.active !== false && sameName(String(b.attributes.name), String(at.title)))) return;      // the same payment is already a bill: count it once
     const t = (at.transactions || [])[0] || {}, occ: string[] = (at.repetitions || []).flatMap((x: ApiData) => x.occurrences || []).map((d: string) => String(d).slice(0, 10));
     // a transfer between two of the accounts in view moves money inside them: it isn't money out or in
     const sign = accIds.includes(String(t.source_id)) ? (accIds.includes(String(t.destination_id)) ? 0 : -1) : accIds.includes(String(t.destination_id)) ? 1 : 0;

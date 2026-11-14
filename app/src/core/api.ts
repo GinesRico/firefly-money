@@ -32,10 +32,10 @@ export type ApiOpts = {
   keepalive?: boolean,      // let the request finish even if the page is closing (a delete committed on the way out)
 };
 // Numbers for months that have ended (a balance on Sep 30, September's spending) only change when someone edits
-// old transactions. So when the app opens or refreshes, those saved answers are kept for a day instead of being
+// old transactions. So when the app opens or refreshes, those saved answers are kept for an hour instead of being
 // fetched again: a change made here still marks them out of date (S.dirtyAt), pull to refresh fetches them again
 // (S.settledAfter), and Settings → Recalculate everything throws them away.
-const SETTLED_FOR = 864e5;
+const SETTLED_FOR = 36e5;
 function settled(u: URL) {
   const q = u.searchParams, end = q.get('end') || q.get('date');
   return !!end && /^\d{4}-\d{2}-\d{2}$/.test(end) && end < todayIso().slice(0, 8) + '01' && !q.has('query');

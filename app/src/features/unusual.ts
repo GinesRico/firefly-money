@@ -1,6 +1,6 @@
 import { anomaly, quantile } from './predict';
 import { getAll } from '../core/api';
-import { S, monthOf, monthRange, nowMonth, todayIso, type ApiData } from '../core/base';
+import { S, money0, monthOf, monthRange, nowMonth, todayIso, type ApiData } from '../core/base';
 import { type Group, normGroup, payeeOf } from '../core/feed';
 import { addDays, daysBetween } from '../core/helpers';
 
@@ -30,7 +30,7 @@ export function chargesOf(groups: Group[]): Charge[] {
 
 const cents = (x: number) => Math.round(x * 100);
 const by = <T>(xs: T[], f: (x: T) => string) => { const m = new Map<string, T[]>(); xs.forEach(x => { const k = f(x), a = m.get(k); if (a) a.push(x); else m.set(k, [x]); }); return m; };
-const usd = (x: number) => '$' + Math.round(x).toLocaleString('en-US');
+const usd = (x: number) => money0(x);
 
 export function findUnusual(charges: Charge[], today: string): Unusual {
   const since = addDays(today, -WINDOW_DAYS + 1), flags: Flag[] = [], seen = new Set<string>();

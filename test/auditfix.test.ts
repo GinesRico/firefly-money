@@ -89,3 +89,13 @@ describe('small fixes', () => {
     expect(dom).toContain("el('app').inert = false");
   });
 });
+
+describe('remaining audit items', () => {
+  it('S3/A3/A4/L10/L11 are in place', () => {
+    expect(readFileSync('app/default.conf.template', 'utf8')).toContain('zone=signin:1m rate=6r/m');
+    expect(readFileSync('app/index.html', 'utf8').match(/<nav [^>]*aria-label=/g)).toHaveLength(3);
+    expect(readFileSync('app/assets/money.css', 'utf8')).toContain('.seg:not(.mini) button { min-height: 44px; }');
+    expect(readFileSync('app/src/pages/forecast.ts', 'utf8')).toContain('the same payment is already a bill');
+    expect(readFileSync('app/src/core/api.ts', 'utf8')).toContain('SETTLED_FOR = 36e5');
+  });
+});
