@@ -259,7 +259,10 @@ async function billPay(id: string) {
 async function cardPay(id: string) {
   await lists();
   const a = S.lists!.accounts.find(x => String(x.id) === String(id)); if (!a) return;
-  newTx({ type: 'transfer', description: 'Payment to ' + a.name, amount: a.nat ? '' : String(Math.round(Math.max(0, -a.balance) * 100) / 100), dest: String(a.id) });      // a card in another currency: no amount is filled in, since the converted figure must never be written to Firefly
+  // A card in another currency: the form gets what the card is owed in its own currency (exact) and, when it's paid from
+  // a main-currency account, today's equivalent as the amount leaving that account, to check against the bank's figure
+  const owed = Math.max(0, -(a.nat || a).balance);
+  newTx({ type: 'transfer', description: 'Payment to ' + a.name, amount: a.unconv ? '' : String(Math.round(Math.max(0, -a.balance) * 100) / 100), dest: String(a.id), ...(a.nat ? { fa: String(owed), fc: a.currency } : {}) });
 }
 
 // The methods markup handlers call (see events.ts), added to App and to its type

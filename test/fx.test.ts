@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { FX, FX_TTL, type FxFetch, convertMinor, convertToPrimary, fromMinor, fxEnsure, fxSetup, fxStatus, inPrimary, readRates, sumPrimary, toMinor } from '../app/src/core/fx';
+import { FX, FX_TTL, type FxFetch, convertFromPrimary, convertMinor, convertToPrimary, fromMinor, fxEnsure, fxSetup, fxStatus, inPrimary, readRates, sumPrimary, toMinor } from '../app/src/core/fx';
 import { S, absDiff, moneyIn, spentSum, sumDiff } from '../app/src/core/base';
-import { normAccount } from '../app/src/core/lists';
+import { normAccount, withPlan } from '../app/src/core/lists';
 import { nativeFor, normGroup, signed, signedNative } from '../app/src/core/feed';
 
 const T0 = 1_800_000_000_000;
@@ -213,5 +213,24 @@ describe('the server', () => {
   it('never writes a converted amount back: forms read the amount as Firefly has it', () => {
     expect(readFileSync('app/src/features/txform.ts', 'utf8')).toContain('amount: String(s.native)');
     expect(readFileSync('app/src/core/fx.ts', 'utf8')).not.toMatch(/method:|\bapi\(/);
+  });
+});
+
+describe('loans and card payments in another currency', () => {
+  beforeEach(() => seed({ INR: '83.9' }));
+  it('goes back from the main currency to the account’s, to its decimals', () => {
+    expect(convertFromPrimary('100', 'INR')).toBe(8390);
+    expect(convertFromPrimary('29.80', 'INR')).toBe(2500.22);
+    expect(convertFromPrimary('5', 'USD')).toBe(5);
+    seed({ JPY: '150.25' });
+    expect(convertFromPrimary('1.99', 'JPY')).toBe(299);
+    expect(convertFromPrimary('1', 'EUR')).toBeNull();
+  });
+  it('a foreign loan’s planned payment joins the plan in the main currency and is kept as written', () => {
+    const loan = normAccount({ id: 3, attributes: { name: 'Home loan', type: 'liabilities', currency_code: 'INR', current_balance: '-839000.00', notes: 'Monthly payment: 8390.00 on day 5' } });
+    expect(loan).toMatchObject({ debt: 10000, plan: { amount: 100, day: 5 }, nat: { debt: 839000, plan: { amount: 8390, day: 5 } } });
+    expect(withPlan('', { amount: 8390, day: 5 }, 'INR')).toBe('Monthly payment: 8390.00 on day 5');
+    expect(withPlan('', { amount: 500 }, 'USD')).toBe('Monthly payment: $500.00');
+    expect(withPlan('', { amount: 500 })).toBe('Monthly payment: $500.00');
   });
 });

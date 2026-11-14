@@ -96,7 +96,7 @@ VIEWS.account = async (r, paint) => {
   const headline = isCard(a) ? (n.balance < 0 ? html`${cm(-n.balance)} owed${eq}` : n.balance > 0 ? html`${cm(n.balance)} in credit${eq}` : 'Paid off') : isLiab(a) ? html`${cm(n.debt)} remaining${eq}` : own ? html`${cm(n.balance)}${eq}` : '';
   const signed = (g: Group, id: string) => own ? g.splits.reduce((s, x) => s + (x.source_id === id ? -nativeFor(x, a.currency) : x.destination_id === id ? nativeFor(x, a.currency) : 0), 0) : g.splits.reduce((s, x) => s + (x.source_id === id ? -x.amount : x.destination_id === id ? x.amount : 0), 0);
   const inflow = groups.reduce((s, g) => s + Math.max(0, signed(g, a.id)), 0), outflow = groups.reduce((s, g) => s + Math.max(0, -signed(g, a.id)), 0);
-  const subtitle = html`<span style="text-transform:capitalize">${isCard(a) ? 'Credit card' : isLiab(a) ? (a.liabType || 'Liability') : a.type === 'expense' ? 'Payee' : a.type === 'revenue' ? 'Income source' : (ROLE_LABEL[a.role] || 'Account')}</span>${a.active ? '' : ' · inactive'}${a.number ? ' · ' + a.number : ''}${isLiab(a) ? (a.plan && a.plan.amount ? ' · pays ' + planText(a.plan) : html` · <button class="link" data-onclick="App.accountForm('${a.id}','liability')">set a monthly payment</button>`) : ''}`;
+  const subtitle = html`<span style="text-transform:capitalize">${isCard(a) ? 'Credit card' : isLiab(a) ? (a.liabType || 'Liability') : a.type === 'expense' ? 'Payee' : a.type === 'revenue' ? 'Income source' : (ROLE_LABEL[a.role] || 'Account')}</span>${a.active ? '' : ' · inactive'}${a.number ? ' · ' + a.number : ''}${isLiab(a) ? ((a.nat ? a.nat.plan : a.plan) && (a.nat ? a.nat.plan : a.plan)!.amount ? ' · pays ' + planText(a.nat ? a.nat.plan : a.plan, a.currency) : html` · <button class="link" data-onclick="App.accountForm('${a.id}','liability')">set a monthly payment</button>`) : ''}`;
   const PER = 50, pages = Math.max(1, Math.ceil(groups.length / PER));
   const shown = groups.slice(0, PER);
   if (paint.live) S.feed = { next: 2, pages, opts: { accountId: own ? a.id : '' }, more: async n => groups.slice((n - 1) * PER, n * PER) };
@@ -175,7 +175,7 @@ async function accountForm(id: string | null, kind: string) {
     f = html`${f}<label>Type<select id="a-ltype">${htmlList([['loan', 'Loan'], ['debt', 'Debt'], ['mortgage', 'Mortgage']].map(([v, l]) => opt(v, l, a ? a.liabType : 'loan')))}</select></label>`;
     if (!id) f = html`${f}<div class="grid2"><label>Amount you owe<input type="number" step="0.01" min="0.01" id="a-open" required></label><label>As of<input type="date" id="a-opendate" value="${todayIso()}" required></label></div>`;
     f = html`${f}<div class="grid2"><label>Interest %<input type="number" step="0.001" min="0" id="a-interest" value="${a ? num(a.interest) || '' : ''}" placeholder="0"></label><label>Per<select id="a-iperiod">${htmlList(['monthly', 'yearly', 'weekly', 'daily', 'quarterly', 'half-year'].map(v => opt(v, v, a ? a.interestPeriod || 'monthly' : 'monthly')))}</select></label></div>`;
-    const pl: { amount?: number, day?: number | null, from?: string } = (a && a.plan) || {};
+    const pl: { amount?: number, day?: number | null, from?: string } = (a && (a.nat ? a.nat.plan : a.plan)) || {};      // as written in the notes, in the loan's own currency: this is saved back
     f = html`${f}<div class="grid2"><label>Monthly payment<input type="number" step="0.01" min="0" id="a-pamt" value="${pl.amount || ''}" placeholder="e.g. 500"></label><label>Due day of the month<input type="number" min="1" max="31" step="1" id="a-pday" value="${pl.day || ''}" placeholder="e.g. 30"></label></div><label>Paid from<select id="a-pfrom">${opt('', 'Not set', pl.from || '')}${htmlList(L.own.filter(x => !isLiab(x)).map(x => opt(x.name, x.name, pl.from || '')))}</select></label><p class="hint">Used by the Overview, Forecast and Loan planner. Saved in the loan’s notes in Firefly.</p>`;
   }
   if (id && (k === 'asset' || k === 'card' || k === 'liability')) {
@@ -206,7 +206,7 @@ async function saveAccount() {
     b.interest = v('a-interest') || '0'; b.interest_period = v('a-iperiod');
     const day = parseInt(v('a-pday'), 10);
     if (v('a-pday') && !(day >= 1 && day <= 31)) return formError('The due day must be between 1 and 31.');
-    b.notes = withPlan(b.notes, { amount: num(v('a-pamt')), day: day || null, from: v('a-pfrom') });
+    b.notes = withPlan(b.notes, { amount: num(v('a-pamt')), day: day || null, from: v('a-pfrom') }, id && S.lists && S.lists.byId[id] ? S.lists.byId[id].currency : '');
   }
   if (kind === 'expense' || kind === 'revenue') b.type = kind;
   if (id && el('a-open') && v('a-open') !== '') {

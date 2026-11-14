@@ -84,6 +84,16 @@ export function convertToPrimary(amount: unknown, fromCode?: string | null): num
   const dp = decimalsOf(FX.primary), m = convertMinor(amount, rate.r, dp);
   return m == null ? null : fromMinor(m, dp);
 }
+// The other way, for a figure typed in a foreign account's own currency or shown beside a main-currency one: a
+// main-currency amount in that currency, to its decimals. null without a rate.
+export function convertFromPrimary(amount: unknown, toCode?: string | null): number | null {
+  const c = codeOf(toCode);
+  if (!c || c === FX.primary) { const n = parseFloat(amount as string); return isNaN(n) ? 0 : n; }
+  const rate = FX.rates[c];
+  if (!fxOn() || !rate) return null;
+  const [a, as] = parts(amount), [r, rs] = parts(rate.r), dp = decimalsOf(c);
+  return fromMinor(divRound(a * r * pow10(dp), pow10(as + rs)), dp);
+}
 // The same for a sum: an amount that can't be converted counts as nothing and its currency is remembered, so the
 // page can say the total leaves it out (see fxStatus). A wrong number is never added.
 export function inPrimary(amount: unknown, fromCode?: string | null): number {

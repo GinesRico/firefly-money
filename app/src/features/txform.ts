@@ -38,7 +38,9 @@ export function prefillLast(f: TxForm, last: LastTx, ownIds: Set<string>, preset
   if (!preset.account && last.acc && last.acc[t] && ownIds.has(last.acc[t])) f.main = f.src = last.acc[t];
   if (!preset.category && !preset.description && last.cat && last.cat[t]) f.splits[0].category = f.catPre = last.cat[t];
 }
-export function newTx(preset: { type?: string, date?: string, account?: string, description?: string, amount?: string, counter?: string, category?: string, budget?: string, bill?: string, dest?: string } = {}) {
+export function newTx(preset: { type?: string, date?: string, account?: string, description?: string, amount?: string, counter?: string, category?: string, budget?: string, bill?: string, dest?: string,
+  // A payment into an account in another currency: what it gets in its own currency (fa in fc), with amount the main-currency figure
+  fa?: string, fc?: string } = {}) {
   const L = S.lists!; S.drawerHero = null;
   const firstAsset = (L.own.find(a => isAsset(a) && !isCard(a)) || L.own[0] || {}).id || '';
   S.form = { id: '', type: preset.type || 'withdrawal', date: preset.date || todayIso(), title: '', main: preset.account || firstAsset, src: preset.account || firstAsset, dst: '', rules: true, splits: [blankSplit()] };
@@ -47,6 +49,13 @@ export function newTx(preset: { type?: string, date?: string, account?: string, 
   if (preset.amount) S.form.splits[0].amount = preset.amount;
   for (const k of ['counter', 'category', 'budget', 'bill'] as const) if (preset[k]) S.form.splits[0][k] = preset[k]!;
   if (preset.dest) S.form.dst = preset.dest;
+  if (preset.fa && preset.fc) {
+    // Firefly keeps a transfer in the paying account's currency. Paid from an account in the same currency, the
+    // amount is simply that figure; from any other, the amount is the paying side and this is the foreign amount.
+    const src = L.byId[S.form.src];
+    if (src && src.currency === preset.fc) S.form.splits[0].amount = preset.fa;
+    else { S.form.splits[0].fa = preset.fa; S.form.splits[0].fc = preset.fc; }
+  }
   renderTxForm();
 }
 const EDITABLE = ['withdrawal', 'deposit', 'transfer'];

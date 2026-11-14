@@ -1,5 +1,5 @@
 import { HIDE, clearCache, getAll } from './api';
-import { type ApiData, S, money, num, parseAmount } from './base';
+import { type ApiData, S, moneyIn, num, parseAmount } from './base';
 import { convertToPrimary, fxEnsure, fxSetup, isForeign } from './fx';
 
 /* ================= Reference lists (cached) ================= */
@@ -10,12 +10,12 @@ export type Account = {
   // An account in another currency: balance, debt and opening above are in the main currency so every total can add
   // them (core/fx.ts), and nat has them as Firefly keeps them, for the account's own rows and its form.
   // unconv: there's no rate (or converting is off), so the three are 0 and totals leave the account out.
-  nat?: { balance: number, debt: number, opening: number }, unconv?: boolean,
+  nat?: { balance: number, debt: number, opening: number, plan: Plan | null }, unconv?: boolean,      // plan: the planned payment as written in the notes (plan above is converted, for the planner and forecast)
 };
 export function normAccount(a: ApiData): Account {
   const t = a.attributes || {}, code = String(t.currency_code || '');
   const debtRaw = t.current_debt != null ? t.current_debt : t.current_balance;
-  const nat = { balance: num(t.current_balance), debt: Math.abs(num(debtRaw)), opening: num(t.opening_balance) };
+  const plan = parsePlan(t.notes), nat = { balance: num(t.current_balance), debt: Math.abs(num(debtRaw)), opening: num(t.opening_balance), plan };
   const foreign = isForeign(code), bal = foreign ? convertToPrimary(t.current_balance, code) : nat.balance;
   const unconv = foreign && bal == null;
   const own = unconv ? { balance: 0, debt: 0, opening: 0 } : foreign ? { balance: bal!, debt: Math.abs(convertToPrimary(debtRaw, code) || 0), opening: convertToPrimary(t.opening_balance, code) || 0 } : nat;
@@ -24,7 +24,7 @@ export function normAccount(a: ApiData): Account {
     balance: own.balance, debt: own.debt,
     opening: own.opening, ...(foreign ? { nat, unconv } : {}), liabType: t.liability_type || '', direction: t.liability_direction || '', interest: t.interest || '', interestPeriod: t.interest_period || '',
     paymentDate: t.monthly_payment_date || '', number: t.account_number || '', notes: t.notes || '', currency: t.currency_code || '',
-    netWorth: t.include_net_worth !== false, openingDate: t.opening_balance_date || '', plan: parsePlan(t.notes),
+    netWorth: t.include_net_worth !== false, openingDate: t.opening_balance_date || '', plan: foreign && plan ? (unconv ? null : { ...plan, amount: convertToPrimary(plan.amount, code) || 0 }) : plan,
   };
 }
 // A loan's planned monthly payment lives in its Firefly notes as one line, e.g.
@@ -35,14 +35,15 @@ export function parsePlan(notes: string | null | undefined): Plan | null { const
 export function stripPlan(notes: string | null | undefined) { return String(notes || '').replace(PLAN_RE, '').replace(/\n{3,}/g, '\n\n').trim(); }
 // A plan as a form gives it: only the amount is required
 export type PlanInput = { amount: number, day?: number | null, from?: string };
-export function withPlan(notes: string | null | undefined, p: PlanInput | null) {
+// code: the account's currency, so only a US-dollar loan's line is written with a $
+export function withPlan(notes: string | null | undefined, p: PlanInput | null, code = '') {
   const base = stripPlan(notes);
   if (!p || !(p.amount > 0)) return base;
-  const line = 'Monthly payment: ' + (S.currency === 'USD' ? '$' : '') + p.amount.toFixed(2) + (p.day ? ' on day ' + p.day : '') + (p.from ? ' from ' + p.from : '');
+  const line = 'Monthly payment: ' + ((code || S.currency).toUpperCase() === 'USD' ? '$' : '') + p.amount.toFixed(2) + (p.day ? ' on day ' + p.day : '') + (p.from ? ' from ' + p.from : '');
   return (base ? base + '\n\n' : '') + line;
 }
 export const ordinal = (n: number) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
-export const planText = (p: PlanInput | null) => p && p.amount > 0 ? money(p.amount) + '/month' + (p.day ? ' on the ' + ordinal(p.day) : '') + (p.from ? ' from ' + p.from : '') : '';
+export const planText = (p: PlanInput | null, code = '') => p && p.amount > 0 ? moneyIn(p.amount, code) + '/month' + (p.day ? ' on the ' + ordinal(p.day) : '') + (p.from ? ' from ' + p.from : '') : '';
 export const isAsset = (a: Pick<Account, 'type'>) => a.type === 'asset';
 export const isCard = (a: Pick<Account, 'type' | 'role'>) => a.type === 'asset' && a.role === 'ccAsset';
 export const isLiab = (a: Pick<Account, 'type'>) => a.type.startsWith('liab') || ['loan', 'debt', 'mortgage'].includes(a.type);
