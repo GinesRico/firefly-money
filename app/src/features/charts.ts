@@ -1,8 +1,8 @@
 import { Html, html, htmlList, raw } from '../core/html';
 import { getAll } from '../core/api';
-import { absDiff, type ApiData, App, fmtD, fmtDate, fmtDay, isoDate, leadDays, money, money0, pad, type Period, todayIso, txHref, weekOrder } from '../core/base';
+import { absDiff, type ApiData, App, fmtD, fmtDate, fmtDay, isoDate, leadDays, money, money0, type Period, todayIso, txHref, weekOrder } from '../core/base';
 import { SERIES, normGroup, signed, type Group } from '../core/feed';
-import { addDays } from '../core/helpers';
+import { addDays, daysBetween } from '../core/helpers';
 import type { Account } from '../core/lists';
 
 /* ---------- Shapes the charts share: smooth lines, donuts and progress rings ---------- */
@@ -281,19 +281,19 @@ function heatmapPanel(cur: Period, groups: Group[]) {
   const by: Record<string, number> = {}, cnt: Record<string, number> = {};
   groups.forEach(g => { const d = String(g.date).slice(0, 10); by[d] = (by[d] || 0) + g.total; if (g.total > 0) cnt[d] = (cnt[d] || 0) + 1; });     // a refund (negative) comes off the day, it isn't a purchase
   for (const d of Object.keys(by)) if (by[d] <= 0) delete by[d];
-  const dim = new Date(cur.y!, cur.m! + 1, 0).getDate(), lead = leadDays(new Date(cur.y!, cur.m!, 1)), t = todayIso();
+  const dim = daysBetween(cur.start, cur.end) + 1, lead = leadDays(new Date(cur.start + 'T12:00:00')), t = todayIso();      // the month's own days: it can start on any day
   const max = Math.max(1, ...Object.values(by)), days = Object.keys(by).length;
   let cells: Html | string = '';
   for (let i = 0; i < lead; i++) cells = html`${cells}<span class="hm-cell pad"></span>`;
-  for (let d = 1; d <= dim; d++) {
-    const iso = cur.start.slice(0, 8) + pad(d), v = by[iso] || 0, fut = iso > t;
+  for (let i = 0; i < dim; i++) {
+    const iso = addDays(cur.start, i), d = +iso.slice(8, 10), v = by[iso] || 0, fut = iso > t;
     const pct = v ? Math.round(18 + 82 * Math.sqrt(v / max)) : 0;
     cells = html`${cells}<button type="button" class="hm-cell${fut ? ' fut' : ''}${iso === t ? ' today' : ''}"${v ? html` style="--p:${pct}%"` : ''} data-tip="${fmtDay(iso) + (v ? ' · ' + money(v) + ' · ' + cnt[iso] + ' purchase' + (cnt[iso] === 1 ? '' : 's') : fut ? '' : ' · nothing spent')}"${v ? html` data-go="${txHref({ type: 'withdrawal' }, { start: iso, end: iso })}"` : ' disabled'}><span>${d}</span></button>`;
   }
   // Every month gets six week rows, so the calendar (and the card) is the same height whichever month it shows
   for (let i = lead + dim; i < 42; i++) cells = html`${cells}<span class="hm-cell pad"></span>`;
   const top = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
-  const passed = cur.start.slice(0, 7) === t.slice(0, 7) ? +t.slice(8, 10) : dim, free = Math.max(0, passed - days);
+  const passed = t >= cur.start && t <= cur.end ? daysBetween(cur.start, t) + 1 : t < cur.start ? 0 : dim, free = Math.max(0, passed - days);
   return html`<section class="panel"><h2>Daily spending</h2><p class="lead">Stronger colour means more spent · tap a day to see it</p><div class="hm"><div class="hm-dow">${htmlList(weekOrder(['S', 'M', 'T', 'W', 'T', 'F', 'S']).map(x => html`<span>${x}</span>`))}</div><div class="hm-grid">${cells}</div></div><div class="hm-foot"><span>${top ? html`Biggest day: <strong class="num">${money0(top[1])}</strong> on ${fmtDay(top[0])}` : 'No spending yet'}</span><span>${free} no-spend day${free === 1 ? '' : 's'}</span></div></section>`;
 }
 

@@ -10,8 +10,10 @@ js_import ingest from ingest.js;
 # Rate limits, per client address. Sign-in attempts: 10 a minute, after a first 5 straight away. API calls:
 # 50 a second with room for bursts of 500, far more than the app sends, so it only stops floods. Behind a
 # reverse proxy every client shares the proxy's address, so these limits are shared too.
-limit_req_zone $binary_remote_addr zone=signin:1m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=signin:1m rate=6r/m;
 limit_req_zone $binary_remote_addr zone=api:2m rate=50r/s;
+# Logos, map tiles and place lookups need no sign-in and are fetched from other servers: their own slower limit, so an open install can't be used as a relay
+limit_req_zone $binary_remote_addr zone=relay:2m rate=15r/s;
 # Payments from the Apple Pay shortcut: 20 a minute is plenty for real taps and stops anyone guessing the key.
 limit_req_zone $binary_remote_addr zone=ingest:1m rate=20r/m;
 limit_req_status 429;
@@ -80,7 +82,7 @@ server {
         add_header X-Content-Type-Options "nosniff";
         limit_except GET { deny all; }
         # No password here, so cap the rate: stops anyone using this server as a free icon or map-tile relay
-        limit_req zone=api burst=500 nodelay;
+        limit_req zone=relay burst=100 nodelay;
     }
     # Map pictures for the Map page (app/src/pages/map.ts), from OpenStreetMap's tile server. This server fetches and
     # keeps them, so the browser never contacts another site, and OpenStreetMap only sees this server (as their
@@ -108,7 +110,7 @@ server {
         add_header Cache-Control "public, max-age=604800";
         add_header X-Content-Type-Options "nosniff";
         limit_except GET { deny all; }
-        limit_req zone=api burst=500 nodelay;
+        limit_req zone=relay burst=100 nodelay;
     }
     # Store lookup for the Map page (app/src/features/stores.ts), only when switched on there: finds a chain's store by
     # its number in OpenStreetMap (Overpass). The query is built here from just the chain pattern and number in the
@@ -136,7 +138,7 @@ server {
         add_header Cache-Control "public, max-age=86400";
         add_header X-Content-Type-Options "nosniff";
         limit_except GET { deny all; }
-        limit_req zone=api burst=20 nodelay;
+        limit_req zone=relay burst=20 nodelay;
     }
 
     location @nologo { add_header Cache-Control "public, max-age=86400"; return 404; }

@@ -26,11 +26,11 @@ async function runwayCard(accts: Account[]) {
 function fundMonths(v: string) { LS.set('fundMonths', +v || 6); route(); }
 VIEWS.accounts = async (r, paint) => {
   const L = await lists(true);
-  const tab = r.q.tab || 'assets';
+  const tab = ['assets', 'cards', 'liabilities', 'expense', 'revenue'].includes(r.q.tab) ? r.q.tab : 'assets';      // from the address bar: only a known tab, it ends up in a click handler
   const [prog, runwayHtml] = await Promise.all([tab === 'liabilities' ? loanHistory(L.accounts.filter(isLiab)) : {}, tab === 'assets' ? runwayCard(L.accounts) : '']) as [Record<string, any>, Html | string];
   // Payees and income sources show how much went through each one in the period picked at the top
   const flow = tab === 'expense' || tab === 'revenue', cur = period(), sums: Record<string, number> = {};
-  if (flow) for (const x of arr(await api(tab === 'expense' ? '/insight/expense/expense' : '/insight/income/revenue', { params: { start: cur.start, end: cur.end } }).catch(() => []))) sums[x.id] = (sums[x.id] || 0) + absDiff(x);
+  if (flow) for (const x of arr(await insight(tab === 'expense' ? '/insight/expense/expense' : '/insight/income/revenue', { start: cur.start, end: cur.end }).catch(() => []))) sums[x.id] = (sums[x.id] || 0) + absDiff(x);
   const show = r.q.inactive === '1';
   const sets: Record<string, Account[]> = {
     assets: L.accounts.filter(a => isAsset(a) && !isCard(a)), cards: L.accounts.filter(isCard), liabilities: L.accounts.filter(isLiab),
@@ -84,7 +84,7 @@ VIEWS.account = async (r, paint) => {
   const groups = txs.map(normGroup).sort((x, y) => String(y.date).localeCompare(String(x.date)));
   const kind = isCard(a) ? 'card' : isLiab(a) ? 'liability' : a.type;
   const own = isAsset(a) || isLiab(a);
-  const headline = isCard(a) ? (a.balance < 0 ? money(-a.balance) + ' owed' : 'Paid off') : isLiab(a) ? money(a.debt) + ' remaining' : own ? money(a.balance) : '';
+  const headline = isCard(a) ? (a.balance < 0 ? money(-a.balance) + ' owed' : a.balance > 0 ? money(a.balance) + ' in credit' : 'Paid off') : isLiab(a) ? money(a.debt) + ' remaining' : own ? money(a.balance) : '';
   const inflow = groups.reduce((s, g) => s + Math.max(0, signed(g, a.id)), 0), outflow = groups.reduce((s, g) => s + Math.max(0, -signed(g, a.id)), 0);
   const subtitle = html`<span style="text-transform:capitalize">${isCard(a) ? 'Credit card' : isLiab(a) ? (a.liabType || 'Liability') : a.type === 'expense' ? 'Payee' : a.type === 'revenue' ? 'Income source' : (ROLE_LABEL[a.role] || 'Account')}</span>${a.active ? '' : ' · inactive'}${a.number ? ' · ' + a.number : ''}${isLiab(a) ? (a.plan && a.plan.amount ? ' · pays ' + planText(a.plan) : html` · <button class="link" data-onclick="App.accountForm('${a.id}','liability')">set a monthly payment</button>`) : ''}`;
   const PER = 50, pages = Math.max(1, Math.ceil(groups.length / PER));
@@ -159,7 +159,7 @@ async function accountForm(id: string | null, kind: string) {
     f = html`${f}<label>Account number (optional)<input type="text" id="a-number" value="${a ? a.number : ''}"></label>`;
     if (!id) f = html`${f}<div class="grid2"><label>Starting balance<input type="number" step="0.01" id="a-open" placeholder="0.00"></label><label>As of<input type="date" id="a-opendate" value="${todayIso()}"></label></div>`;
   } else if (k === 'card') {
-    f = html`${f}<label>Payment due date<input type="date" id="a-paydate" value="${a && a.paymentDate ? String(a.paymentDate).slice(0, 10) : todayIso()}" required></label><p class="hint">Only the day of the month matters.</p>`;
+    f = html`${f}<label>Payment due date<input type="date" id="a-paydate" value="${a && a.paymentDate ? String(a.paymentDate).slice(0, 10) : id ? '' : todayIso()}"${id ? '' : ' required'}></label><p class="hint">Only the day of the month matters.</p>`;
     if (!id) f = html`${f}<div class="grid2"><label>Amount owed now<input type="number" step="0.01" min="0" id="a-open" placeholder="0.00"></label><label>As of<input type="date" id="a-opendate" value="${todayIso()}"></label></div>`;
   } else if (k === 'liability') {
     f = html`${f}<label>Type<select id="a-ltype">${htmlList([['loan', 'Loan'], ['debt', 'Debt'], ['mortgage', 'Mortgage']].map(([v, l]) => opt(v, l, a ? a.liabType : 'loan')))}</select></label>`;
@@ -187,7 +187,7 @@ async function saveAccount() {
   const site = v('a-site').toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
   if (site && !/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,12}$/.test(site)) return formError('The website should look like walmart.com.');
   if (kind === 'asset') { b.type = 'asset'; b.account_role = v('a-role'); b.account_number = v('a-number'); }
-  if (kind === 'card') { b.type = 'asset'; b.account_role = 'ccAsset'; b.credit_card_type = 'monthlyFull'; b.monthly_payment_date = v('a-paydate'); }
+  if (kind === 'card') { b.type = 'asset'; b.account_role = 'ccAsset'; b.credit_card_type = 'monthlyFull'; if (v('a-paydate')) b.monthly_payment_date = v('a-paydate'); }
   if (kind === 'liability') {
     b.type = 'liability'; b.liability_type = v('a-ltype');
     // Firefly: 'debit' is a debt you owe, 'credit' one owed to you. Money's loans are debts you owe; an edit keeps whatever

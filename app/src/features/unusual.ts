@@ -1,6 +1,6 @@
 import { anomaly, quantile } from './predict';
 import { getAll } from '../core/api';
-import { S, monthRange, nowMonth, todayIso, type ApiData } from '../core/base';
+import { S, money0, monthOf, monthRange, nowMonth, todayIso, type ApiData } from '../core/base';
 import { type Group, normGroup, payeeOf } from '../core/feed';
 import { addDays, daysBetween } from '../core/helpers';
 
@@ -30,7 +30,7 @@ export function chargesOf(groups: Group[]): Charge[] {
 
 const cents = (x: number) => Math.round(x * 100);
 const by = <T>(xs: T[], f: (x: T) => string) => { const m = new Map<string, T[]>(); xs.forEach(x => { const k = f(x), a = m.get(k); if (a) a.push(x); else m.set(k, [x]); }); return m; };
-const usd = (x: number) => '$' + Math.round(x).toLocaleString('en-US');
+const usd = (x: number) => money0(x);
 
 export function findUnusual(charges: Charge[], today: string): Unusual {
   const since = addDays(today, -WINDOW_DAYS + 1), flags: Flag[] = [], seen = new Set<string>();
@@ -68,7 +68,7 @@ export function findUnusual(charges: Charge[], today: string): Unusual {
 
 // This month so far against the same days of the three months before (a month with no charges at all counts as zero)
 export function trends(charges: Charge[], today: string) {
-  const [y, m] = [+today.slice(0, 4), +today.slice(5, 7) - 1], cur = monthRange(y, m), n = daysBetween(cur.start, today) + 1;
+  const [y, m] = monthOf(new Date(today + 'T12:00:00')), cur = monthRange(y, m), n = daysBetween(cur.start, today) + 1;
   const past = [1, 2, 3].map(i => { const r = monthRange(y, m - i); const e = addDays(r.start, n - 1); return { start: r.start, end: e < r.end ? e : r.end }; });
   const names = new Map<string, Charge>(), now = new Map<string, number>(), base = new Map<string, number>(), ever = new Set<string>();
   charges.forEach(c => {

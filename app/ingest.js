@@ -34,7 +34,8 @@ function parseAmount(v) {
   if (dec >= 0 && n.length - dec - 1 <= 2) n = n.slice(0, dec).replace(/[.,]/g, '') + '.' + n.slice(dec + 1);
   else n = n.replace(/[.,]/g, '');
   const x = parseFloat(n);
-  return x > 0 ? (neg ? -x : x).toFixed(2) : null;
+  const out = (neg ? -x : x).toFixed(2);
+  return x > 0 && +out !== 0 ? out : null;      // under half a cent rounds to nothing: no payment
 }
 
 // The currency an amount is written in, from its code or symbol ("EUR 12", "€12", "CA$5"), or null when it doesn't

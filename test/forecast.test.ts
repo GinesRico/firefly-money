@@ -58,8 +58,8 @@ describe('forecast: bill due dates after a payment', () => {
     expect(billDueDates(rent.attributes)).toEqual(['2026-12-01', '2027-01-01']);
     expect(run([], [rent]).map(e => [e.date, e.amount])).toEqual([['2026-12-01', -1173], ['2027-01-01', -1173]]);
   });
-  it('does not drop a date because of a payment made a few days before it', () => {
-    expect(billDueDates(bill('30', 'Rent', 1173, ['2026-12-01', '2027-01-01'], ['2026-11-28']).attributes)).toEqual(['2026-12-01', '2027-01-01']);
+  it('counts a payment made a few days before a date as paying it', () => {
+    expect(billDueDates(bill('30', 'Rent', 1173, ['2026-12-01', '2027-01-01'], ['2026-11-28']).attributes)).toEqual(['2027-01-01']);
   });
   it('skips only inactive bills', () => {
     expect(billDueDates(bill('30', 'Rent', 1173, monthly('01')).attributes)).toEqual(monthly('01'));

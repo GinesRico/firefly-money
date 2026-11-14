@@ -6,7 +6,7 @@ import { type Group, normGroup } from '../core/feed';
 import { LS, addDays, bizDay, daysBetween, monthsFrom } from '../core/helpers';
 import { isAsset, isCard, isLiab, lists } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
-import { billAmount, billDueDates, billsFrom, recentSpending } from './bills';
+import { billAmount, billDatesTo, billsFrom, recentSpending } from './bills';
 import { loanHistory } from './loans';
 import { findRecurring } from '../features/subs';
 import { cashBands } from '../features/predict';
@@ -84,8 +84,10 @@ export async function forecastModel(sel: string, horizon: number, withWhatIfs = 
   incomes.forEach(inc => incomeDates(inc, from, to).forEach(d => add(d, inc.name, inc.salary ? 'Payday' : 'Income', inc.amount, inc.name)));
   recs.forEach(r => {
     const at = r.attributes; if (at.active === false) return;
+    if (bills.some(b => b.attributes.active !== false && sameName(String(b.attributes.name), String(at.title)))) return;      // the same payment is already a bill: count it once
     const t = (at.transactions || [])[0] || {}, occ: string[] = (at.repetitions || []).flatMap((x: ApiData) => x.occurrences || []).map((d: string) => String(d).slice(0, 10));
-    const sign = accIds.includes(String(t.source_id)) ? -1 : accIds.includes(String(t.destination_id)) ? 1 : 0;
+    // a transfer between two of the accounts in view moves money inside them: it isn't money out or in
+    const sign = accIds.includes(String(t.source_id)) ? (accIds.includes(String(t.destination_id)) ? 0 : -1) : accIds.includes(String(t.destination_id)) ? 1 : 0;
     if (sign) recurDates([...new Set(occ)].sort(), to, at.repeat_until ? String(at.repeat_until).slice(0, 10) : '').forEach(d => add(d, at.title, 'Recurring', sign * num(t.amount), 'rec' + r.id));
   });
   const loans = L.own.filter(a => isLiab(a) && a.debt > 0), [hist, spending] = await Promise.all([loanHistory(loans), recentSpending().catch(() => [])]);
@@ -99,7 +101,11 @@ export async function forecastModel(sel: string, horizon: number, withWhatIfs = 
   scheduledPayments({ from, to, accIds, loans: fcLoans, bills, payers: billPayers(spending.flatMap(g => g.splits)) })
     .forEach(e => add(e.date, e.label, e.kind, e.amount, e.series));
   const firstPay = ev.filter(e => e.kind === 'Payday' || e.kind === 'Income').map(e => e.date).sort()[0];
+  // The card is paid from the account that paid it last; one paid from another bank account isn't taken out of this one
+  const lastPayer: Record<string, { d: string, from: string }> = {};
+  xfers.map(normGroup).forEach(g => g.splits.forEach(x => { const d = String(x.date).slice(0, 10); if (x.type === 'transfer' && (!lastPayer[x.destination_id] || d > lastPayer[x.destination_id].d)) lastPayer[x.destination_id] = { d, from: x.source_id }; }));
   L.own.filter(a => isCard(a) && a.balance < 0).forEach(c => {
+    const payer = lastPayer[c.id]; if (payer && !accIds.includes(payer.from)) return;
     let d;
     if (c.paymentDate) { const day = +String(c.paymentDate).slice(8, 10); d = monthsFrom(from, to).map(([y, m]) => isoDate(new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()), 12))).find(x => x >= from); }
     add(d || firstPay || addDays(from, 7), 'Pay off ' + c.name, 'Card', c.balance, 'card' + c.id);
@@ -184,7 +190,7 @@ export function scheduledPayments(o: { from: string, to: string, accIds: string[
   const { from, to, accIds } = o, out: Scheduled[] = [], done = new Set<string>();
   const add = (date: string, label: string, kind: string, amount: number, series: string) => { if (date >= from && date <= to && amount) out.push({ date, label, kind, amount, series }); };
   // A bill's dates up to the end, with any still unpaid from before today counted today (once each: overdue)
-  const billDates = (at: ApiData) => billDueDates(at, { end: to }).map(d => ({ d: d < from ? from : d, late: d < from }));
+  const billDates = (at: ApiData) => billDatesTo(at, to).map(d => ({ d: d < from ? from : d, late: d < from }));
   const links = loanBills(o.loans, o.bills.filter(b => b.attributes.active !== false));
   o.loans.forEach(l => {
     const h = l.last, p = l.plan;
@@ -315,7 +321,7 @@ VIEWS.forecast = async (r, paint) => {
   const m = await forecastModel(sel, horizon, true);
   if (paint.live && m.sel) { const was = LS.get('fcLog', []), log = logForecast(was, m.sel, todayIso(), m.series.length > 30 ? m.series[30].b : undefined, m.start); if (JSON.stringify(log) !== JSON.stringify(was)) LS.set('fcLog', log); }
   const kinds: Record<string, string> = { Payday: 'good', Income: 'good', Recurring: '', Loan: 'warn', Card: 'warn', Projected: 'warn', Bill: 'bad', 'What if': 'warn' };
-  const rows = htmlList(m.ev.map(e => html`<tr${e.off ? html` style="opacity:.45"` : ''}><td class="sel"><input type="checkbox"${e.off ? '' : ' checked'} title="Include in the forecast" data-onchange="App.fcToggle('${e.key}', this.checked)"></td><td class="date hide-s">${fmtDay(e.date)}</td><td><div class="desc">${e.label}</div><span class="chip ${kinds[e.kind] || ''}">${e.kind}</span>${e.note ? html`<span class="sub-s"> ${e.note}</span>` : ''}<span class="sub-s show-s">${fmtDay(e.date)}</span></td><td class="amt ${e.amount > 0 ? 'pos' : 'neg'}">${e.amount > 0 ? '+' : ''}${money(e.amount)}</td><td class="amt ${e.after! < 0 ? 'neg' : ''}">${e.off ? '—' : money(e.after!)}</td></tr>`));
+  const rows = htmlList(m.ev.map(e => html`<tr${e.off ? html` style="opacity:.45"` : ''}><td class="sel"><input type="checkbox"${e.off ? '' : ' checked'} title="Include in the forecast" data-key="${e.key}" data-onchange="App.fcToggle(this.dataset.key, this.checked)"></td><td class="date hide-s">${fmtDay(e.date)}</td><td><div class="desc">${e.label}</div><span class="chip ${kinds[e.kind] || ''}">${e.kind}</span>${e.note ? html`<span class="sub-s"> ${e.note}</span>` : ''}<span class="sub-s show-s">${fmtDay(e.date)}</span></td><td class="amt ${e.amount > 0 ? 'pos' : 'neg'}">${e.amount > 0 ? '+' : ''}${money(e.amount)}</td><td class="amt ${e.after! < 0 ? 'neg' : ''}">${e.off ? '—' : money(e.after!)}</td></tr>`));
   const headline = m.short
     ? html`<div class="eyebrow">Heads up</div><div class="big num negative" data-count="${-m.short}">${money0(-m.short)}</div><div class="sub-s" style="margin-top:6px">Your balance is projected to go below zero on <strong>${fmtDate(m.firstNeg || m.minDate)}</strong>${m.firstNeg && m.firstNeg !== m.minDate ? html` and reach its lowest, <strong>${money(m.min)}</strong>, on ${fmtDate(m.minDate)}` : html`, to <strong>${money(m.min)}</strong>`}. Move money in or delay a payment before then.</div>`
     : html`<div class="eyebrow">Safe to spend</div><div class="big num" data-count="${m.safe}">${money0(m.safe)}</div><div class="sub-s" style="margin-top:6px">${m.nextPay ? 'Across the next ' + horizonText(m.horizon) + ', while still covering everything below' : 'While still covering everything below'} and keeping a ${money0(m.buffer)} cushion.</div>`;

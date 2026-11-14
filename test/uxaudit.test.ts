@@ -78,7 +78,7 @@ describe('Pre-release audit: gateway', () => {
     const conf = readFileSync('app/default.conf.template', 'utf8');
     for (const loc of ['location ~ "^/logo/', 'location ~ "^/tile/']) {
       const at = conf.indexOf(loc);
-      expect(conf.slice(at, conf.indexOf('\n    }', at))).toContain('limit_req zone=api');
+      expect(conf.slice(at, conf.indexOf('\n    }', at))).toContain('limit_req zone=relay');
     }
   });
 });
