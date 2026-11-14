@@ -1,6 +1,7 @@
 import type { Html } from './html';
 import type { Group, TxMeta } from './feed';
 import type { Lists } from './lists';
+import { decimalsOf, inPrimary } from './fx';
 
 /* ================= Settings ================= */
 export const PAGE_SIZE = 50;
@@ -85,7 +86,11 @@ export const viewPeriod = (r: { at?: [number, number] }): Period => r.at ? month
 export const num = (v: unknown) => { const n = parseFloat(v as string); return isNaN(n) ? 0 : n; };
 // The list in a response: either the response itself or its data
 export const arr = (r: ApiData): ApiData[] => Array.isArray(r) ? r : (r && Array.isArray(r.data)) ? r.data : [];
-export const absDiff = (x: ApiData) => Math.abs(num(x.difference_float ?? x.difference));
+// One row of an insight total, in the main currency. Firefly answers with a row per currency, so a row in another
+// currency is converted (core/fx.ts); the exact text is used for that, not the float.
+export const absDiff = (x: ApiData) => Math.abs(inPrimary(x.difference ?? x.difference_float, x.currency_code));
+// What a budget spent (Firefly lists it per currency), in the main currency
+export const spentSum = (b: ApiData): number => Math.abs((((b && b.attributes) || {}).spent || []).reduce((s: number, x: ApiData) => s + inPrimary(x.sum, x.currency_code), 0));
 export const sumDiff = (r: ApiData): number => arr(r).reduce((s, x) => s + absDiff(x), 0);
 /* ---------- Regional formats ----------
    Every amount and date goes through these, in the locale picked in Settings → Appearance → Number & date format
@@ -114,6 +119,19 @@ function fmtFor<T extends Intl.NumberFormat | Intl.DateTimeFormat>(key: string, 
 }
 export const money = (n: number, dec = 2) => fmtFor('$' + S.currency + dec, loc => new Intl.NumberFormat(loc, { style: 'currency', currency: S.currency, minimumFractionDigits: dec, maximumFractionDigits: dec })).format(!n || Math.abs(n) < 0.5 * 10 ** -dec ? 0 : n);   // a sum that rounds to nothing prints $0.00, never -$0.00
 export const money0 = (n: number) => money(n, 0);
+// An amount in its own currency, with that currency's symbol and decimals: ₹1,25,000.00, ¥12,000. Currencies that
+// group digits the Indian way are written that way when the app's format is an English one.
+const LAKH = /^(INR|PKR|BDT|NPR)$/;
+export function moneyIn(n: number, code: string) {
+  const c = String(code || '').toUpperCase();
+  if (!c || c === S.currency) return money(n);
+  const dec = decimalsOf(c);
+  try {
+    return fmtFor('$' + c + dec, loc => new Intl.NumberFormat(LAKH.test(c) && /^en\b/.test(loc) ? 'en-IN' : loc, { style: 'currency', currency: c, currencyDisplay: 'narrowSymbol', minimumFractionDigits: dec, maximumFractionDigits: dec })).format(!n || Math.abs(n) < 0.5 * 10 ** -dec ? 0 : n);
+  } catch (e) { return c + ' ' + fmtNum(n, dec); }
+}
+// The main-currency figure beside a foreign amount
+export const approx = (n: number) => '≈ ' + money(n);
 // A plain number with the locale's grouping (1,234 or 1.234)
 export const fmtNum = (n: number, dec = 0) => fmtFor('n' + dec, loc => new Intl.NumberFormat(loc, { minimumFractionDigits: 0, maximumFractionDigits: dec })).format(n || 0);
 // A date (or ISO day) written the locale's way, with the given parts

@@ -1,11 +1,12 @@
 import { Html, html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
-import { type ApiData, App, el, type Field, fmtDate, fmtDay, isoDate, leadDays, money, money0, monthOf, monthRange, nowMonth, num, type Period, S, todayIso, viewYM, weekOrder } from '../core/base';
+import { type ApiData, App, approx, el, type Field, fmtDate, fmtDay, isoDate, leadDays, money, money0, moneyIn, monthOf, monthRange, nowMonth, num, type Period, S, todayIso, viewYM, weekOrder } from '../core/base';
 import { closeDrawer, formError, head, monthNav, openDrawer, opt, toast, emptyState } from '../core/dom';
 import { normGroup } from '../core/feed';
 import { LS, addDays, daysBetween } from '../core/helpers';
 import { invalidate, lists } from '../core/lists';
+import { inPrimary, isForeign } from '../core/fx';
 import { newTx } from '../features/txform';
 import { VIEWS, hashWith, parseHash, route } from '../core/router';
 import { billRises, type Charge, findRecurring } from '../features/subs';
@@ -14,7 +15,9 @@ import { subAuditPanel } from '../features/subauditview';
 
 /* ================= Bills ================= */
 const FREQ: Record<string, [string, number]> = { daily: ['day', 30.44], weekly: ['week', 4.35], monthly: ['month', 1], quarterly: ['quarter', 1 / 3], 'half-year': ['6 months', 1 / 6], yearly: ['year', 1 / 12] };
-export const billAmount = (at: ApiData) => at.amount_avg != null ? num(at.amount_avg) : (num(at.amount_min) + num(at.amount_max)) / 2;
+// What a bill usually costs, in the main currency (a bill in another currency is converted, core/fx.ts), so the
+// monthly total, Safe to spend and the forecast can add bills together
+export const billAmount = (at: ApiData) => inPrimary(at.amount_avg != null ? num(at.amount_avg) : (num(at.amount_min) + num(at.amount_max)) / 2, at.currency_code);
 /* A bill's due dates still to pay in `range`. Firefly lists pay_dates for the range asked for: every due date later than the
    latest payment in that range, and paid_dates: only the payments inside it. A bill is therefore asked for from before the period
    (billsFrom), so a payment made just before it arrives in paid_dates. Each payment then settles the due date it is paying for:
@@ -88,7 +91,7 @@ VIEWS.bills = async (r, paint) => {
     const f = FREQ[at.repeat_freq] || [at.repeat_freq, 1], every = (at.skip ? 'Every ' + (at.skip + 1) + ' ' + f[0] + 's' : 'Every ' + f[0]);
     const status = at.active === false ? html`<span class="chip">Inactive</span>` : paid ? html`<span class="chip good">Paid this month</span>` :
       due ? html`${due < todayIso() ? html`<span class="chip bad">Overdue since ${fmtDay(due)}</span>` : html`<span class="chip warn">Due ${fmtDay(due)}</span>`}${paidN ? html` <span class="sub-s">${paidN} of ${paidN + dues.length} paid</span>` : ''}` : (next => html`<span class="chip">${next ? 'Next ' + fmtDate(next) : at.end_date && String(at.end_date).slice(0, 10) < todayIso() ? 'Ended' : 'Next —'}</span>`)(nextBillDate(at, cur.start > todayIso() ? cur.start : todayIso()));
-    const amt = num(at.amount_min) === num(at.amount_max) ? money(num(at.amount_min)) : money0(num(at.amount_min)) + '–' + money0(num(at.amount_max));
+    const fc = isForeign(at.currency_code) ? String(at.currency_code) : '', amt = fc ? moneyIn(num(at.amount_min), fc) + (num(at.amount_min) === num(at.amount_max) ? '' : '–' + moneyIn(num(at.amount_max), fc)) + ' · ' + approx(billAmount(at)) : num(at.amount_min) === num(at.amount_max) ? money(num(at.amount_min)) : money0(num(at.amount_min)) + '–' + money0(num(at.amount_max));
     return html`${heading}<tr${at.active === false ? html` style="opacity:.5"` : ''}><td><a class="desc" href="#/transactions?bill=${b.id}" style="text-decoration:none">${at.name}</a><div class="sub-s">${every}${billEnds(at)}</div><div class="show-s">${status}</div></td><td class="hide-s">${status}</td><td class="amt">${amt}</td><td class="act">${at.active !== false && !paid ? html`<button class="btn small primary" data-onclick="App.billPay('${b.id}')">Pay now</button> ` : ''}<button class="btn small" data-onclick="App.billForm('${b.id}')">Edit</button></td></tr>`;
   }));
   S.billCache = Object.fromEntries(bills.map(b => [String(b.id), b.attributes]));
@@ -168,7 +171,7 @@ async function subsPanel(bills: ApiData[]) {
   const charges = await subCharges();
   const hidden = new Set(LS.get('subsHidden', [])), names = new Set(bills.map(b => String(b.attributes.name).trim().toLowerCase()));
   const found = findRecurring(charges, todayIso()).filter(r => !hidden.has(r.payeeId) && !names.has(r.payee.trim().toLowerCase()));
-  const rises = billRises(charges, bills.filter(b => b.attributes.active !== false).map(b => ({ id: String(b.id), max: num(b.attributes.amount_max) })));
+  const rises = billRises(charges, bills.filter(b => b.attributes.active !== false && !isForeign(b.attributes.currency_code)).map(b => ({ id: String(b.id), max: num(b.attributes.amount_max) })));
   S.subs = found; S.billRises = rises;
   const riseRows = htmlList(Object.entries(rises).map(([id, r]) => {
     const at = (S.billCache || {})[id] || {};
@@ -245,7 +248,8 @@ async function billPay(id: string) {
   let last: ApiData | null = null;
   try { const gs = await api('/bills/' + id + '/transactions?limit=1'); const t = gs.data && gs.data[0] && (gs.data[0].attributes.transactions || [])[0]; if (t && t.type === 'withdrawal') last = t; } catch { /* the form still opens without them */ }
   const fixed = num(at.amount_min) === num(at.amount_max), L = S.lists!;
-  const amount = fixed || !last ? billAmount(at) : num(last.amount);
+  // as Firefly has it, in the bill's own currency: this goes into a transaction, so it is never the converted figure
+  const amount = fixed || !last ? (at.amount_avg != null ? num(at.amount_avg) : (num(at.amount_min) + num(at.amount_max)) / 2) : num(last.amount);
   const own = last && L.own.some(a => String(a.id) === String(last!.source_id)) ? String(last.source_id) : '';
   newTx({ type: 'withdrawal', description: at.name, amount: String(Math.round(amount * 100) / 100), counter: last && last.destination_name || at.name, bill: id,
     category: last && last.category_name || '', budget: last && last.budget_id ? String(last.budget_id) : '', ...(own ? { account: own } : {}) });
@@ -255,7 +259,7 @@ async function billPay(id: string) {
 async function cardPay(id: string) {
   await lists();
   const a = S.lists!.accounts.find(x => String(x.id) === String(id)); if (!a) return;
-  newTx({ type: 'transfer', description: 'Payment to ' + a.name, amount: String(Math.round(Math.max(0, -a.balance) * 100) / 100), dest: String(a.id) });
+  newTx({ type: 'transfer', description: 'Payment to ' + a.name, amount: a.nat ? '' : String(Math.round(Math.max(0, -a.balance) * 100) / 100), dest: String(a.id) });      // a card in another currency: no amount is filled in, since the converted figure must never be written to Firefly
 }
 
 // The methods markup handlers call (see events.ts), added to App and to its type

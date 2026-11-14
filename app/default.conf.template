@@ -141,6 +141,66 @@ server {
         limit_req zone=relay burst=20 nodelay;
     }
 
+    # Exchange rates for accounts in another currency (app/src/core/fx.ts). This server asks, so the browser never
+    # contacts another site (the page's connect-src stays 'self') and the services only see this server. Neither
+    # needs a key. /fx/a is Frankfurter (the European Central Bank's daily rates) for just the currencies asked for;
+    # /fx/b is open.er-api.com, used for a currency Frankfurter doesn't have or when it can't be reached. Only
+    # three-letter codes fit in the path, so nothing else can be sent on. Kept 15 minutes: the rates change once a day.
+    location ~ "^/fx/a/(?<fxb>[A-Z]{3})/(?<fxs>[A-Z]{3}(,[A-Z]{3}){0,39})$" {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=300s;
+        resolver_timeout 5s;
+        set $fxa "https://api.frankfurter.dev/v1/latest?base=$fxb&symbols=$fxs";
+        proxy_pass $fxa;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.frankfurter.dev;
+        proxy_set_header Cookie "";
+        proxy_set_header Referer "";
+        proxy_set_header Authorization "";
+        proxy_set_header Accept "application/json";
+        proxy_set_header Accept-Encoding "";
+        proxy_set_header User-Agent "Money/1 (self-hosted Firefly III frontend; +https://github.com/Muffy0906/firefly-money)";
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie Cache-Control Expires;
+        proxy_cache tiles;
+        proxy_cache_valid 200 15m;
+        proxy_cache_valid any 1m;
+        proxy_cache_lock on;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        add_header X-Content-Type-Options "nosniff";
+        limit_except GET { deny all; }
+        limit_req zone=relay burst=20 nodelay;
+    }
+    location ~ "^/fx/b/(?<fxb>[A-Z]{3})$" {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=300s;
+        resolver_timeout 5s;
+        set $fxo "https://open.er-api.com/v6/latest/";
+        proxy_pass $fxo$fxb;
+        proxy_ssl_server_name on;
+        proxy_set_header Host open.er-api.com;
+        proxy_set_header Cookie "";
+        proxy_set_header Referer "";
+        proxy_set_header Authorization "";
+        proxy_set_header Accept "application/json";
+        proxy_set_header Accept-Encoding "";
+        proxy_set_header User-Agent "Money/1 (self-hosted Firefly III frontend; +https://github.com/Muffy0906/firefly-money)";
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie Cache-Control Expires;
+        proxy_cache tiles;
+        proxy_cache_valid 200 15m;
+        proxy_cache_valid any 1m;
+        proxy_cache_lock on;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        add_header X-Content-Type-Options "nosniff";
+        limit_except GET { deny all; }
+        limit_req zone=relay burst=20 nodelay;
+    }
+
     location @nologo { add_header Cache-Control "public, max-age=86400"; return 404; }
 
     # Static pages: privacy, the 404 page and robots.txt. Public, no data. Copied at startup like index.html.

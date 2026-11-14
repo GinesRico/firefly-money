@@ -5,6 +5,7 @@ import { head, ICON_X, opt } from '../core/dom';
 import { type Group, normGroup } from '../core/feed';
 import { LS, addDays, bizDay, daysBetween, monthsFrom } from '../core/helpers';
 import { isAsset, isCard, isLiab, lists } from '../core/lists';
+import { inPrimary } from '../core/fx';
 import { VIEWS, hashWith, route } from '../core/router';
 import { billAmount, billDatesTo, billsFrom, recentSpending } from './bills';
 import { loanHistory } from './loans';
@@ -88,7 +89,7 @@ export async function forecastModel(sel: string, horizon: number, withWhatIfs = 
     const t = (at.transactions || [])[0] || {}, occ: string[] = (at.repetitions || []).flatMap((x: ApiData) => x.occurrences || []).map((d: string) => String(d).slice(0, 10));
     // a transfer between two of the accounts in view moves money inside them: it isn't money out or in
     const sign = accIds.includes(String(t.source_id)) ? (accIds.includes(String(t.destination_id)) ? 0 : -1) : accIds.includes(String(t.destination_id)) ? 1 : 0;
-    if (sign) recurDates([...new Set(occ)].sort(), to, at.repeat_until ? String(at.repeat_until).slice(0, 10) : '').forEach(d => add(d, at.title, 'Recurring', sign * num(t.amount), 'rec' + r.id));
+    if (sign) recurDates([...new Set(occ)].sort(), to, at.repeat_until ? String(at.repeat_until).slice(0, 10) : '').forEach(d => add(d, at.title, 'Recurring', sign * inPrimary(t.amount, t.currency_code), 'rec' + r.id));
   });
   const loans = L.own.filter(a => isLiab(a) && a.debt > 0), [hist, spending] = await Promise.all([loanHistory(loans), recentSpending().catch(() => [])]);
   const fcLoans: FcLoan[] = loans.map(l => {

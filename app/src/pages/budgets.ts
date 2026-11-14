@@ -1,7 +1,8 @@
 import { html, htmlList } from '../core/html';
 import { AuthError, api, getAll } from '../core/api';
 import { busy, showLogin } from '../core/auth';
-import { App, S, arr, el, fmtDay, money, money0, monthRange, num, sumDiff, todayIso, type ApiData, type Period, viewPeriod } from '../core/base';
+import { App, S, arr, el, fmtDay, money, money0, monthRange, num, sumDiff, todayIso, type ApiData, type Period, viewPeriod, spentSum } from '../core/base';
+import { inPrimary, isForeign } from '../core/fx';
 import { addDays, budgetAlert, daysBetween } from '../core/helpers';
 import { closeDrawer, confirmBox, formError, head, monthNav, openDrawer, opt, toast, emptyState } from '../core/dom';
 import { invalidate, lists, type Lists } from '../core/lists';
@@ -37,7 +38,8 @@ export function budgetPace(spent: number, amount: number, start: string, end: st
 // A budget can have several amounts that overlap the period (an auto-budget that resets every week has one per week),
 // so a budget's amount is the sum of them, each counted for the part of it that falls inside the period. `parts` are
 // the amounts as Firefly has them; `id` is the one amount to edit, when the budget has exactly one.
-export type LimitPart = { id: string, amount: number, start: string, end: string };
+// amount is in the main currency (core/fx.ts); cur is set when Firefly keeps this one in another currency
+export type LimitPart = { id: string, amount: number, start: string, end: string, cur?: string };
 export type BudgetLimit = { id: string, amount: number, parts: LimitPart[] };
 export function limitTotal(parts: LimitPart[], per: { start: string, end: string }) {
   let sum = 0;
@@ -53,7 +55,7 @@ export async function budgetLimits(cur: Period, L: Lists) {
   const parts: Record<string, LimitPart[]> = {}, out: Record<string, BudgetLimit> = {};
   const take = (bid: string, x: ApiData) => {
     const at = x.attributes || {};
-    (parts[String(bid)] = parts[String(bid)] || []).push({ id: String(x.id), amount: num(at.amount), start: String(at.start || '').slice(0, 10), end: String(at.end || '').slice(0, 10) });
+    (parts[String(bid)] = parts[String(bid)] || []).push({ id: String(x.id), amount: inPrimary(at.amount, at.currency_code), start: String(at.start || '').slice(0, 10), end: String(at.end || '').slice(0, 10), ...(isForeign(at.currency_code) ? { cur: String(at.currency_code) } : {}) });
   };
   const done = () => { Object.entries(parts).forEach(([bid, ps]) => { out[bid] = { id: ps.length === 1 ? ps[0].id : '', amount: limitTotal(ps, cur), parts: ps }; }); return out; };
   try {
@@ -72,7 +74,7 @@ export async function budgetHistory(y: number, m: number, n: number, L: Lists) {
   const parts: Record<string, LimitPart[]> = {};
   const take = (bid: string, x: ApiData) => {
     const at = x.attributes || {};
-    (parts[String(bid)] = parts[String(bid)] || []).push({ id: String(x.id), amount: num(at.amount), start: String(at.start || '').slice(0, 10), end: String(at.end || '').slice(0, 10) });
+    (parts[String(bid)] = parts[String(bid)] || []).push({ id: String(x.id), amount: inPrimary(at.amount, at.currency_code), start: String(at.start || '').slice(0, 10), end: String(at.end || '').slice(0, 10), ...(isForeign(at.currency_code) ? { cur: String(at.currency_code) } : {}) });
   };
   const limitsP = getAll('/budget-limits', { start, end }).then(all => all.forEach(x => take(x.attributes.budget_id, x))).catch(async () => {
     Object.keys(parts).forEach(k => delete parts[k]);
@@ -109,11 +111,11 @@ VIEWS.budgets = async (r, paint) => {
     hist,
   ]);
   if (r.at) return;     // loading a month ahead
-  const available = arr(avail).reduce((s, x) => s + num(x.attributes.amount), 0);
+  const available = arr(avail).reduce((s, x) => s + inPrimary(x.attributes.amount, x.attributes.currency_code), 0);
   const showInactive = r.q.inactive === '1';
   const bs = arr(res).map(b => ({ id: String(b.id), name: b.attributes.name, active: b.attributes.active !== false, notes: b.attributes.notes || '',
     auto: b.attributes.auto_budget_type && b.attributes.auto_budget_type !== 'none' ? b.attributes.auto_budget_type : '', autoAmt: num(b.attributes.auto_budget_amount), autoPeriod: b.attributes.auto_budget_period || 'monthly',
-    spent: Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0)), lim: limits[String(b.id)] }));
+    spent: spentSum(b), lim: limits[String(b.id)] }));
   const visible = bs.filter(b => b.active || showInactive), t = todayIso(), alertPct = budgetAlert();
   // Customize: the order, the today marker, and a chart of the month above the list
   const sort = pageOpt('budgets', 'sort'), usedOf = (b: typeof bs[0]) => b.lim && b.lim.amount ? b.spent / b.lim.amount : -1, leftOf = (b: typeof bs[0]) => b.lim ? b.lim.amount - b.spent : -Infinity;
@@ -140,7 +142,8 @@ VIEWS.budgets = async (r, paint) => {
 };
 async function setLimit(bid: string, input: HTMLInputElement) {
   const cur = monthRange(S.y, S.m), lim = (S.budgetLimits || {})[bid], val = input.value.trim(), clear = val === '' || num(val) <= 0, parts: LimitPart[] = lim ? lim.parts : [];
-  const body = { amount: String(num(val)), start: cur.start, end: cur.end };
+  // The amount typed is in the main currency (that's what the column shows), so a limit Firefly kept in another currency is saved as a main-currency one
+  const body = { amount: String(num(val)), start: cur.start, end: cur.end, ...(parts.some(p => p.cur) ? { currency_code: S.currency } : {}) };
   // Several amounts (weekly auto-budget, say) can't be edited as one number: the new amount replaces them all, once the person agrees
   if (parts.length > 1 && !await confirmBox(clear ? 'Remove all ' + parts.length + ' amounts?' : 'Replace ' + parts.length + ' amounts with one?',
     clear ? 'This budget has ' + parts.length + ' amounts this month. They will all be removed.' : 'This budget has ' + parts.length + ' amounts this month (' + money0(lim.amount) + ' in all). They will be replaced by one amount of ' + money0(num(val)) + '.', clear ? 'Remove' : 'Replace')) { input.value = String(lim.amount); return; }

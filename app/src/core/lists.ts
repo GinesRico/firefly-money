@@ -1,18 +1,28 @@
 import { HIDE, clearCache, getAll } from './api';
 import { type ApiData, S, money, num, parseAmount } from './base';
+import { convertToPrimary, fxEnsure, fxSetup, isForeign } from './fx';
 
 /* ================= Reference lists (cached) ================= */
 export type Account = {
   id: string, name: string, type: string, role: string, active: boolean, balance: number, debt: number, opening: number,
   liabType: string, direction: string, interest: string, interestPeriod: string, paymentDate: string, number: string, notes: string, currency: string,
   netWorth: boolean, openingDate: string, plan: Plan | null,
+  // An account in another currency: balance, debt and opening above are in the main currency so every total can add
+  // them (core/fx.ts), and nat has them as Firefly keeps them, for the account's own rows and its form.
+  // unconv: there's no rate (or converting is off), so the three are 0 and totals leave the account out.
+  nat?: { balance: number, debt: number, opening: number }, unconv?: boolean,
 };
 export function normAccount(a: ApiData): Account {
-  const t = a.attributes || {};
+  const t = a.attributes || {}, code = String(t.currency_code || '');
+  const debtRaw = t.current_debt != null ? t.current_debt : t.current_balance;
+  const nat = { balance: num(t.current_balance), debt: Math.abs(num(debtRaw)), opening: num(t.opening_balance) };
+  const foreign = isForeign(code), bal = foreign ? convertToPrimary(t.current_balance, code) : nat.balance;
+  const unconv = foreign && bal == null;
+  const own = unconv ? { balance: 0, debt: 0, opening: 0 } : foreign ? { balance: bal!, debt: Math.abs(convertToPrimary(debtRaw, code) || 0), opening: convertToPrimary(t.opening_balance, code) || 0 } : nat;
   return {
     id: String(a.id), name: t.name, type: String(t.type || ''), role: t.account_role || '', active: t.active !== false,
-    balance: num(t.current_balance), debt: t.current_debt != null ? Math.abs(num(t.current_debt)) : Math.abs(num(t.current_balance)),
-    opening: num(t.opening_balance), liabType: t.liability_type || '', direction: t.liability_direction || '', interest: t.interest || '', interestPeriod: t.interest_period || '',
+    balance: own.balance, debt: own.debt,
+    opening: own.opening, ...(foreign ? { nat, unconv } : {}), liabType: t.liability_type || '', direction: t.liability_direction || '', interest: t.interest || '', interestPeriod: t.interest_period || '',
     paymentDate: t.monthly_payment_date || '', number: t.account_number || '', notes: t.notes || '', currency: t.currency_code || '',
     netWorth: t.include_net_worth !== false, openingDate: t.opening_balance_date || '', plan: parsePlan(t.notes),
   };
@@ -50,9 +60,15 @@ export async function lists(force?: boolean): Promise<Lists> {
   const [accounts, categories, budgets, bills, tags, currencies] = await Promise.all([
     getAll('/accounts', { type: 'all' }), getAll('/categories'), getAll('/budgets'), getAll('/bills'), getAll('/tags'), getAll('/currencies').catch(() => []),
   ]);
-  const acc = accounts.map(normAccount);
   const cur = currencies.map(c => ({ id: String(c.id), code: c.attributes.code, name: c.attributes.name, symbol: c.attributes.symbol, enabled: !!c.attributes.enabled,
     primary: !!(c.attributes.primary || c.attributes.default || c.attributes.native) }));
+  // The main currency first, then today's rates for the other currencies the accounts use (core/fx.ts), so every
+  // balance below is already in the main currency. A failed rate fetch never fails the lists.
+  const mine = accounts.filter(a => /^(asset|liab|loan|debt|mortgage)/.test(String(a.attributes.type || '')));
+  S.currency = (cur.find(c => c.primary) || {} as { code?: string }).code || (mine.find(a => a.attributes.type === 'asset' && a.attributes.currency_code) || { attributes: {} }).attributes.currency_code || S.currency;
+  fxSetup(S.currency, Object.fromEntries(currencies.filter(c => c.attributes.decimal_places != null).map(c => [String(c.attributes.code).toUpperCase(), +c.attributes.decimal_places])));
+  await fxEnsure(mine.map(a => String(a.attributes.currency_code || '')));
+  const acc = accounts.map(normAccount);
   const L: Lists = {
     accounts: acc,
     byId: Object.fromEntries(acc.map(a => [a.id, a])),
@@ -66,7 +82,6 @@ export async function lists(force?: boolean): Promise<Lists> {
     currencies: cur,
     foreign: cur.filter(c => c.enabled && c.code !== S.currency),
   };
-  S.currency = (L.currencies.find(c => c.primary) || {} as { code?: string }).code || (acc.find(a => isAsset(a) && a.currency) || {}).currency || S.currency;
   L.foreign = L.currencies.filter(c => c.enabled && c.code !== S.currency);
   HIDE.inactive = new Set(acc.filter(a => !a.active).map(a => a.id)); HIDE.active = acc.filter(a => (isAsset(a) || isLiab(a)) && a.active).map(a => a.id);
   S.lists = L; S.listsAt = Date.now();
