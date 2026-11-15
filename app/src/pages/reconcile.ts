@@ -1,9 +1,9 @@
 import { html, htmlList } from '../core/html';
 import { api, eachLimited, getAll } from '../core/api';
 import { withAuth } from '../core/auth';
-import { App, S, el, fmtDay, money, num, todayIso, type ApiData } from '../core/base';
+import { App, S, el, fmtDay, moneyIn, num, todayIso, type ApiData } from '../core/base';
 import { confirmBox, head, toast } from '../core/dom';
-import { type Group, groupUpdate, normGroup } from '../core/feed';
+import { type Group, groupUpdate, nativeFor, normGroup } from '../core/feed';
 import { addDays } from '../core/helpers';
 import { isCard, isLiab, lists, normAccount } from '../core/lists';
 import { VIEWS, route } from '../core/router';
@@ -13,6 +13,8 @@ import { newTx } from '../features/txform';
 type RecRow = { gid: string, jid: string, date: string, desc: string, amt: number, rec: boolean };
 // The statement being reconciled (S.rec): the account, its rows, and the journal ids ticked off so far
 type Rec = { a: ApiData, groups: Record<string, Group>, rows: RecRow[], startBal: number, owed: boolean, start: string, end: string, checked: Set<string>, diff?: number | null };
+// One account against its statement, so everything here is in the account's own currency, never converted
+const recMoney = (v: number) => moneyIn(v, S.rec ? S.rec.a.currency : '');
 VIEWS.reconcile = async (r, paint) => {
   await lists();
   const a = normAccount((await api('/accounts/' + r.id)).data);
@@ -26,12 +28,12 @@ VIEWS.reconcile = async (r, paint) => {
   txs.map(normGroup).forEach(g => g.splits.forEach(s => {
     groups[g.id] = g;
     if (s.source_id !== a.id && s.destination_id !== a.id) return;
-    rows.push({ gid: g.id, jid: s.jid, date: s.date, desc: s.description, amt: s.source_id === a.id ? -s.amount : s.amount, rec: s.reconciled });
+    rows.push({ gid: g.id, jid: s.jid, date: s.date, desc: s.description, amt: s.source_id === a.id ? -nativeFor(s, a.currency) : nativeFor(s, a.currency), rec: s.reconciled });
   }));
   rows.sort((x, y) => String(x.date).localeCompare(String(y.date)));
   if (!paint.live) return;
   S.rec = { a, groups, rows, startBal: num(before.data.attributes.current_balance), owed, start, end, checked: new Set(rows.filter(x => x.rec).map(x => x.jid)) };
-  paint(html`<p style="margin:0 0 6px"><a class="link" href="#/account/${a.id}">← ${a.name}</a></p>${head('Reconcile ' + a.name, 'Tick off each transaction that appears on your statement until the difference is zero.', '')}<section class="panel" style="margin-bottom:20px"><div class="grid2" style="grid-template-columns:repeat(3,1fr);gap:0 16px"><label>Statement start<input type="date" id="rc-start" value="${start}" data-onchange="App.recDates()"></label><label>Statement end<input type="date" id="rc-end" value="${end}" data-onchange="App.recDates()"></label><label>${owed ? 'Statement balance owed' : 'Statement ending balance'}<input type="number" step="0.01" id="rc-bal" value="${r.q.balance || ''}" data-oninput="App.recCalc()" placeholder="From your statement"></label></div><div class="kpis" id="rc-kpis" style="margin:4px 0 0"></div><div id="rc-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px"></div></section><section class="panel flush">${rows.length ? html`<table class="tbl"><thead><tr><th class="sel"><input type="checkbox" data-onchange="App.recAll(this.checked)" aria-label="Tick all"></th><th>Date</th><th>Description</th><th class="r">Amount</th></tr></thead><tbody>${htmlList(rows.map(x => html`<tr><td class="sel"><input type="checkbox" data-rec="${x.jid}"${S.rec.checked.has(x.jid) ? ' checked' : ''}${x.rec ? html` disabled title="Already reconciled"` : ''} data-onchange="App.recTick(this)"></td><td class="date">${fmtDay(x.date)}</td><td class="desc">${x.desc}${x.rec ? html` <span class="chip good">Reconciled</span>` : ''}</td><td class="amt ${x.amt < 0 ? 'neg' : 'pos'}">${x.amt > 0 ? '+' : ''}${money(x.amt)}</td></tr>`))}</tbody></table>`
+  paint(html`<p style="margin:0 0 6px"><a class="link" href="#/account/${a.id}">← ${a.name}</a></p>${head('Reconcile ' + a.name, 'Tick off each transaction that appears on your statement until the difference is zero.', '')}<section class="panel" style="margin-bottom:20px"><div class="grid2" style="grid-template-columns:repeat(3,1fr);gap:0 16px"><label>Statement start<input type="date" id="rc-start" value="${start}" data-onchange="App.recDates()"></label><label>Statement end<input type="date" id="rc-end" value="${end}" data-onchange="App.recDates()"></label><label>${owed ? 'Statement balance owed' : 'Statement ending balance'}<input type="number" step="0.01" id="rc-bal" value="${r.q.balance || ''}" data-oninput="App.recCalc()" placeholder="From your statement"></label></div><div class="kpis" id="rc-kpis" style="margin:4px 0 0"></div><div id="rc-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px"></div></section><section class="panel flush">${rows.length ? html`<table class="tbl"><thead><tr><th class="sel"><input type="checkbox" data-onchange="App.recAll(this.checked)" aria-label="Tick all"></th><th>Date</th><th>Description</th><th class="r">Amount</th></tr></thead><tbody>${htmlList(rows.map(x => html`<tr><td class="sel"><input type="checkbox" data-rec="${x.jid}" aria-label="Tick ${x.desc || 'transaction'}"${S.rec.checked.has(x.jid) ? ' checked' : ''}${x.rec ? html` disabled title="Already reconciled"` : ''} data-onchange="App.recTick(this)"></td><td class="date">${fmtDay(x.date)}</td><td class="desc">${x.desc}${x.rec ? html` <span class="chip good">Reconciled</span>` : ''}</td><td class="amt ${x.amt < 0 ? 'neg' : 'pos'}">${x.amt > 0 ? '+' : ''}${recMoney(x.amt)}</td></tr>`))}</tbody></table>`
       : html`<div class="center-empty">No transactions in this period.</div>`}</section>`);
   recCalc();
 };
@@ -43,9 +45,9 @@ function recCalc() {
   const diff = stmt === null ? null : Math.round((stmt - cleared) * 100) / 100;
   const newly = R.rows.filter(x => R.checked.has(x.jid) && !x.rec).length;
   el('rc-kpis').innerHTML =
-    String(html`<div class="kpi"><div class="eyebrow">Balance before ${fmtDay(R.start)}</div><div class="val num">${money(disp(R.startBal))}</div></div><div class="kpi"><div class="eyebrow">Ticked balance</div><div class="val num">${money(disp(cleared))}</div></div><div class="kpi"><div class="eyebrow">Difference</div><div class="val num ${diff === null ? '' : diff === 0 ? 'pos' : 'neg'}">${diff === null ? '—' : diff === 0 ? 'Balanced ✓' : money(disp(diff))}</div></div>`);
+    String(html`<div class="kpi"><div class="eyebrow">Balance before ${fmtDay(R.start)}</div><div class="val num">${recMoney(disp(R.startBal))}</div></div><div class="kpi"><div class="eyebrow">Ticked balance</div><div class="val num">${recMoney(disp(cleared))}</div></div><div class="kpi"><div class="eyebrow">Difference</div><div class="val num ${diff === null ? '' : diff === 0 ? 'pos' : 'neg'}">${diff === null ? '—' : diff === 0 ? 'Balanced ✓' : recMoney(disp(diff))}</div></div>`);
   el('rc-actions').innerHTML =
-    String(html`<button class="btn primary" data-onclick="App.recFinish()"${newly ? '' : ' disabled'}>Mark ${newly} as reconciled</button>${diff ? html`<button class="btn" data-onclick="App.recAdjust()">Add a ${money(Math.abs(diff))} adjustment</button>` : ''}`);
+    String(html`<button class="btn primary" data-onclick="App.recFinish()"${newly ? '' : ' disabled'}>Mark ${newly} as reconciled</button>${diff ? html`<button class="btn" data-onclick="App.recAdjust()">Add a ${recMoney(Math.abs(diff))} adjustment</button>` : ''}`);
   R.diff = diff;
 }
 function recTick(cb: HTMLInputElement) { cb.checked ? S.rec.checked.add(cb.dataset.rec) : S.rec.checked.delete(cb.dataset.rec); recCalc(); }

@@ -1669,6 +1669,22 @@
   /* ---------- Hours of work (core/worklens.ts): under money out in the feed ---------- */
   .tbl.feed tr[data-gid] td.amt:has(.hrs) { flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px; }
   .tbl .amt .hrs { font-size: 11.5px; font-weight: 500; color: var(--muted); letter-spacing: .01em; }
+
+  /* ---------- Foreign currencies (core/fx.ts) ----------
+     .fx-eq: the main-currency figure under an amount in another currency ("≈ $1,490.20"), in a quieter style.
+     .fx-note: the line under a page's title saying what rate the totals use (features/fxnote.ts). */
+  .fx-eq { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); letter-spacing: .01em; line-height: 1.3; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .fx-eq.fx-no { color: var(--warn); }
+  .kpi .val .fx-eq { text-align: left; font-size: 12.5px; margin-top: 2px; }
+  .tbl.feed tr[data-gid] td.amt.fx { flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px; }
+  .head > div:has(> .fx-note) { min-width: 0; max-width: 100%; }
+  .fx-note { display: inline-flex; align-items: center; gap: 4px; width: max-content; max-width: calc(100% + 8px); min-height: 28px; margin: 4px 0 0 -8px; padding: 2px 8px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+  .fx-note:hover { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); }
+  .fx-note:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .fx-note.warn { color: var(--warn); } .fx-note.bad { color: var(--spend); }
+  .fx-note .fx-go { opacity: .6; }
+  .fx-rate { display: block; }
+  .fx-left { margin: 2px 0 6px; color: var(--warn); }
   .set-num { width: 110px; text-align: right; }
 
   /* ---------- Net worth time scrubber (features/networth.ts) ---------- */
@@ -2414,7 +2430,7 @@ html[data-theme="sakura"] .panel,html[data-theme="mint"] .panel,html[data-theme=
 .tp-name { min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }
 .tp.on::after { content: ""; flex: none; margin-left: auto; width: 7px; height: 12px; border: solid var(--accent); border-width: 0 2px 2px 0; transform: translate(-1px, -2px) rotate(45deg); }
 
-/* ---------- Activity grid: a year of days, a week to a column, darker = more spent ---------- */
+/* ---------- Activity grid: a year of days, a week to a column, stronger colour = more spent ---------- */
 html { --ag: var(--spend); }
 .ag-scroll { height: 143px; margin: -6px; overflow-y: hidden; box-sizing: border-box; align-items: flex-start; display: flex; flex-direction: row-reverse; overflow-x: auto; padding: 6px; -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px); mask-image: linear-gradient(to right, transparent 0, #000 14px); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .ag-wrap { --agm: 14px; flex: none; margin-right: auto; min-width: 0; display: grid; gap: 3px; }
@@ -2581,3 +2597,23 @@ html[data-theme="dark"] { --e1: var(--rim), var(--lift); --e2: 0 1px 0 rgba(0,0,
 .lines { touch-action: pan-y; }
 .lines .scrub-line { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 4; pointer-events: none; }
 
+
+/* Pay now beside a card balance: the row's main link shrinks first, the button never wraps or overflows */
+.row.payrow { align-items: center; }
+.row.payrow .rowmain { display: flex; flex: 1 1 auto; min-width: 0; gap: 12px; align-items: baseline; justify-content: space-between; color: inherit; text-decoration: none; }
+.row.payrow .rowmain .name { flex: 0 1 auto; min-width: 0; }
+.row.payrow .rowmain .spark { margin-left: auto; margin-right: 0; }
+.row.payrow .rowmain .num { flex: none; }
+.row.payrow .btn { flex: none; white-space: nowrap; }
+@media (max-width: 340px) { .row.payrow { gap: 8px; } .row.payrow .rowmain { gap: 8px; } .row.payrow .rowmain .spark { display: none; } .row.payrow .btn { padding-inline: 11px; } }
+
+/* The narrowest phones (320): tables give up side padding so the last column isn't clipped, and a row's buttons stack */
+@media (max-width: 340px) {
+  .tbl th, .tbl td { padding-left: 8px; padding-right: 8px; }
+  .tbl .amt { font-size: 13px; }
+  .tbl .act { white-space: normal; }
+  .tbl .act .btn { display: block; margin: 3px 0 3px auto; }
+}
+@media (max-width: 340px) { .bills-tbl th, .bills-tbl td { padding-left: 5px; padding-right: 5px; } .bills-tbl .act .btn { padding-inline: 9px; } .bills-tbl .amt { font-size: 12.5px; } }
+/* Touch targets of at least 44px on phones: page tabs and segmented buttons */
+@media (max-width: 600px) { .tabs a { padding-top: 13px; } .seg:not(.mini) button { min-height: 44px; } }

@@ -58,8 +58,8 @@ describe('forecast: bill due dates after a payment', () => {
     expect(billDueDates(rent.attributes)).toEqual(['2026-12-01', '2027-01-01']);
     expect(run([], [rent]).map(e => [e.date, e.amount])).toEqual([['2026-12-01', -1173], ['2027-01-01', -1173]]);
   });
-  it('does not drop a date because of a payment made a few days before it', () => {
-    expect(billDueDates(bill('30', 'Rent', 1173, ['2026-12-01', '2027-01-01'], ['2026-11-28']).attributes)).toEqual(['2026-12-01', '2027-01-01']);
+  it('counts a payment made a few days before a date as paying it', () => {
+    expect(billDueDates(bill('30', 'Rent', 1173, ['2026-12-01', '2027-01-01'], ['2026-11-28']).attributes)).toEqual(['2027-01-01']);
   });
   it('skips only inactive bills', () => {
     expect(billDueDates(bill('30', 'Rent', 1173, monthly('01')).attributes)).toEqual(monthly('01'));
@@ -101,5 +101,19 @@ describe('forecast: bills paid from another account', () => {
     expect([...new Set(ev.map(e => e.label))]).toEqual(['Phone', 'New gym']);
     // Looking at the card itself, the card's bill is there
     expect(run([], bills, { '40': 'amex', '41': '1' }, ['amex']).map(e => e.label)).toContain('Claude (Anthropic)');
+  });
+});
+
+describe('bill paid before its due date', () => {
+  const monthlyBill = (pay: string[], paid: string[]) => bill('50', 'Phone', 80, pay, paid).attributes;
+  it('is not overdue once the date has passed', () => {
+    const at = monthlyBill(['2026-01-10', '2026-02-10'], ['2026-01-05']);
+    at.repeat_freq = 'monthly';
+    expect(billDueDates(at)).toEqual(['2026-02-10']);
+  });
+  it('stays overdue when nothing was paid in its cycle', () => {
+    const at = monthlyBill(['2026-01-10'], ['2025-11-20']);
+    at.repeat_freq = 'monthly';
+    expect(billDueDates(at)).toEqual(['2026-01-10']);
   });
 });

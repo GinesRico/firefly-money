@@ -270,7 +270,7 @@ Developed and tested in Chromium-based browsers (Chrome, Edge) on desktop and ph
 
 ## Limitations
 
-- Only one currency is shown per total (your Firefly primary currency). Foreign amounts are shown on individual transactions.
+- Every total is one figure in your Firefly primary currency. Accounts in another currency are converted at today’s rate (your Money server asks Frankfurter, or open.er-api.com as a fallback; no key, only the currency codes are sent), and each account still shows its own currency with the converted figure beside it. Without a rate the amount is left out of totals and flagged. Switch it off in Settings → Currencies.
 - Your Firefly profile, 2FA, API tokens and user management aren't available through Firefly's API, so change those in Firefly itself.
 - Inline edits and the quick-add box handle single-split transactions. Split transactions open the full editor.
 

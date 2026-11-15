@@ -1,9 +1,10 @@
 import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { withAuth } from '../core/auth';
-import { App, fmtD, fmtDay, isoDate, money, money0, num, S, todayIso } from '../core/base';
+import { App, fmtD, fmtDay, isoDate, money0, moneyIn, num, S, todayIso } from '../core/base';
+import { convertFromPrimary } from '../core/fx';
 import { head, toast } from '../core/dom';
-import { normGroup } from '../core/feed';
+import { acctAmt, normGroup } from '../core/feed';
 import { LS, daysBetween } from '../core/helpers';
 import { type Account, isCard, isLiab, lists, withPlan } from '../core/lists';
 import { VIEWS, route } from '../core/router';
@@ -88,8 +89,13 @@ VIEWS.loans = async (r, paint) => {
   const maxM = Math.min(120, Math.max(12, ...sim.loans.map(l => l.paidOff || 120)));
   const rows = htmlList(sim.loans.sort((a, b) => (a.paidOff ?? 9999) - (b.paidOff ?? 9999)).map(l => {
     const b0 = base.loans.find(x => x.id === l.id)!, h = hist[l.id] || {};
+    // A loan in another currency: the plan works in the main currency like every total, but the loan's own row shows
+    // what is owed in its currency, and its monthly payment is typed (and saved to its notes) in that currency too
+    const acc = L.byId[l.id], fc = acc && acc.nat ? acc.currency : '';
+    const owes = acc ? acctAmt(acc, (acc.nat || acc).debt, l.debt, money0) : money0(l.debt);
+    const payIn = fc ? (acc.nat!.plan && acc.nat!.plan.amount > 0 ? acc.nat!.plan.amount : convertFromPrimary(l.pay, fc) || 0) : l.pay;
     const saved = b0.paidOff !== null && l.paidOff !== null ? b0.paidOff - l.paidOff : null;
-    return html`<tr><td><a class="desc" href="#/account/${l.id}" style="text-decoration:none">${l.name}</a><div class="sub-s">${h.last ? 'Last paid ' + money0(h.last.a) + ' on ' + fmtDay(h.last.d) : 'No payments yet'}${num(l.interest) ? ' · ' + num(l.interest) + '% ' + (l.period || 'interest') : ''}</div><div class="sub-s show-s">Owes ${money0(l.debt)}</div></td><td class="amt hide-s">${money0(l.debt)}</td><td class="r"><input class="inline num" type="number" min="0" step="10" value="${l.pay}" data-onchange="App.loanPay('${l.id}', this.value)" aria-label="Monthly payment for ${l.name}"></td><td class="r">${l.paidOff === null ? html`<span class="neg">Not being paid</span>` : html`<strong>${monthLabel(l.paidOff)}</strong><div class="sub-s">${l.paidOff} month${l.paidOff === 1 ? '' : 's'}${saved !== null && saved > 0 ? html` · <span class="down">${saved} sooner</span>` : ''}</div>${rollsOnly(l) ? html`<div class="sub-s">only if other loans’ payments roll onto it</div>` : ''}`}<div class="sub-s"><button type="button" class="link" data-onclick="App.loanFixed('${l.id}')" title="Instalments of a set size: extra money isn’t put onto this loan">${l.fixed ? 'Fixed instalments: no extra' : 'Can take extra payments'}</button></div></td><td class="hide-s" style="min-width:200px"><div class="track" style="height:10px"><div class="fill good" style="width:${((l.paidOff === null ? maxM : Math.min(l.paidOff, maxM)) / maxM * 100).toFixed(1)}%;${l.paidOff === null ? 'background:var(--spend);opacity:.35' : ''}"></div></div></td></tr>`;
+    return html`<tr><td><a class="desc" href="#/account/${l.id}" style="text-decoration:none">${l.name}</a><div class="sub-s">${h.last ? 'Last paid ' + money0(h.last.a) + ' on ' + fmtDay(h.last.d) : 'No payments yet'}${num(l.interest) ? ' · ' + num(l.interest) + '% ' + (l.period || 'interest') : ''}</div><div class="sub-s show-s">Owes ${fc ? moneyIn(acc.nat!.debt, fc) + ' (≈ ' + money0(l.debt) + ')' : money0(l.debt)}</div></td><td class="amt hide-s">${owes}</td><td class="r"><input class="inline num" type="number" min="0" step="10" value="${payIn}" data-onchange="App.loanPay('${l.id}', this.value)" aria-label="Monthly payment for ${l.name}${fc ? ' in ' + fc : ''}">${fc ? html`<div class="sub-s">${fc} · ≈ ${money0(l.pay)}</div>` : ''}</td><td class="r">${l.paidOff === null ? html`<span class="neg">Not being paid</span>` : html`<strong>${monthLabel(l.paidOff)}</strong><div class="sub-s">${l.paidOff} month${l.paidOff === 1 ? '' : 's'}${saved !== null && saved > 0 ? html` · <span class="down">${saved} sooner</span>` : ''}</div>${rollsOnly(l) ? html`<div class="sub-s">only if other loans’ payments roll onto it</div>` : ''}`}<div class="sub-s"><button type="button" class="link" data-onclick="App.loanFixed('${l.id}')" title="Instalments of a set size: extra money isn’t put onto this loan">${l.fixed ? 'Fixed instalments: no extra' : 'Can take extra payments'}</button></div></td><td class="hide-s" style="min-width:200px"><div class="track" style="height:10px"><div class="fill good" style="width:${((l.paidOff === null ? maxM : Math.min(l.paidOff, maxM)) / maxM * 100).toFixed(1)}%;${l.paidOff === null ? 'background:var(--spend);opacity:.35' : ''}"></div></div></td></tr>`;
   }));
   const totalDebt = model.reduce((s, l) => s + l.debt, 0), totalPay = model.reduce((s, l) => s + l.pay, 0) + (plan.strategy === 'now' ? 0 : +plan.extra || 0);
   const strat = (v: string, label: string, sub: string) => html`<button type="button" class="${plan.strategy === v ? 'on' : ''}" data-onclick="App.loanSet('strategy', '${v}')" title="${sub}">${label}</button>`;
@@ -97,10 +103,10 @@ VIEWS.loans = async (r, paint) => {
 };
 async function loanPay(id: string, v: string) {
   const L = await lists(), a = L.byId[id]; if (!a) return;
-  const p = { ...a.plan, amount: Math.max(0, num(v)) };
+  const p = { ...(a.nat ? a.nat.plan : a.plan), amount: Math.max(0, num(v)) };      // typed in the loan's own currency, and saved as typed
   await withAuth(async () => {
-    await api('/accounts/' + id, { method: 'PUT', body: { name: a.name, notes: withPlan(a.notes, p) } });
-    toast(p.amount > 0 ? 'Saved ' + money(p.amount) + '/month for ' + a.name : 'Monthly payment cleared for ' + a.name); route();
+    await api('/accounts/' + id, { method: 'PUT', body: { name: a.name, notes: withPlan(a.notes, p, a.currency) } });
+    toast(p.amount > 0 ? 'Saved ' + moneyIn(p.amount, a.currency) + '/month for ' + a.name : 'Monthly payment cleared for ' + a.name); route();
   });
 }
 function loanFixed(id: string) {

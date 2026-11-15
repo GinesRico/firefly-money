@@ -1,5 +1,6 @@
 import { Html, html, htmlList } from './html';
-import { type ApiData, fmtD, money, num, S, todayIso } from './base';
+import { type ApiData, approx, fmtD, money, moneyIn, num, S, todayIso } from './base';
+import { convertToPrimary, isForeign } from './fx';
 import { daysBetween } from './helpers';
 import { logoImg } from './logo';
 import { hoursText, learnRate, lensOn } from './worklens';
@@ -13,13 +14,17 @@ export type Split = {
   sba: string | null | undefined, dba: string | null | undefined,      // source/destination balance after, when Firefly sends it
   fa: string, fc: string, reconciled: boolean,                         // foreign amount and currency
   lat: number | null, lng: number | null,                              // where it was paid, when known
+  // A split in another currency: amount above is in the main currency so sums can add it (core/fx.ts; 0 when it
+  // can't be converted, see unconv), native is what Firefly has and cur its currency. Rows show native, forms edit it.
+  native: number, cur: string, unconv?: boolean,
 };
 // A transaction group: what the app calls a transaction. type and date are its first split's.
-export type Group = { id: string, title: string, type: string, date: string, splits: Split[], total: number };
+// cur: the one foreign currency all its splits are in ('' when they're in the main currency or mixed), nativeTotal their sum in it
+export type Group = { id: string, title: string, type: string, date: string, splits: Split[], total: number, cur?: string, nativeTotal?: number, unconv?: boolean };
 export function normGroup(g: ApiData): Group {
   const a = g.attributes || {};
-  const splits: Split[] = (a.transactions || []).map((t: ApiData) => ({
-    jid: String(t.transaction_journal_id), type: t.type, date: t.date, amount: num(t.amount), description: t.description || '',
+  const splits: Split[] = (a.transactions || []).map((t: ApiData) => { const foreign = isForeign(t.currency_code), conv = foreign ? convertToPrimary(t.amount, t.currency_code) : num(t.amount); return {
+    jid: String(t.transaction_journal_id), type: t.type, date: t.date, amount: conv ?? 0, native: num(t.amount), cur: foreign ? String(t.currency_code).toUpperCase() : '', ...(conv == null ? { unconv: true } : {}), description: t.description || '',
     source_id: String(t.source_id || ''), source_name: t.source_name || '', source_type: t.source_type || '',
     destination_id: String(t.destination_id || ''), destination_name: t.destination_name || '', destination_type: t.destination_type || '',
     category: t.category_name || '', budget_id: t.budget_id ? String(t.budget_id) : '', budget_name: t.budget_name || '',
@@ -27,9 +32,10 @@ export function normGroup(g: ApiData): Group {
     sba: t.source_balance_after, dba: t.destination_balance_after,
     fa: t.foreign_amount != null && t.foreign_amount !== '' ? String(num(t.foreign_amount)) : '', fc: t.foreign_currency_code || '', reconciled: !!t.reconciled,
     lat: t.latitude != null && t.latitude !== '' ? Number(t.latitude) : null, lng: t.longitude != null && t.longitude !== '' ? Number(t.longitude) : null,
-  }));
-  const f: Partial<Split> = splits[0] || {};
-  return { id: String(g.id), title: a.group_title || '', type: f.type as string, date: f.date as string, splits, total: splits.reduce((s, x) => s + x.amount, 0) };
+  }; });
+  const f: Partial<Split> = splits[0] || {}, cur = f.cur && splits.every(x => x.cur === f.cur) ? f.cur : '';
+  return { id: String(g.id), title: a.group_title || '', type: f.type as string, date: f.date as string, splits, total: splits.reduce((s, x) => s + x.amount, 0),
+    cur, nativeTotal: splits.reduce((s, x) => s + x.native, 0), ...(splits.some(x => x.unconv) ? { unconv: true } : {}) };
 }
 
 // The body for PUT /transactions/{id}. Firefly takes the list as every part the group keeps and deletes
@@ -51,8 +57,24 @@ export function signed(g: Group, accountId?: string) {
   if (g.type === 'deposit') return g.total;
   return 0;
 }
+// The same in the transaction's own currency, for a row of a foreign-currency transaction
+export function signedNative(g: Group, accountId?: string) {
+  if (accountId) return g.splits.reduce((s, x) => s + (x.source_id === accountId ? -x.native : x.destination_id === accountId ? x.native : 0), 0);
+  return g.type === 'withdrawal' ? -(g.nativeTotal || 0) : g.type === 'deposit' ? (g.nativeTotal || 0) : 0;
+}
+// A split's amount in an account's own currency: what Firefly has, or its foreign amount when that is the account's
+// currency (a transfer between two currencies is kept in the source's, with the other side as the foreign amount)
+export const nativeFor = (s: Split, code: string) => code && code !== (s.cur || S.currency) && s.fc === code && s.fa ? num(s.fa) : s.native;
+// Under a foreign amount: what it is in the main currency, or that it couldn't be converted (and so isn't in any total)
+export const fxEq = (v: number, unconv?: boolean) => unconv ? html`<span class="fx-eq fx-no" title="No exchange rate, so this is left out of totals">not converted</span>` : html`<span class="fx-eq">${approx(Math.abs(v))}</span>`;
+// An account's own figure: in its currency, with the main-currency figure under it when it's a foreign one
+export const acctAmt = (a: { nat?: unknown, currency: string, unconv?: boolean }, native: number, conv: number, fmt: (n: number) => string = money) => a.nat ? html`${moneyIn(native, a.currency)}${fxEq(conv, a.unconv)}` : fmt(conv);
 function amountCell(g: Group, accountId?: string) {
   const v = signed(g, accountId);
+  if (g.cur) {
+    const nv = signedNative(g, accountId), xfer = !accountId && g.type === 'transfer';
+    return html`<td class="amt fx ${xfer || !nv ? 'neutral' : nv < 0 ? 'neg' : 'pos'}"><span>${!xfer && nv > 0 ? '+' : ''}${moneyIn(xfer ? g.nativeTotal || 0 : nv, g.cur)}</span>${fxEq(xfer ? g.total : v, g.unconv)}</td>`;
+  }
   if (!accountId && g.type === 'transfer') return html`<td class="amt neutral">${money(g.total)}</td>`;
   return html`<td class="amt ${v < 0 ? 'neg' : v > 0 ? 'pos' : 'neutral'}">${amtInner(v)}</td>`;
 }

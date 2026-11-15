@@ -26,6 +26,13 @@ const ICONS: Record<string, Html> = {
 };
 type Notes = { lead: string, items: [string, string, string][] };
 const NOTES: Record<string, Notes> = {
+  '2.4.0': { lead: 'Pay cards in a tap, leave out closed accounts, and more accurate bills and audit fixes.', items: [
+    ['list', 'Pay now on cards', 'Credit card balances get a Pay now button that opens a prefilled transfer into the card, like bills.'],
+    ['sliders', 'Leave out closed accounts', 'A new setting leaves closed accounts’ transactions out of lists and totals. Thanks to Amatsugu for the request.'],
+    ['calendar', 'Bills that add up', 'Bills paid early no longer show as overdue or get deducted from Safe to spend again. Thanks to rdjong80 for the report.'],
+    ['glass', 'Matte and Polar glass, calmer motion', 'Two new glass themes, and sheets, dialogs and the tab bar no longer overshoot or spring.'],
+    ['lens', 'Audit fixes', 'Forecast, custom month start, foreign currency symbols, duplicate recurring items, 320px tables and security hardening. The activity grid hint now says brighter days cost more, thanks to rdjong80.'],
+  ] },
   '2.3.0': { lead: 'Smarter insights, new themes, a Places tab, and more privacy and speed when you add transactions.', items: [
     ['pulse', 'Look ahead', 'A 30-day cash flow calendar, a subscription audit, unusual charges, budget history and pace, and a Money health card.'],
     ['glass', 'Seven new themes', 'Six pastel themes and Spatial glass, a dark visionOS-style theme. All 18 themes now pass a text contrast check.'],

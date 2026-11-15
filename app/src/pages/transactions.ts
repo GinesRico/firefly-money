@@ -19,11 +19,12 @@ VIEWS.transactions = async (r, paint) => {
   const range = !r.at && /^\d{4}-\d\d-\d\d$/.test(q.start || '') && /^\d{4}-\d\d-\d\d$/.test(q.end || '') ? { start: q.start, end: q.end } : null;
   const cur = range ? rangePeriod(range.start, range.end) : viewPeriod(r);
   let endpoint = '/transactions', scope = '';
+  const id = (v: string) => /^\d+$/.test(v) ? v : '0';      // from the address bar: digits only, so it can't change the API path
   const find = (list: { id: string, name: string }[], id: string) => (list.find(x => x.id === id) || {}).name || '#' + id;
-  if (q.budget) { endpoint = '/budgets/' + q.budget + '/transactions'; scope = 'Budget: ' + find(L.budgets, q.budget); }
-  else if (q.category) { endpoint = '/categories/' + q.category + '/transactions'; scope = 'Category: ' + find(L.categories, q.category); }
-  else if (q.tag) { endpoint = '/tags/' + q.tag + '/transactions'; scope = 'Tag: ' + find(L.tags, q.tag); }
-  else if (q.bill) { endpoint = '/bills/' + q.bill + '/transactions'; scope = 'Bill: ' + find(L.bills, q.bill); }
+  if (q.budget) { endpoint = '/budgets/' + id(q.budget) + '/transactions'; scope = 'Budget: ' + find(L.budgets, q.budget); }
+  else if (q.category) { endpoint = '/categories/' + id(q.category) + '/transactions'; scope = 'Category: ' + find(L.categories, q.category); }
+  else if (q.tag) { endpoint = '/tags/' + encodeURIComponent(q.tag) + '/transactions'; scope = 'Tag: ' + find(L.tags, q.tag); }
+  else if (q.bill) { endpoint = '/bills/' + id(q.bill) + '/transactions'; scope = 'Bill: ' + find(L.bills, q.bill); }
   const query = search + (type !== 'all' ? ' transaction_type:' + type : '');
   const load = (pg: number) => search ? api('/search/transactions', { params: { query, search: query, page: pg, limit: PAGE_SIZE } })
     : api(endpoint, { params: { start: cur.start, end: cur.end, type, page: pg, limit: PAGE_SIZE } });

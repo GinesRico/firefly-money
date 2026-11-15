@@ -2,11 +2,12 @@ import { type Html, html, htmlList } from '../core/html';
 import { api, getAll, sleep } from '../core/api';
 import { paceForecast } from '../features/projections';
 import { monthEnd } from '../features/predict';
-import { ALL_START, App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, noneHref, nowMonth, num, pad, sumDiff, todayIso, txHref, type ApiData, type Period, viewPeriod, viewYM } from '../core/base';
+import { ALL_START, App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, noneHref, nowMonth, num, sumDiff, todayIso, txHref, type ApiData, type Period, viewPeriod, viewYM, spentSum } from '../core/base';
 import { head, monthNav } from '../core/dom';
-import { normGroup, rankCats, txRows } from '../core/feed';
+import { acctAmt, normGroup, rankCats, txRows } from '../core/feed';
 import { addDays, budgetAlert, daysBetween } from '../core/helpers';
 import { type Account, isAsset, isCard, isLiab, lists } from '../core/lists';
+import { FX } from '../core/fx';
 import { VIEWS, quiet } from '../core/router';
 import { type Unusual, loadUnusual } from '../features/unusual';
 import { gettingStarted } from '../features/started';
@@ -47,8 +48,8 @@ VIEWS[''] = async (r, paint) => {
   const cards = own.filter(isCard), loans = own.filter(isLiab);
   // What the balance tiles list, by their settings: closed (inactive) accounts, zero balances, paid-off debts
   const shown = (k: string, test: (a: Account) => boolean, settled: (a: Account) => boolean) => L.accounts.filter(a => test(a) && (a.active || tileOpt(k, 'closed')) && (tileOpt(k, k === 'cash' ? 'zero' : 'paidOff') || !settled(a)));
-  const cashShown = shown('cash', a => isAsset(a) && !isCard(a), a => !a.balance);
-  const cardsShown = shown('cards', isCard, a => a.balance >= 0), loansShown = shown('loans', isLiab, l => !l.debt);
+  const cashShown = shown('cash', a => isAsset(a) && !isCard(a), a => !a.balance && !a.unconv);
+  const cardsShown = shown('cards', isCard, a => (a.nat || a).balance >= 0), loansShown = shown('loans', isLiab, l => !(l.nat || l).debt);
   // Everything is requested at once (the main numbers first, so they reach Firefly first). The page is drawn
   // as soon as those are in; the slower cards show placeholders and fill in when their data arrives.
   // Refunds come off spending (see refunds.ts): fetched once for the chart's months, and the other ranges use those when they fit
@@ -88,8 +89,10 @@ VIEWS[''] = async (r, paint) => {
   if (r.at) { await Promise.all([coreP, slowP]).catch(() => {}); return; }     // loading a month ahead: the data is all it needs
   const [summary, catNow, catPrev, noCatNow, noCatPrev, trend, recent, budgets, limits, bills, uncat, allTot, prevSoFar] = await coreP;
   const nwKey = Object.keys(summary || {}).find(k => k.startsWith('net-worth-in'));
-  const computedNW = own.filter(isAsset).reduce((s, a) => s + a.balance, 0) - loans.reduce((s, l) => s + l.debt, 0);
-  const netWorth = nwKey ? num(summary[nwKey].monetary_value) : computedNW;
+  const computedNW = own.filter(a => isAsset(a) && a.netWorth).reduce((s, a) => s + a.balance, 0) - loans.filter(l => l.netWorth).reduce((s, l) => s + l.debt, 0);
+  // Firefly's own net worth figure only counts the main currency (or converts with its stored rates), so with accounts
+  // in other currencies the figure is worked out here from balances converted at today's rate (core/fx.ts)
+  const netWorth = nwKey && !FX.needed.length ? num(summary[nwKey].monetary_value) : computedNW;
   const last = all ? allTot! : trend[trend.length - 1], before = all || trend.length < 2 ? { spend: 0 } : soFar ? { spend: prevSoFar || 0 } : trend[trend.length - 2];
 
   // categories
@@ -108,7 +111,7 @@ VIEWS[''] = async (r, paint) => {
     // A card with nothing to show for this month says so rather than vanishing, so the cards around it stay put
     const idle = (k: string, why = future ? 'Fills in once this month starts.' : 'Shows for one month at a time: pick a month at the top.') => quietPanel(k, why);
     const W: [string, unknown][] = [
-      ['networth', networthTile(netWorth, slow ? nw : undefined)],
+      ['networth', networthTile(netWorth, slow ? nw : undefined, !all && cur.end < todayIso() ? cur.end : '')],
       ['spent', spentTile(last.spend, future && !last.spend ? 0 : before.spend, soFar ? 'the same point in ' + prev.short : prev.short, trend, all, !!soFar)],
       ['earned', earnedTile(last.income, last.spend, !!soFar)],
       ['insights', monthOnly ? idle('insights') : wait('insights') ?? (insights || quietPanel('insights', 'Nothing unusual this month.'))],
@@ -200,7 +203,7 @@ function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { un
     if (d) items.push(html`<a class="row" href="#/bills"><span class="name">📅 ${b.attributes.name} ${d < t ? html`<span class="up">overdue since ${fmtDay(d)}</span>` : 'due ' + fmtDay(d)}</span><span class="num">${money(billAmount(b.attributes))}</span></a>`);
   });
   if (!future) budgets.forEach(b => {
-    const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0));
+    const lim = limits[String(b.id)], spent = spentSum(b);
     if (lim && lim.amount && spent > lim.amount) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">⚠️ ${b.attributes.name} is over budget</span><span class="num up">${money0(spent - lim.amount)} over</span></a>`);
     else if (lim && lim.amount && spent >= lim.amount * budgetAlert() / 100) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">◔ ${b.attributes.name} is at ${Math.round(spent / lim.amount * 100)}%</span><span class="num">${money0(lim.amount - spent)} left</span></a>`);
   });
@@ -210,7 +213,9 @@ function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { un
   return html`<section class="panel attention"><div class="panel-head"><h2>Needs attention</h2>${more > 0 ? html`<button type="button" class="link" data-onclick="App.attMore(this)">${more} more</button>` : ''}</div><p class="lead">Quick things to tidy up</p><div class="list">${htmlList(items.slice(0, 2))}${more > 0 ? html`<div class="att-more" hidden>${htmlList(items.slice(2))}</div>` : ''}</div></section>`;
 }
 // The bento's number tiles: net worth with its trend, what was spent against last month, what came in and was kept
-function networthTile(netWorth: number, pts: NetWorthPoint[] | null | undefined) {
+// until: the end of a past month being looked at, so the change and the line stop there like the big number does
+function networthTile(netWorth: number, pts: NetWorthPoint[] | null | undefined, until = '') {
+  if (pts && until) pts = pts.filter(p => p.date <= until);
   const d = pts && pts.length > 1 ? netWorth - pts[0].net : null;
   const line = pts === undefined ? html`<div class="sk" style="height:56px"></div>` : pts && pts.length > 1 ? nwLine(pts, d! >= 0 ? 'var(--good)' : 'var(--spend)') : '';
   return html`<section class="panel stat nw"><div class="panel-head"><a class="eyebrow nw-tl" href="#/timeline" title="Open the timeline">Net worth<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>${nwSeg()}</div><div class="big num go-num${netWorth < 0 ? ' negative' : ''}" data-count="${netWorth}" data-go="#/accounts" title="See your accounts">${money0(netWorth)}</div><div class="sub-s">${d === null ? html`&nbsp;` : html`<span class="${d >= 0 ? 'down' : 'up'}">${d >= 0 ? '▲' : '▼'} ${money0(Math.abs(d))}</span> over ${nwWords()}`}</div>${line}</section>`;
@@ -241,9 +246,16 @@ function spendingPanel(cats: CatRow[], future: boolean, all: boolean, count = 6,
   const chart = shareChart(items, html`<span class="eyebrow">Spent</span><strong class="num">${money0(total)}</strong>`, 'Spending by category', { limit: count, ring: tileOpt('spending', 'style') !== 'bars', go: txHref({ type: 'withdrawal' }), rest: '#/categories' });
   return html`<section class="panel"><h2>Where it went</h2><p class="lead">Spending by category ${all ? 'of all time' : 'this month'}${cmp ? ', against last month' : ''}</p>${chart || html`<p class="empty">${future ? 'This month hasn’t started yet.' : 'No spending recorded ' + (all ? 'yet.' : 'this month.')}</p>`}</section>`;
 }
+// A card row: the whole row opens the account; Pay now (owed > 0) opens a transfer to the card for what is owed, like Pay now on a bill
+export function payRow(a: Account, v: number, paidOff: boolean, sparks: any = {}, nv = v) {      // nv: the same figure in the account's own currency
+  const main = html`<span class="name">${a.name}</span>${sparks[a.id] ? App.sparkline(sparks[a.id], paidOff) : ''}<span class="num">${paidOff && !v ? html`<span class="down">Paid off</span>` : acctAmt(a, nv, v)}</span>`;
+  if (!(paidOff && v > 0)) return html`<a class="row" href="#/account/${a.id}">${main}</a>`;
+  return html`<div class="row payrow"><a class="rowmain" href="#/account/${a.id}">${main}</a><button type="button" class="btn small primary" data-onclick="App.cardPay('${a.id}')" aria-label="Pay ${a.name} now">Pay now</button></div>`;
+}
 function balancesPanel(title: string, lead: string, items: Account[], val: (a: Account) => number, paidOff: boolean, sparks: any = {}, invest: Account[] = []) {
-  const rows = htmlList([...items].sort((a, b) => val(b) - val(a)).map(a => html`<a class="row" href="#/account/${a.id}"><span class="name">${a.name}</span>${sparks[a.id] ? App.sparkline(sparks[a.id], paidOff) : ''}<span class="num">${paidOff && !val(a) ? html`<span class="down">Paid off</span>` : money(val(a))}</span></a>`));
-  return html`<section class="panel"><h2>${title}</h2><p class="lead">${lead}</p>${items.length ? html`<div class="total num">${money0(items.reduce((s, a) => s + val(a), 0))}</div><div class="list">${rows}</div>` : html`<p class="empty">None yet.</p>`}${invest.length ? html`<a class="row" href="#/accounts" style="margin-top:6px;padding-top:10px;border-top:1px solid var(--line);text-decoration:none;color:inherit"><span class="name">Investments</span><span class="num neutral" style="text-decoration:none">${money0(invest.reduce((s, a) => s + val(a), 0))}</span></a>` : ''}</section>`;
+  const rows = htmlList([...items].sort((a, b) => val(b) - val(a)).map(a => payRow(a, val(a), paidOff, sparks, a.nat ? val({ ...a, ...a.nat }) : val(a))));
+  const left = [...new Set([...items, ...invest].filter(a => a.unconv).map(a => a.currency))];
+  return html`<section class="panel"><h2>${title}</h2><p class="lead">${lead}</p>${items.length ? html`<div class="total num">${money0(items.reduce((s, a) => s + val(a), 0))}</div>${left.length ? html`<p class="sub-s fx-left">Leaves out ${left.join(', ')} (not converted)</p>` : ''}<div class="list">${rows}</div>` : html`<p class="empty">None yet.</p>`}${invest.length ? html`<a class="row" href="#/accounts" style="margin-top:6px;padding-top:10px;border-top:1px solid var(--line);text-decoration:none;color:inherit"><span class="name">Investments</span><span class="num neutral" style="text-decoration:none">${money0(invest.reduce((s, a) => s + val(a), 0))}</span></a>` : ''}</section>`;
 }
 function loansPanel(loans: Account[], prog: any = {}) {
   // The biggest four; the rest are a tap away on Loans, so one long list doesn't set the height of its whole row
@@ -262,7 +274,7 @@ function loansPanel(loans: Account[], prog: any = {}) {
     else if (pr.monthly > 0) bits.push(money0(pr.monthly) + '/mo doesn’t cover the interest');
     else if (l.debt) bits.push('no payments in the last 3 months');
     if (!l.debt) bits.push('Paid off');
-    return html`<div style="padding:11px 0;border-top:1px solid var(--line)"><a class="row" href="#/account/${l.id}" style="text-decoration:none"><span class="name">${l.name}</span><span class="num">${money0(l.debt)}</span></a>${paid ? html`<div class="track"><div class="fill good" style="width:${paid.toFixed(1)}%"></div></div>` : ''}<div class="sub-s">${bits.join(' · ')}</div></div>`;
+    return html`<div style="padding:11px 0;border-top:1px solid var(--line)"><a class="row" href="#/account/${l.id}" style="text-decoration:none"><span class="name">${l.name}</span><span class="num">${acctAmt(l, (l.nat || l).debt, l.debt, money0)}</span></a>${paid ? html`<div class="track"><div class="fill good" style="width:${paid.toFixed(1)}%"></div></div>` : ''}<div class="sub-s">${bits.join(' · ')}</div></div>`;
   }));
   return html`<section class="panel"><div class="panel-head"><h2>Loans</h2><a class="link" href="#/loans">Plan payoff</a></div><p class="lead">Remaining balance and payoff progress</p>${loans.length ? html`<div class="total num" style="margin-bottom:4px">${money0(loans.reduce((s, l) => s + l.debt, 0))}</div><div class="loan-rows">${rows}${more ? html`<a class="row more" href="#/loans" style="padding:11px 0;border-top:1px solid var(--line)"><span class="name">${more} more</span><span class="neutral">→</span></a>` : ''}</div>` : html`<p class="empty">No loans.</p>`}</section>`;
 }
@@ -288,23 +300,23 @@ function cashFlowAs(trend: CashMonth[], style: string) {
 }
 // Spending pace: where this month's running total is against the same day last month, and where it's heading
 function pacePanel(cur: Period, prev: Period, now: { date: string, total: number }[], before: { date: string, total: number }[]) {
-  const daysIn = (x: Period) => new Date(x.y!, x.m! + 1, 0).getDate();
-  const byDay = (gs: { date: string, total: number }[], n: number) => { const v = Array(n).fill(0); gs.forEach(g => { const d = +String(g.date).slice(8, 10); if (d >= 1 && d <= n) v[d - 1] += g.total; }); return v; };
-  const dim = daysIn(cur), t = todayIso(), sofar = cur.start.slice(0, 7) === t.slice(0, 7) ? +t.slice(8, 10) : t < cur.start ? 0 : dim;
-  const inMonth = (m: Period) => before.filter(g => String(g.date).slice(0, 7) === m.start.slice(0, 7)), older = [2, 3].map(k => monthRange(cur.y!, cur.m! - k));
-  const a = byDay(now, dim).slice(0, sofar), b = byDay(inMonth(prev), daysIn(prev)), past = [b, ...older.map(m => byDay(inMonth(m), daysIn(m)))];
+  const daysIn = (x: Period) => daysBetween(x.start, x.end) + 1;      // a month can start on any day
+  const byDay = (gs: { date: string, total: number }[], x: Period) => { const n = daysIn(x), v = Array(n).fill(0); gs.forEach(g => { const d = daysBetween(x.start, String(g.date).slice(0, 10)); if (d >= 0 && d < n) v[d] += g.total; }); return v; };
+  const dim = daysIn(cur), t = todayIso(), sofar = t >= cur.start && t <= cur.end ? daysBetween(cur.start, t) + 1 : t < cur.start ? 0 : dim;
+  const inMonth = (m: Period) => before.filter(g => String(g.date).slice(0, 10) >= m.start && String(g.date).slice(0, 10) <= m.end), older = [2, 3].map(k => monthRange(cur.y!, cur.m! - k));
+  const a = byDay(now, cur).slice(0, sofar), b = byDay(inMonth(prev), prev), past = [b, ...older.map(m => byDay(inMonth(m), m))];
   const spent = a.reduce((s, v) => s + v, 0), then = b.slice(0, sofar).reduce((s, v) => s + v, 0), d = spent - then;
   const range = monthEnd(spent, sofar, dim, past), ahead = range ? range.mid : paceForecast(spent, sofar, dim, b);
   // A likely range once there are 3 months to judge by; before that it is an early guess
   const spread = range && !range.low && range.hi - range.lo >= 1 ? html` <span class="sub-s" title="Based on how this method did on your last ${range.months} months">(likely ${money0(range.lo)}–${money0(range.hi)})</span>` : range && range.low ? html` <span class="sub-s" title="Only ${range.months} past month${range.months === 1 ? '' : 's'} to go on">(early guess)</span>` : '';
   const line = !sofar ? 'This month hasn’t started yet.' : !then ? html`<strong class="num">${money0(spent)}</strong> spent so far${ahead ? html` · heading for about <strong class="num">${money0(ahead)}</strong>` : ''}` :
     html`<strong class="num">${money0(spent)}</strong> by day ${sofar}: <span class="${d > 0 ? 'up' : 'down'}">${money0(Math.abs(d))} ${d > 0 ? 'more' : 'less'}</span> than by this day last month${ahead ? html` · heading for about <strong class="num">${money0(ahead)}</strong>${spread}` : ''}`;
-  return html`<section class="panel chart"><h2>Spending pace</h2><p class="lead">${line}</p>${sofar ? paceChart(a, b, dim, [cur.short, prev.short], d => { const iso = cur.start.slice(0, 8) + pad(d); return txHref({ type: 'withdrawal' }, { start: iso, end: iso }); }) : ''}</section>`;
+  return html`<section class="panel chart"><h2>Spending pace</h2><p class="lead">${line}</p>${sofar ? paceChart(a, b, dim, [cur.short, prev.short], d => { const iso = addDays(cur.start, d - 1); return txHref({ type: 'withdrawal' }, { start: iso, end: iso }); }) : ''}</section>`;
 }
 // Savings rate: the share of each month's income you kept
 function savingsRate(trend: CashMonth[]) {
   const pts = trend.map(t => ({ label: t.label, v: t.income > 0 ? Math.round((t.income - t.spend) / t.income * 100) : null, go: t.go, part: !!t.end && !!t.start && t.start <= todayIso() && t.end >= todayIso() }));
-  const fm = fullMonths(trend), all = pts.filter(p => p.v != null) as { v: number }[], part = pts.filter((p, i) => p.v != null && fm.includes(trend[i])) as { v: number }[], got = part.length ? part : all, avg = got.length ? Math.round(got.reduce((s, p) => s + p.v, 0) / got.length) : 0;
+  const fm = fullMonths(trend), all = pts.filter(p => p.v != null) as { v: number }[], part = pts.filter((p, i) => p.v != null && fm.includes(trend[i])) as { v: number }[], got = part.length ? part : all, kept = (got === part ? fm : trend).filter(t => t.income > 0), inc = kept.reduce((s, t) => s + t.income, 0), avg = inc > 0 ? Math.round(kept.reduce((s, t) => s + t.income - t.spend, 0) / inc * 100) : 0;      // total kept ÷ total income, not the mean of the monthly percentages
   return html`<h2>Savings rate</h2><p class="lead">${got.length ? html`How much of each month’s income you kept · <strong>${avg}%</strong> on average` : 'Shows up once income is recorded'}</p>${got.length ? barChart(pts, v => v + '%', 'Share of income kept each month') : ''}`;
 }
 // Category trends: the biggest categories over the chart's months, this month against their usual
@@ -323,14 +335,14 @@ function trendsPanel(labels: string[], months: ApiData[][], ranges: Period[]) {
 // Each budget as a ring of how much of it is used, and what's left
 function budgetsMini(budgets: ApiData[], limits: Record<string, BudgetLimit>, all: boolean, unset = true, cur: Period | null = null) {
   const rows = htmlList(budgets.filter(b => b.attributes.active !== false && (unset || all || limits[String(b.id)])).map(b => {
-    const spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0)), lim = limits[String(b.id)];
+    const spent = spentSum(b), lim = limits[String(b.id)];
     const pct = lim && lim.amount ? spent / lim.amount * 100 : 0, cls = !lim ? '' : pct > 100 ? 'over' : pct >= budgetAlert() ? 'warn' : 'good';
     const sub = lim ? pct > 100 ? html`<span class="up">${money0(spent - lim.amount)} over</span>` : html`${money0(lim.amount - spent)} left` : html`${money0(spent)} spent`;
     return html`<a class="bring" href="#/transactions?budget=${b.id}">${ring(pct, cls, '', lim ? '' : '–')}<span class="name">${b.attributes.name}</span><span class="sub-s num">${sub}</span></a>`;
   }));
   // How many are running ahead of their month (the Budgets page has each one's history and pace)
   const t = todayIso(), ahead = !cur ? 0 : budgets.filter(b => {
-    const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0)), p = b.attributes.active !== false && lim ? budgetPace(spent, lim.amount, cur.start, cur.end, t, budgetAlert()) : null;
+    const lim = limits[String(b.id)], spent = spentSum(b), p = b.attributes.active !== false && lim ? budgetPace(spent, lim.amount, cur.start, cur.end, t, budgetAlert()) : null;
     return p && (p.tone === 'warn' || p.tone === 'over');
   }).length;
   const periodLabel = all ? 'Spent of all time' : cur && !(t >= cur.start && t <= cur.end) ? cur.label : 'This month';
@@ -373,7 +385,7 @@ function billsMini(bills: ApiData[], days = 45, max = 0) {
     .filter(x => x.next && x.next <= end).sort((a, b) => a.next.localeCompare(b.next));
   S.billCache = { ...S.billCache, ...Object.fromEntries(up.map(x => [String(x.b.id), x.b.attributes])) };      // for Pay now
   const more = max && up.length > max ? up.length - max : 0;      // (the tile shows the first few, All bills the rest)
-  const rows = htmlList(up.slice(0, more ? max - 1 : undefined).map(({ b, next }) => html`<div class="row"><span class="name">${b.attributes.name}<br><span class="sub-s">${next < t ? html`<span class="up">Overdue since ${fmtDate(next)}</span>` : 'Due ' + fmtDate(next)}</span></span><span class="bill-end"><span class="num">${money(billAmount(b.attributes))}</span>${!(b.attributes.paid_dates || []).length ? html`<button class="btn small primary" data-onclick="App.billPay('${b.id}')">Pay now</button>` : ''}</span></div>`));
+  const rows = htmlList(up.slice(0, more ? max - 1 : undefined).map(({ b, next }) => html`<div class="row"><span class="name">${b.attributes.name}<br><span class="sub-s">${next < t ? html`<span class="up">Overdue since ${fmtDate(next)}</span>` : 'Due ' + fmtDate(next)}</span></span><span class="bill-end"><span class="num">${money(billAmount(b.attributes))}</span>${billDueDates(b.attributes)[0] ? html`<button class="btn small primary" data-onclick="App.billPay('${b.id}')">Pay now</button>` : ''}</span></div>`));
   return html`<section class="panel"><div class="panel-head"><h2>Coming up</h2><a class="link" href="#/bills">All bills</a></div><p class="lead">Bills due in the next ${Math.min(45, days)} days</p>${rows ? html`<div class="list">${rows}${more ? html`<a class="row more" href="#/bills"><span class="name">${more + 1} more</span><span class="neutral">→</span></a>` : ''}</div>` : html`<p class="empty">Nothing due soon.</p>`}</section>`;
 }
 

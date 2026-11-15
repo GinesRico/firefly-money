@@ -1,9 +1,10 @@
 import { Html, html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
-import { App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, nowMonth, num, period, sumDiff, today, todayIso, type Field, viewYM } from '../core/base';
+import { App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, moneyIn, monthRange, nowMonth, num, period, sumDiff, today, todayIso, type Field, viewYM } from '../core/base';
 import { closeDrawer, confirmBox, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
-import { type Group, nameAvatar, normGroup, signed, txRows } from '../core/feed';
+import { type Group, acctAmt, fxEq, nameAvatar, nativeFor, normGroup, txRows } from '../core/feed';
+import { sumPrimary } from '../core/fx';
 import { logoDomain, setLogoSite } from '../core/logo';
 import { LS, addDays, daysBetween } from '../core/helpers';
 import { type Account, invalidate, isAsset, isCard, isLiab, lists, normAccount, planText, stripPlan, withPlan } from '../core/lists';
@@ -23,14 +24,20 @@ async function runwayCard(accts: Account[]) {
     return r ? runwayPanel(r) : '';
   } catch (e) { return ''; }
 }
+const ownAmt = acctAmt;
+// A group's total in the main currency, added in whole cents (core/fx.ts). Accounts with no rate are left out, and the total says so.
+function groupTotal(items: Account[], pick: (x: { balance: number, debt: number }) => number) {
+  const t = sumPrimary(items.map(a => ({ amount: pick(a.nat || a), code: a.currency })));
+  return { text: money(t.total), note: t.left.length ? ' · leaves out ' + t.left.join(', ') + ' (not converted)' : '' };
+}
 function fundMonths(v: string) { LS.set('fundMonths', +v || 6); route(); }
 VIEWS.accounts = async (r, paint) => {
   const L = await lists(true);
-  const tab = r.q.tab || 'assets';
+  const tab = ['assets', 'cards', 'liabilities', 'expense', 'revenue'].includes(r.q.tab) ? r.q.tab : 'assets';      // from the address bar: only a known tab, it ends up in a click handler
   const [prog, runwayHtml] = await Promise.all([tab === 'liabilities' ? loanHistory(L.accounts.filter(isLiab)) : {}, tab === 'assets' ? runwayCard(L.accounts) : '']) as [Record<string, any>, Html | string];
   // Payees and income sources show how much went through each one in the period picked at the top
   const flow = tab === 'expense' || tab === 'revenue', cur = period(), sums: Record<string, number> = {};
-  if (flow) for (const x of arr(await api(tab === 'expense' ? '/insight/expense/expense' : '/insight/income/revenue', { params: { start: cur.start, end: cur.end } }).catch(() => []))) sums[x.id] = (sums[x.id] || 0) + absDiff(x);
+  if (flow) for (const x of arr(await insight(tab === 'expense' ? '/insight/expense/expense' : '/insight/income/revenue', { start: cur.start, end: cur.end }).catch(() => []))) sums[x.id] = (sums[x.id] || 0) + absDiff(x);
   const show = r.q.inactive === '1';
   const sets: Record<string, Account[]> = {
     assets: L.accounts.filter(a => isAsset(a) && !isCard(a)), cards: L.accounts.filter(isCard), liabilities: L.accounts.filter(isLiab),
@@ -42,17 +49,17 @@ VIEWS.accounts = async (r, paint) => {
   let cols: Html, row: (a: Account) => Html, total = '';
   if (tab === 'assets') {
     cols = html`<th>Name</th><th class="hide-s">Type</th><th class="r">Balance</th>`;
-    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${ROLE_LABEL[a.role] || a.role}</td><td class="amt">${money(a.balance)}</td>`;
-    total = money(items.reduce((s, a) => s + a.balance, 0)) + ' total';
+    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${ROLE_LABEL[a.role] || a.role}</td><td class="amt">${ownAmt(a, (a.nat || a).balance, a.balance)}</td>`;
+    const t = groupTotal(items, x => x.balance); total = t.text + ' total' + t.note;
   } else if (tab === 'cards') {
     cols = html`<th>Name</th><th class="hide-s">Payment due</th><th class="r">Owed</th>`;
-    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${a.paymentDate ? 'Day ' + new Date(String(a.paymentDate).slice(0, 10) + 'T12:00:00').getDate() + ' of the month' : '—'}</td><td class="amt">${a.balance < 0 ? money(-a.balance) : html`<span class="pos">Paid off</span>`}</td>`;
-    total = money(items.reduce((s, a) => s + Math.max(0, -a.balance), 0)) + ' owed in total';
+    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${a.paymentDate ? 'Day ' + new Date(String(a.paymentDate).slice(0, 10) + 'T12:00:00').getDate() + ' of the month' : '—'}</td><td class="amt">${(a.nat || a).balance < 0 ? ownAmt(a, -(a.nat || a).balance, -a.balance) : html`<span class="pos">Paid off</span>`}</td>`;
+    const t = groupTotal(items, x => Math.max(0, -x.balance)); total = t.text + ' owed in total' + t.note;
   } else if (tab === 'liabilities') {
     cols = html`<th>Name</th><th class="hide-s">Paid off</th><th class="hide-s">Interest</th><th class="r">Remaining</th>`;
-    row = a => { const pr = prog[a.id] || {}; return html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span><div class="sub-s" style="text-transform:capitalize">${a.liabType}</div></td><td class="hide-s" style="min-width:200px">${pr.pct != null ? html`<div class="track" style="max-width:220px"><div class="fill good" style="width:${(a.debt ? pr.pct : 100).toFixed(1)}%"></div></div><div class="sub-s">${a.debt ? pr.pct.toFixed(0) + '% · ' + money0(pr.repaid) + ' of ' + money0(pr.borrowed) : 'Paid off'}</div>` : html`<span class="neutral">—</span>`}</td><td class="hide-s neutral">${num(a.interest) ? num(a.interest) + '% ' + a.interestPeriod : '—'}</td><td class="amt">${money(a.debt)}</td>`; };
+    row = a => { const pr = prog[a.id] || {}; return html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span><div class="sub-s" style="text-transform:capitalize">${a.liabType}</div></td><td class="hide-s" style="min-width:200px">${pr.pct != null ? html`<div class="track" style="max-width:220px"><div class="fill good" style="width:${(a.debt ? pr.pct : 100).toFixed(1)}%"></div></div><div class="sub-s">${a.debt ? pr.pct.toFixed(0) + '% · ' + money0(pr.repaid) + ' of ' + money0(pr.borrowed) : 'Paid off'}</div>` : html`<span class="neutral">—</span>`}</td><td class="hide-s neutral">${num(a.interest) ? num(a.interest) + '% ' + a.interestPeriod : '—'}</td><td class="amt">${ownAmt(a, (a.nat || a).debt, a.debt)}</td>`; };
     const paid = items.reduce((t, a) => t + ((prog[a.id] || {}).interest || 0), 0);
-    total = money(items.reduce((s, a) => s + a.debt, 0)) + ' owed in total' + (paid >= 1 ? ' · ' + money0(paid) + ' interest paid so far' : '');
+    const t = groupTotal(items, x => x.debt); total = t.text + ' owed in total' + t.note + (paid >= 1 ? ' · ' + money0(paid) + ' interest paid so far' : '');
   } else {
     const used = items.filter(a => sums[a.id]).length, when = cur.all ? 'all time' : 'in ' + cur.label;
     cols = html`<th>Name</th><th class="r">${tab === 'expense' ? 'Spent' : 'Received'} ${cur.all ? 'all time' : 'in ' + cur.short}</th>`;
@@ -84,20 +91,82 @@ VIEWS.account = async (r, paint) => {
   const groups = txs.map(normGroup).sort((x, y) => String(y.date).localeCompare(String(x.date)));
   const kind = isCard(a) ? 'card' : isLiab(a) ? 'liability' : a.type;
   const own = isAsset(a) || isLiab(a);
-  const headline = isCard(a) ? (a.balance < 0 ? money(-a.balance) + ' owed' : 'Paid off') : isLiab(a) ? money(a.debt) + ' remaining' : own ? money(a.balance) : '';
-  const inflow = groups.reduce((s, g) => s + Math.max(0, signed(g, a.id)), 0);
-  // For a loan, "Borrowed" should be the principal that reached the borrower, not interest charged against it
+
+  // One account: always its own currency, with the main-currency figure beside it
+  const n = a.nat || a;
+  const cm = (v: number) => moneyIn(v, own ? a.currency : '');
+  const eq = a.nat
+    ? html` ${fxEq(isLiab(a) ? a.debt : a.balance, a.unconv)}`
+    : '';
+
+  const headline = isCard(a)
+    ? (n.balance < 0
+        ? html`${cm(-n.balance)} owed${eq}`
+        : n.balance > 0
+          ? html`${cm(n.balance)} in credit${eq}`
+          : 'Paid off')
+    : isLiab(a)
+      ? html`${cm(n.debt)} remaining${eq}`
+      : own
+        ? html`${cm(n.balance)}${eq}`
+        : '';
+
+  const signed = (g: Group, id: string) =>
+    own
+      ? g.splits.reduce((s, x) =>
+          s + (x.source_id === id
+            ? -nativeFor(x, a.currency)
+            : x.destination_id === id
+              ? nativeFor(x, a.currency)
+              : 0), 0)
+      : g.splits.reduce((s, x) =>
+          s + (x.source_id === id
+            ? -x.amount
+            : x.destination_id === id
+              ? x.amount
+              : 0), 0);
+
+  const inflow = groups.reduce(
+    (s, g) => s + Math.max(0, signed(g, a.id)), 0
+  );
+
+  // For loans, borrowed principal should exclude interest charges.
   const outflow = isLiab(a)
-    ? groups.flatMap(g => g.splits).reduce((s, sp) => s + (sp.source_id === a.id && !(INTEREST_RE.test(sp.description) || INTEREST_RE.test(sp.destination_name)) ? sp.amount : 0), 0)
-    : groups.reduce((s, g) => s + Math.max(0, -signed(g, a.id)), 0);
-  const subtitle = html`<span style="text-transform:capitalize">${isCard(a) ? 'Credit card' : isLiab(a) ? (a.liabType || 'Liability') : a.type === 'expense' ? 'Payee' : a.type === 'revenue' ? 'Income source' : (ROLE_LABEL[a.role] || 'Account')}</span>${a.active ? '' : ' · inactive'}${a.number ? ' · ' + a.number : ''}${isLiab(a) ? (a.plan && a.plan.amount ? ' · pays ' + planText(a.plan) : html` · <button class="link" data-onclick="App.accountForm('${a.id}','liability')">set a monthly payment</button>`) : ''}`;
+    ? groups.flatMap(g => g.splits).reduce(
+        (s, sp) =>
+          s + (
+            sp.source_id === a.id &&
+            !(INTEREST_RE.test(sp.description) ||
+              INTEREST_RE.test(sp.destination_name))
+              ? nativeFor(sp, a.currency)
+              : 0
+          ), 0
+      )
+    : groups.reduce(
+        (s, g) => s + Math.max(0, -signed(g, a.id)), 0
+      );
+
+  const subtitle = html`<span style="text-transform:capitalize">${
+    isCard(a) ? 'Credit card'
+      : isLiab(a) ? (a.liabType || 'Liability')
+      : a.type === 'expense' ? 'Payee'
+      : a.type === 'revenue' ? 'Income source'
+      : (ROLE_LABEL[a.role] || 'Account')
+  }</span>${a.active ? '' : ' · inactive'}${a.number ? ' · ' + a.number : ''}${
+    isLiab(a)
+      ? ((n.plan && n.plan.amount)
+          ? ' · pays ' + planText(n.plan, a.currency)
+          : html` · <button class="link" data-onclick="App.accountForm('${a.id}','liability')">set a monthly payment</button>`)
+      : ''
+  }`;
+
   const PER = 50, pages = Math.max(1, Math.ceil(groups.length / PER));
   const shown = groups.slice(0, PER);
   if (paint.live) S.feed = { next: 2, pages, opts: { accountId: own ? a.id : '' }, more: async n => groups.slice((n - 1) * PER, n * PER) };
   const rangeBtn = (k: string, l: string) => html`<button type="button" class="${range === k ? 'on' : ''}" data-onclick="App.pickRange('${hashWith({ range: k, page: '', start: '', end: '' })}')">${l}</button>`;
   const owedStyle = isLiab(a) || isCard(a);
   paint(
-    html`<p style="margin:0 0 6px"><a class="link" href="#/accounts">← Accounts</a></p>${head(a.name, subtitle, html`${range === 'month' ? monthNav() : ''}${own ? html`<button class="btn" data-onclick="App.newTxFor('${a.id}')">+ Transaction</button>` : ''}${isAsset(a) || isLiab(a) ? html`<a class="btn" href="#/reconcile/${a.id}">Reconcile</a>` : ''}<button class="btn" data-onclick="App.accountForm('${a.id}','${kind}')">Edit</button>`)}<div class="seg" style="margin:-8px 0 20px">${rangeBtn('month', 'Month')}${rangeBtn('year', 'Last 12 months')}${rangeBtn('all', 'All time')}${dates ? html`<button type="button" class="on">${datesLabel}</button>` : ''}</div><div class="kpis">${own ? html`<div class="kpi"><div class="eyebrow">${owedStyle ? 'Balance' : 'Current balance'}</div><div class="val num">${headline}</div></div><div class="kpi"><div class="eyebrow">${isLiab(a) ? 'Paid' : 'In'} · ${period.short}</div><div class="val num pos">${money(inflow)}</div></div><div class="kpi"><div class="eyebrow">${isLiab(a) ? 'Borrowed' : 'Out'} · ${period.short}</div><div class="val num neg">${money(outflow)}</div></div>`
+    html`<p style="margin:0 0 6px"><a class="link" href="#/accounts">← Accounts</a></p>${head(a.name, subtitle, html`${range === 'month' ? monthNav() : ''}${own ? html`<button class="btn" data-onclick="App.newTxFor('${a.id}')">+ Transaction</button>` : ''}${isAsset(a) || isLiab(a) ? html`<a class="btn" href="#/reconcile/${a.id}">Reconcile</a>` : ''}<button class="btn" data-onclick="App.accountForm('${a.id}','${kind}')">Edit</button>`)}<div class="seg" style="margin:-8px 0 20px">${rangeBtn('month', 'Month')}${rangeBtn('year', 'Last 12 months')}${rangeBtn('all', 'All time')}${dates ? html`<button type="button" class="on">${datesLabel}</button>` : ''}</div><div class="kpis">${own ? html`<div class="kpi"><div class="eyebrow">${owedStyle ? 'Balance' : 'Current balance'}</div><div class="val num">${headline}</div></div><div class="kpi"><div class="eyebrow">${isLiab(a) ? 'Paid' : 'In'} · ${period.short}</div><div class="val num pos">${cm(inflow)}</div></div><div class="kpi"><div class="eyebrow">${isLiab(a) ? 'Borrowed' : 'Out'} · ${period.short}</div><div class="val num neg">${cm(outflow)}</div></div>`
       : html`<div class="kpi"><div class="eyebrow">${a.type === 'revenue' ? 'Received' : 'Spent'} · ${period.short}</div><div class="val num ${a.type === 'revenue' ? 'pos' : 'neg'}">${money(a.type === 'revenue' ? outflow : inflow)}</div></div>`}<div class="kpi"><div class="eyebrow">Transactions</div><div class="val num">${groups.length}</div></div></div>${year ? payeePanel(a, year.map(normGroup)) : ''}${own ? html`<section class="panel chart" style="margin-bottom:20px"><h2>${owedStyle && isLiab(a) ? 'Amount owed' : 'Balance'} · ${period.label}</h2><p class="lead">After each transaction</p>${balanceChart(groups, a, range)}</section>` : ''}${stripPlan(a.notes) ? html`<section class="panel" style="margin-bottom:20px"><h2>Notes</h2><p style="margin:6px 0 0;white-space:pre-wrap">${stripPlan(a.notes)}</p></section>` : ''}<section class="panel flush">${txRows(shown, { accountId: own ? a.id : '', empty: 'No transactions in ' + period.label + '.' })}${pages > 1 ? html`<div class="more" id="feedMore"><span class="spin"></span>Loading older transactions…</div>` : ''}</section>`);
 };
 /* ---------- A payee's (or income source's) year: monthly totals, how often, typical amount, categories ---------- */
@@ -132,7 +201,7 @@ function balanceChart(groups: Group[], a: Account, range: string) {
     let after: number | null = null;
     if (s.source_id === a.id && s.sba != null) after = num(s.sba);
     else if (s.destination_id === a.id && s.dba != null) after = num(s.dba);
-    if (after !== null) pts.push({ d, v: owed ? -after : after, desc: s.description, amt: s.source_id === a.id ? -s.amount : s.amount, gid });
+    if (after !== null) pts.push({ d, v: owed ? -after : after, desc: s.description, amt: s.source_id === a.id ? -nativeFor(s, a.currency) : nativeFor(s, a.currency), gid });
   });
   if (!pts.length) return html`<p class="empty">No activity in this period.</p>`;
   const W = innerWidth < 600 ? 420 : 960, H = 190, pl = 6, pr = 6, pt = 26, pb = 26;
@@ -143,11 +212,11 @@ function balanceChart(groups: Group[], a: Account, range: string) {
   const y = (v: number) => pt + (H - pt - pb) * (1 - (v - lo) / span);
   let path = '';
   pts.forEach((p, i) => { path += (i ? ' H' + x(i).toFixed(1) + ' V' : 'M' + x(i).toFixed(1) + ' ') + y(p.v).toFixed(1); });
-  const tip = (p: { d: string, v: number, desc: string, amt: number, gid: string }) => { const ch = owed ? -p.amt : p.amt; return fmtDate(p.d) + '\n' + p.desc + '\n' + (ch > 0 ? '+' : '') + money(ch) + '  →  ' + money(p.v) + (owed ? ' owed' : ''); };
+  const tip = (p: { d: string, v: number, desc: string, amt: number, gid: string }) => { const ch = owed ? -p.amt : p.amt; return fmtDate(p.d) + '\n' + p.desc + '\n' + (ch > 0 ? '+' : '') + moneyIn(ch, a.currency) + '  →  ' + moneyIn(p.v, a.currency) + (owed ? ' owed' : ''); };
   const dots = htmlList(pts.map((p, i) => html`<g class="pt" data-tip="${tip(p)}" data-go="${'tx:' + p.gid}"><circle cx="${x(i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="${n > 150 ? 6 : 11}" fill="transparent"/>${n <= 150 ? html`<circle class="dot" cx="${x(i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="3.5" fill="var(--good)"/>` : ''}</g>`));
   const zero = lo < 0 && hi > 0 ? html`<line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)" stroke-dasharray="4 4"/>` : '';
   const fd = long ? fmtDate : fmtDay;
-  return html`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Balance over time">${zero}<path d="${path}" fill="none" stroke="var(--good)" stroke-width="2"/>${dots}<text x="${pl}" y="${H - 6}">${fd(pts[0].d)}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">${fd(pts[n - 1].d)}</text><text x="${pl}" y="14">${owed ? 'Highest owed ' : 'High '}${money0(hi)}</text></svg>`;
+  return html`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Balance over time">${zero}<path d="${path}" fill="none" stroke="var(--good)" stroke-width="2"/>${dots}<text x="${pl}" y="${H - 6}">${fd(pts[0].d)}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end">${fd(pts[n - 1].d)}</text><text x="${pl}" y="14">${owed ? 'Highest owed ' : 'High '}${a.nat ? moneyIn(hi, a.currency) : money0(hi)}</text></svg>`;
 }
 async function accountForm(id: string | null, kind: string) {
   const L = await lists();
@@ -163,18 +232,18 @@ async function accountForm(id: string | null, kind: string) {
     f = html`${f}<label>Account number (optional)<input type="text" id="a-number" value="${a ? a.number : ''}"></label>`;
     if (!id) f = html`${f}<div class="grid2"><label>Starting balance<input type="number" step="0.01" id="a-open" placeholder="0.00"></label><label>As of<input type="date" id="a-opendate" value="${todayIso()}"></label></div>`;
   } else if (k === 'card') {
-    f = html`${f}<label>Payment due date<input type="date" id="a-paydate" value="${a && a.paymentDate ? String(a.paymentDate).slice(0, 10) : todayIso()}" required></label><p class="hint">Only the day of the month matters.</p>`;
+    f = html`${f}<label>Payment due date<input type="date" id="a-paydate" value="${a && a.paymentDate ? String(a.paymentDate).slice(0, 10) : id ? '' : todayIso()}"${id ? '' : ' required'}></label><p class="hint">Only the day of the month matters.</p>`;
     if (!id) f = html`${f}<div class="grid2"><label>Amount owed now<input type="number" step="0.01" min="0" id="a-open" placeholder="0.00"></label><label>As of<input type="date" id="a-opendate" value="${todayIso()}"></label></div>`;
   } else if (k === 'liability') {
     f = html`${f}<label>Type<select id="a-ltype">${htmlList([['loan', 'Loan'], ['debt', 'Debt'], ['mortgage', 'Mortgage']].map(([v, l]) => opt(v, l, a ? a.liabType : 'loan')))}</select></label>`;
     if (!id) f = html`${f}<div class="grid2"><label>Amount you owe<input type="number" step="0.01" min="0.01" id="a-open" required></label><label>As of<input type="date" id="a-opendate" value="${todayIso()}" required></label></div>`;
     f = html`${f}<div class="grid2"><label>Interest %<input type="number" step="0.001" min="0" id="a-interest" value="${a ? num(a.interest) || '' : ''}" placeholder="0"></label><label>Per<select id="a-iperiod">${htmlList(['monthly', 'yearly', 'weekly', 'daily', 'quarterly', 'half-year'].map(v => opt(v, v, a ? a.interestPeriod || 'monthly' : 'monthly')))}</select></label></div>`;
-    const pl: { amount?: number, day?: number | null, from?: string } = (a && a.plan) || {};
+    const pl: { amount?: number, day?: number | null, from?: string } = (a && (a.nat ? a.nat.plan : a.plan)) || {};      // as written in the notes, in the loan's own currency: this is saved back
     f = html`${f}<div class="grid2"><label>Monthly payment<input type="number" step="0.01" min="0" id="a-pamt" value="${pl.amount || ''}" placeholder="e.g. 500"></label><label>Due day of the month<input type="number" min="1" max="31" step="1" id="a-pday" value="${pl.day || ''}" placeholder="e.g. 30"></label></div><label>Paid from<select id="a-pfrom">${opt('', 'Not set', pl.from || '')}${htmlList(L.own.filter(x => !isLiab(x)).map(x => opt(x.name, x.name, pl.from || '')))}</select></label><p class="hint">Used by the Overview, Forecast and Loan planner. Saved in the loan’s notes in Firefly.</p>`;
   }
   if (id && (k === 'asset' || k === 'card' || k === 'liability')) {
-    const ob = k === 'asset' ? a!.opening : Math.abs(a!.opening);
-    f = html`${f}<div class="grid2"><label>${k === 'asset' ? 'Opening balance' : 'Opening amount owed'}<input type="number" step="0.01" id="a-open" value="${a!.opening ? ob : ''}" placeholder="None"></label><label>Opening date<input type="date" id="a-opendate" value="${a!.openingDate ? String(a!.openingDate).slice(0, 10) : ''}"></label></div>`;
+    const open = (a!.nat || a!).opening, ob = k === 'asset' ? open : Math.abs(open);      // as Firefly has it, in the account's currency: this is saved back
+    f = html`${f}<div class="grid2"><label>${k === 'asset' ? 'Opening balance' : 'Opening amount owed'}<input type="number" step="0.01" id="a-open" value="${open ? ob : ''}" placeholder="None"></label><label>Opening date<input type="date" id="a-opendate" value="${a!.openingDate ? String(a!.openingDate).slice(0, 10) : ''}"></label></div>`;
   }
   f = html`${f}<label>Website (for its logo)<input type="text" id="a-site" value="${a ? logoDomain(a.name) : ''}" placeholder="e.g. walmart.com" autocapitalize="off" spellcheck="false"></label><p class="hint">Guessed from the name. Clear it to show initials instead.</p>`;
   f = html`${f}<label>Notes<textarea id="a-notes" rows="3">${a ? (k === 'liability' ? stripPlan(a.notes) : a.notes) : ''}</textarea></label>`;
@@ -191,7 +260,7 @@ async function saveAccount() {
   const site = v('a-site').toLowerCase().replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
   if (site && !/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,12}$/.test(site)) return formError('The website should look like walmart.com.');
   if (kind === 'asset') { b.type = 'asset'; b.account_role = v('a-role'); b.account_number = v('a-number'); }
-  if (kind === 'card') { b.type = 'asset'; b.account_role = 'ccAsset'; b.credit_card_type = 'monthlyFull'; b.monthly_payment_date = v('a-paydate'); }
+  if (kind === 'card') { b.type = 'asset'; b.account_role = 'ccAsset'; b.credit_card_type = 'monthlyFull'; if (v('a-paydate')) b.monthly_payment_date = v('a-paydate'); }
   if (kind === 'liability') {
     b.type = 'liability'; b.liability_type = v('a-ltype');
     // Firefly: 'debit' is a debt you owe, 'credit' one owed to you. Money's loans are debts you owe; an edit keeps whatever
@@ -200,7 +269,7 @@ async function saveAccount() {
     b.interest = v('a-interest') || '0'; b.interest_period = v('a-iperiod');
     const day = parseInt(v('a-pday'), 10);
     if (v('a-pday') && !(day >= 1 && day <= 31)) return formError('The due day must be between 1 and 31.');
-    b.notes = withPlan(b.notes, { amount: num(v('a-pamt')), day: day || null, from: v('a-pfrom') });
+    b.notes = withPlan(b.notes, { amount: num(v('a-pamt')), day: day || null, from: v('a-pfrom') }, id && S.lists && S.lists.byId[id] ? S.lists.byId[id].currency : '');
   }
   if (kind === 'expense' || kind === 'revenue') b.type = kind;
   if (id && el('a-open') && v('a-open') !== '') {

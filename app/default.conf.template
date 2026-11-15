@@ -10,8 +10,10 @@ js_import ingest from ingest.js;
 # Rate limits, per client address. Sign-in attempts: 10 a minute, after a first 5 straight away. API calls:
 # 50 a second with room for bursts of 500, far more than the app sends, so it only stops floods. Behind a
 # reverse proxy every client shares the proxy's address, so these limits are shared too.
-limit_req_zone $binary_remote_addr zone=signin:1m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=signin:1m rate=6r/m;
 limit_req_zone $binary_remote_addr zone=api:2m rate=50r/s;
+# Logos, map tiles and place lookups need no sign-in and are fetched from other servers: their own slower limit, so an open install can't be used as a relay
+limit_req_zone $binary_remote_addr zone=relay:2m rate=15r/s;
 # Payments from the Apple Pay shortcut: 20 a minute is plenty for real taps and stops anyone guessing the key.
 limit_req_zone $binary_remote_addr zone=ingest:1m rate=20r/m;
 limit_req_status 429;
@@ -80,7 +82,7 @@ server {
         add_header X-Content-Type-Options "nosniff";
         limit_except GET { deny all; }
         # No password here, so cap the rate: stops anyone using this server as a free icon or map-tile relay
-        limit_req zone=api burst=500 nodelay;
+        limit_req zone=relay burst=100 nodelay;
     }
     # Map pictures for the Map page (app/src/pages/map.ts), from OpenStreetMap's tile server. This server fetches and
     # keeps them, so the browser never contacts another site, and OpenStreetMap only sees this server (as their
@@ -108,7 +110,7 @@ server {
         add_header Cache-Control "public, max-age=604800";
         add_header X-Content-Type-Options "nosniff";
         limit_except GET { deny all; }
-        limit_req zone=api burst=500 nodelay;
+        limit_req zone=relay burst=100 nodelay;
     }
     # Store lookup for the Map page (app/src/features/stores.ts), only when switched on there: finds a chain's store by
     # its number in OpenStreetMap (Overpass). The query is built here from just the chain pattern and number in the
@@ -136,7 +138,67 @@ server {
         add_header Cache-Control "public, max-age=86400";
         add_header X-Content-Type-Options "nosniff";
         limit_except GET { deny all; }
-        limit_req zone=api burst=20 nodelay;
+        limit_req zone=relay burst=20 nodelay;
+    }
+
+    # Exchange rates for accounts in another currency (app/src/core/fx.ts). This server asks, so the browser never
+    # contacts another site (the page's connect-src stays 'self') and the services only see this server. Neither
+    # needs a key. /fx/a is Frankfurter (the European Central Bank's daily rates) for just the currencies asked for;
+    # /fx/b is open.er-api.com, used for a currency Frankfurter doesn't have or when it can't be reached. Only
+    # three-letter codes fit in the path, so nothing else can be sent on. Kept 15 minutes: the rates change once a day.
+    location ~ "^/fx/a/(?<fxb>[A-Z]{3})/(?<fxs>[A-Z]{3}(,[A-Z]{3}){0,39})$" {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=300s;
+        resolver_timeout 5s;
+        set $fxa "https://api.frankfurter.dev/v1/latest?base=$fxb&symbols=$fxs";
+        proxy_pass $fxa;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.frankfurter.dev;
+        proxy_set_header Cookie "";
+        proxy_set_header Referer "";
+        proxy_set_header Authorization "";
+        proxy_set_header Accept "application/json";
+        proxy_set_header Accept-Encoding "";
+        proxy_set_header User-Agent "Money/1 (self-hosted Firefly III frontend; +https://github.com/Muffy0906/firefly-money)";
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie Cache-Control Expires;
+        proxy_cache tiles;
+        proxy_cache_valid 200 15m;
+        proxy_cache_valid any 1m;
+        proxy_cache_lock on;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        add_header X-Content-Type-Options "nosniff";
+        limit_except GET { deny all; }
+        limit_req zone=relay burst=20 nodelay;
+    }
+    location ~ "^/fx/b/(?<fxb>[A-Z]{3})$" {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=300s;
+        resolver_timeout 5s;
+        set $fxo "https://open.er-api.com/v6/latest/";
+        proxy_pass $fxo$fxb;
+        proxy_ssl_server_name on;
+        proxy_set_header Host open.er-api.com;
+        proxy_set_header Cookie "";
+        proxy_set_header Referer "";
+        proxy_set_header Authorization "";
+        proxy_set_header Accept "application/json";
+        proxy_set_header Accept-Encoding "";
+        proxy_set_header User-Agent "Money/1 (self-hosted Firefly III frontend; +https://github.com/Muffy0906/firefly-money)";
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie Cache-Control Expires;
+        proxy_cache tiles;
+        proxy_cache_valid 200 15m;
+        proxy_cache_valid any 1m;
+        proxy_cache_lock on;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        add_header X-Content-Type-Options "nosniff";
+        limit_except GET { deny all; }
+        limit_req zone=relay burst=20 nodelay;
     }
 
     location @nologo { add_header Cache-Control "public, max-age=86400"; return 404; }

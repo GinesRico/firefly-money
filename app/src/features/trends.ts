@@ -144,7 +144,7 @@ export function rhythm(txs: TTx[], months: TMonth[], fixed = fixedPayees(txs, mo
 }
 
 /* ---------- Drawing ---------- */
-const short$ = (v: number) => v >= 1e6 ? '$' + +(v / 1e6).toFixed(1) + 'm' : v >= 1e3 ? '$' + +(v / 1e3).toFixed(1) + 'k' : '$' + Math.round(v);
+const short$ = (v: number) => { const c = money0(0).replace(/[\d.,\s]/g, ''); return v >= 1e6 ? c + +(v / 1e6).toFixed(1) + 'm' : v >= 1e3 ? c + +(v / 1e3).toFixed(1) + 'k' : c + Math.round(v); };
 const niceMax = (v: number) => { const p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; };
 export const CREEP_COLORS = ['var(--income)', 'var(--muted)', 'var(--spend)'];
 // Income, fixed and everyday spending by month as three lines (the same drawing and text rules as the other line charts)

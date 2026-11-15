@@ -120,7 +120,7 @@ describe('store data files and server', () => {
   it('the OSM proxy is rate-limited, read-only and only takes a chain pattern and a number', () => {
     const conf = readFileSync('app/default.conf.template', 'utf8'), at = conf.indexOf('location ~ "^/osm/');
     const block = conf.slice(at, conf.indexOf('\n    }', at));
-    expect(block).toContain('limit_req zone=api');
+    expect(block).toContain('limit_req zone=relay');
     expect(block).toContain('limit_except GET { deny all; }');
     expect(block).toContain('[a-z0-9.]{2,30}');
     expect(block).toContain('[0-9]{1,6}');

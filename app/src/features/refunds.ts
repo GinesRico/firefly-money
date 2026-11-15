@@ -1,5 +1,6 @@
 import { api, getAll } from '../core/api';
-import { S, arr, num, type ApiData } from '../core/base';
+import { S, arr, type ApiData } from '../core/base';
+import { inPrimary } from '../core/fx';
 import { normGroup } from '../core/feed';
 import { LS } from '../core/helpers';
 
@@ -66,15 +67,15 @@ export function refundsBy(rs: Refund[], key: (r: Refund) => string) {
 export function lessRefunds(res: ApiData, by: Map<string, number>): ApiData[] {
   return arr(res).map(x => {
     const r = by.get(x.name); if (!r) return x;
-    const v = num(x.difference_float ?? x.difference), left = Math.sign(v) * Math.max(0, Math.abs(v) - r);
-    return { ...x, difference: left.toFixed(2), difference_float: left };
+    const v = inPrimary(x.difference ?? x.difference_float, x.currency_code), left = Math.sign(v) * Math.max(0, Math.abs(v) - r);
+    return { ...x, difference: left.toFixed(2), difference_float: left, currency_code: S.currency };      // refunds are in the main currency, so the row is too
   });
 }
 // A one-entry /insight/… total (or no-category, no-budget) less an amount
 export function lessTotal(res: ApiData, amount: number): ApiData[] {
   const xs = arr(res); if (!amount || !xs.length) return xs;
-  const v = num(xs[0].difference_float ?? xs[0].difference), left = Math.sign(v) * Math.max(0, Math.abs(v) - amount);
-  return [{ ...xs[0], difference: left.toFixed(2), difference_float: left }, ...xs.slice(1)];
+  const v = inPrimary(xs[0].difference ?? xs[0].difference_float, xs[0].currency_code), left = Math.sign(v) * Math.max(0, Math.abs(v) - amount);
+  return [{ ...xs[0], difference: left.toFixed(2), difference_float: left, currency_code: S.currency }, ...xs.slice(1)];
 }
 // Budgets (from /budgets) with refunds of their purchases taken off what they spent
 export function budgetsLessRefunds(budgets: ApiData[], rs: Refund[]): ApiData[] {
@@ -82,9 +83,9 @@ export function budgetsLessRefunds(budgets: ApiData[], rs: Refund[]): ApiData[] 
   if (!by.size) return budgets;
   return budgets.map(b => {
     const r = by.get(String(b.id)); if (!r) return b;
-    const spent = (b.attributes.spent || []) as ApiData[], sum = spent.reduce((s, x) => s + num(x.sum), 0);
+    const spent = (b.attributes.spent || []) as ApiData[], sum = spent.reduce((s, x) => s + inPrimary(x.sum, x.currency_code), 0);
     const back = Math.min(r, Math.max(0, -sum));
-    return { ...b, attributes: { ...b.attributes, spent: [...spent, { sum: back.toFixed(2), currency_code: (spent[0] || {}).currency_code }] } };
+    return { ...b, attributes: { ...b.attributes, spent: [...spent, { sum: back.toFixed(2), currency_code: S.currency }] } };
   });
 }
 // An /insight/… answer for start..end with the refunds in rs (which may cover a longer range) taken off spending, and off

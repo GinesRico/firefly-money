@@ -1,8 +1,8 @@
 import { Html, html, htmlList, raw } from '../core/html';
 import { getAll } from '../core/api';
-import { absDiff, type ApiData, App, fmtD, fmtDate, fmtDay, isoDate, leadDays, money, money0, pad, type Period, todayIso, txHref, weekOrder } from '../core/base';
+import { absDiff, type ApiData, App, fmtD, fmtDate, fmtDay, isoDate, leadDays, money, money0, type Period, todayIso, txHref, weekOrder } from '../core/base';
 import { SERIES, normGroup, signed, type Group } from '../core/feed';
-import { addDays, LS } from '../core/helpers';
+import { addDays, LS, daysBetween } from '../core/helpers';
 import type { Account } from '../core/lists';
 
 /* ---------- Shapes the charts share: smooth lines, donuts and progress rings ---------- */
@@ -210,7 +210,7 @@ function sparkline(vals: number[], owed: boolean) {
   return html`<svg class="spark ${hi === lo ? 'flat' : good ? 'good' : 'bad'}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" data-tip="${tip}" aria-hidden="true"><polyline points="${pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}"/><circle cx="${pts[pts.length - 1][0]}" cy="${pts[pts.length - 1][1].toFixed(1)}" r="2"/></svg>`;
 }
 
-/* ---------- Activity grid: a year of days like GitHub's, weeks as columns, darker days cost more ---------- */
+/* ---------- Activity grid: a year of days like GitHub's, weeks as columns, stronger colour = more spent ---------- */
 export type AgDay = { iso: string, v: number, n: number, level: number };
 const AG_WEEKS = 53;
 // The days from the start of the period (at most the last 53 weeks of it, up to today), each with its level 0-4:
@@ -274,7 +274,7 @@ export function activityPanel(buys: { date: string, amount: number }[], start: s
   const priv = !!LS.get('privacy', false);
   const summary = active + ' of ' + days.length + ' days with spending' + (top && top.v ? '; the biggest was ' + fmtDate(top.iso) + (priv ? '' : ' at ' + money0(top.v)) : '');
   const rows = htmlList([...byMonth].map(([m, x]) => html`<tr><td><a href="${txHref({ type: 'withdrawal' }, { start: m + '-01', end: days.filter(d => d.iso.startsWith(m)).pop()!.iso })}">${fmtD(m + '-01', { month: 'long', year: 'numeric' })}</a></td><td class="num">${x.d}</td><td class="num">${x.n}</td><td class="num">${money0(x.v)}</td></tr>`));
-  return html`<section class="panel chart ag-card" aria-label="Activity"><div class="ag-scroll"><div class="ag-wrap" style="--agm:${activityCell(cols)}px"><div class="ag-months" aria-hidden="true">${months}</div><div class="ag-grid" role="img" aria-label="Spending each day, darker means more spent: ${summary}">${cells}</div></div></div><div class="sr-only"><p>${summary}</p><table class="tbl"><caption>Spending by month</caption><thead><tr><th scope="col">Month</th><th scope="col">Days</th><th scope="col">Purchases</th><th scope="col">Spent</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  return html`<section class="panel chart ag-card" aria-label="Activity"><div class="ag-scroll"><div class="ag-wrap" style="--agm:${activityCell(cols)}px"><div class="ag-months" aria-hidden="true">${months}</div><div class="ag-grid" role="img" aria-label="Spending each day, stronger colour means more spent: ${summary}">${cells}</div></div></div><div class="sr-only"><p>${summary}</p><table class="tbl"><caption>Spending by month</caption><thead><tr><th scope="col">Month</th><th scope="col">Days</th><th scope="col">Purchases</th><th scope="col">Spent</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }
 
 /* ---------- Daily spending heatmap ---------- */
@@ -282,12 +282,12 @@ function heatmapPanel(cur: Period, groups: Group[]) {
   const by: Record<string, number> = {}, cnt: Record<string, number> = {};
   groups.forEach(g => { const d = String(g.date).slice(0, 10); by[d] = (by[d] || 0) + g.total; if (g.total > 0) cnt[d] = (cnt[d] || 0) + 1; });     // a refund (negative) comes off the day, it isn't a purchase
   for (const d of Object.keys(by)) if (by[d] <= 0) delete by[d];
-  const dim = new Date(cur.y!, cur.m! + 1, 0).getDate(), lead = leadDays(new Date(cur.y!, cur.m!, 1)), t = todayIso();
+  const dim = daysBetween(cur.start, cur.end) + 1, lead = leadDays(new Date(cur.start + 'T12:00:00')), t = todayIso();      // the month's own days: it can start on any day
   const max = Math.max(1, ...Object.values(by)), days = Object.keys(by).length;
   let cells: Html | string = '';
   for (let i = 0; i < lead; i++) cells = html`${cells}<span class="hm-cell pad"></span>`;
-  for (let d = 1; d <= dim; d++) {
-    const iso = cur.start.slice(0, 8) + pad(d), v = by[iso] || 0, fut = iso > t;
+  for (let i = 0; i < dim; i++) {
+    const iso = addDays(cur.start, i), d = +iso.slice(8, 10), v = by[iso] || 0, fut = iso > t;
     const pct = v ? Math.round(18 + 82 * Math.sqrt(v / max)) : 0;
     const priv = !!LS.get('privacy', false);
     cells = html`${cells}<button type="button" class="hm-cell${fut ? ' fut' : ''}${iso === t ? ' today' : ''}"${v ? html` style="--p:${pct}%"` : ''} data-tip="${fmtDay(iso) + (v ? ' · ' + (priv ? 'hidden' : money(v)) + ' · ' + cnt[iso] + ' purchase' + (cnt[iso] === 1 ? '' : 's') : fut ? '' : ' · nothing spent')}"${v ? html` data-go="${txHref({ type: 'withdrawal' }, { start: iso, end: iso })}"` : ' disabled'}><span>${d}</span></button>`;
@@ -295,8 +295,8 @@ function heatmapPanel(cur: Period, groups: Group[]) {
   // Every month gets six week rows, so the calendar (and the card) is the same height whichever month it shows
   for (let i = lead + dim; i < 42; i++) cells = html`${cells}<span class="hm-cell pad"></span>`;
   const top = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
-  const passed = cur.start.slice(0, 7) === t.slice(0, 7) ? +t.slice(8, 10) : dim, free = Math.max(0, passed - days);
-  return html`<section class="panel"><h2>Daily spending</h2><p class="lead">Darker days cost more · tap one to see it</p><div class="hm"><div class="hm-dow">${htmlList(weekOrder(['S', 'M', 'T', 'W', 'T', 'F', 'S']).map(x => html`<span>${x}</span>`))}</div><div class="hm-grid">${cells}</div></div><div class="hm-foot"><span>${top ? html`Biggest day: <strong class="num">${money0(top[1])}</strong> on ${fmtDay(top[0])}` : 'No spending yet'}</span><span>${free} no-spend day${free === 1 ? '' : 's'}</span></div></section>`;
+  const passed = t >= cur.start && t <= cur.end ? daysBetween(cur.start, t) + 1 : t < cur.start ? 0 : dim, free = Math.max(0, passed - days);
+  return html`<section class="panel"><h2>Daily spending</h2><p class="lead">Stronger colour means more spent · tap a day to see it</p><div class="hm"><div class="hm-dow">${htmlList(weekOrder(['S', 'M', 'T', 'W', 'T', 'F', 'S']).map(x => html`<span>${x}</span>`))}</div><div class="hm-grid">${cells}</div></div><div class="hm-foot"><span>${top ? html`Biggest day: <strong class="num">${money0(top[1])}</strong> on ${fmtDay(top[0])}` : 'No spending yet'}</span><span>${free} no-spend day${free === 1 ? '' : 's'}</span></div></section>`;
 }
 
 /* ---------- Money flow (income → spending categories + kept) ---------- */

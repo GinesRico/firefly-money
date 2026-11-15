@@ -1,5 +1,5 @@
 import { html, htmlList, raw } from '../core/html';
-import { AuthError, PAGES, api, getAll, type ApiError } from '../core/api';
+import { AuthError, CACHE, PAGES, api, clearCache, getAll, type ApiError } from '../core/api';
 import { withAuth } from '../core/auth';
 import { App, cycleDay, el, fmtD, fmtDate, isoDate, money, monthRange, nowMonth, num, S, todayIso, weekStart } from '../core/base';
 import { confirmBox, head, opt, toast } from '../core/dom';
@@ -12,6 +12,8 @@ import { THEMES, themeButtons } from '../core/login';
 import { type Custom, KEY, PHOTO_KEY, SCENES, applyCustom, isHex, lum, readCustom } from '../core/themevars';
 import { type Account, invalidate, isAsset, isLiab, lists, ordinal } from '../core/lists';
 import { VIEWS, route } from '../core/router';
+import { fxStatus } from '../core/fx';
+import { rateText } from '../features/fxnote';
 
 /* Settings: one column of named groups, like iOS Settings. Each group is a panel of rows (a label, a short hint, the
    control). Forms you rarely need (adding a rate, a webhook, a card, exports) and the longer explanations sit in
@@ -47,6 +49,7 @@ VIEWS.settings = async (r, paint) => {
   const months = group('months', 'Months & budgets', html`
     ${row('Month starts on', 'Your payday, if you like', html`<select aria-label="Month starts on" data-onchange="App.setCycleDay(this.value)">${htmlList([...Array(28)].map((_, i) => opt(i + 1, 'the ' + ordinal(i + 1), day)))}</select>`)}
     ${row('Budget warning', 'When a budget is this full', html`<select aria-label="Warn when a budget reaches" data-onchange="App.setBudgetAlert(this.value)">${htmlList([50, 60, 70, 75, 80, 85, 90, 95].map(p => opt(p, p + '%', alertPct)))}</select>`)}
+    ${row('Leave out closed accounts', 'Transactions to or from an inactive account stay out of lists, totals and charts. Its own page still shows them.', html`<input ${SWITCH} aria-label="Leave out closed accounts"${LS.get('hideInactive', false) ? ' checked' : ''} data-onchange="App.toggleHideClosed(this.checked)">`)}
     ${row('Leave out one-offs', 'Spending tagged “One-off” stays out of Spent, trends, pace and reports', html`<input ${SWITCH} aria-label="Leave out one-offs"${skipOneOffs() ? ' checked' : ''} data-onchange="App.toggleOneOffs(this.checked)">`)}`,
     'This month runs ' + fmtDate(ex.start) + ' – ' + fmtDate(ex.end) + '. Budgets, the Overview, recaps and reports all use it.' +
       (day > 1 ? ' Firefly’s own pages still use calendar months, and auto-budgets still reset on the 1st.' : ''));
@@ -75,14 +78,16 @@ VIEWS.settings = async (r, paint) => {
     ${syncOff ? '' : row('Update other devices', 'Send this device’s settings and fetch the others’ now', html`<button class="btn small" type="button" data-onclick="App.syncNow()">Sync now</button>`)}`,
     'Your Overview layout, month start, drafts, saved reports, dismissed insights, forecast, loan plan and subscription choices and theme colors are kept in Firefly III, so they follow you to every device.');
 
-  const showAll = r.q.rates === 'all';
+  const showAll = r.q.rates === 'all', fxs = fxStatus();
   const rateBody = html`${rates && rates.length ? html`<div class="list">${htmlList(rates.slice(0, showAll ? 500 : 6).map(x => { const a = x.attributes; return html`<div class="row"><span class="name">1 ${a.from_currency_code || a.from} = ${num(a.rate)} ${a.to_currency_code || a.to} <span class="sub-s">on ${fmtDate(a.date)}</span></span><button class="link" data-onclick="App.deleteRate('${x.id}')">Remove</button></div>`; }))}</div>${rates.length > 6 ? html`<p style="margin:10px 0 0"><a class="link" href="#/settings?s=currencies${showAll ? '' : '&rates=all'}">${showAll ? 'Show fewer' : 'Show all ' + rates.length + ' rates'}</a></p>` : ''}` : html`<p class="sub-s" style="margin:0">Used to convert foreign amounts in reports. No rates yet.</p>`}<form style="margin-top:14px" data-onsubmit="event.preventDefault();App.addRate(this)"><div class="grid2"><label>From<select name="f">${htmlList(enabled.map(c => opt(c.code, c.code, S.currency)))}</select></label><label>To<select name="t">${htmlList(enabled.map(c => opt(c.code, c.code, (enabled.find(x => x.code !== S.currency) || {}).code)))}</select></label><label>Rate<input type="number" step="any" min="0" name="r" required></label><label>Date<input type="date" name="d" value="${todayIso()}" required></label></div><button class="btn small">Add rate</button></form>`;
   const cur = group('currencies', 'Currencies', html`
     ${htmlList(enabled.map(c => row(html`${c.code} · ${c.name}${c.code === S.currency ? html` <span class="chip good">Main</span>` : ''}`, '',
       c.code !== S.currency ? html`<button class="link" data-onclick="App.currency('${c.code}','primary')">Make main</button><button class="link" data-onclick="App.currency('${c.code}','disable')">Disable</button>` : '')))}
     ${disabled.length ? more('cur-add', 'Enable another currency', '', html`<form class="set-inline" data-onsubmit="event.preventDefault();App.currency(this.c.value,'enable')"><select name="c" aria-label="Currency">${htmlList(disabled.map(c => opt(c.code, c.code + ' · ' + c.name, '')))}</select><button class="btn small">Enable</button></form>`) : ''}
-    ${rates === null ? '' : more('rates', 'Exchange rates', rates.length || '', rateBody, showAll)}`,
-    'Enabled currencies can be used for foreign amounts and accounts.');
+    ${row('Convert foreign currencies in totals', fxs.foreign.length ? 'Net worth and every other total add accounts in ' + fxs.foreign.join(', ') + ' at today’s rate. Off: they are left out of totals.' : 'Used when an account is in another currency. None is right now.', html`<input ${SWITCH} aria-label="Convert foreign currencies in totals"${fxs.on ? ' checked' : ''} data-onchange="App.fxToggle(this.checked)">`)}
+    ${row('Today’s rates', fxs.rows.length ? html`${htmlList(fxs.rows.map(x => html`<span class="fx-rate${x.old ? ' up' : ''}">${rateText(x.code, x.rate)} · ${x.old ? 'last fetched ' : ''}${fmtD(new Date(x.at), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>`))}${fxs.missing.length ? html`<span class="fx-rate up">No rate for ${fxs.missing.join(', ')}</span>` : ''}` : fxs.missing.length ? html`<span class="up">No rate for ${fxs.missing.join(', ')}</span>` : 'Fetched once an hour, only for the currencies your accounts use.', html`<button class="btn small" type="button" data-onclick="App.fxRefresh(this)">Refresh rates</button>`)}
+    ${rates === null ? '' : more('rates', 'Rates saved in Firefly III', rates.length || '', rateBody, showAll)}`,
+    'Enabled currencies can be used for foreign amounts and accounts. Totals use today’s rates from Frankfurter (or open.er-api.com), not the ones saved in Firefly III.');
 
   const yr = new Date().getFullYear();
   const exp = html`<div class="grid2"><label>From (transactions only)<input type="date" id="ex-start" value="${yr - 1}-01-01"></label><label>To<input type="date" id="ex-end" value="${todayIso()}"></label></div><div style="display:flex;flex-wrap:wrap;gap:8px">${htmlList(EXPORTS.map(([k, l]) => html`<button class="btn small" data-onclick="App.exportData('${k}', this)">${l}</button>`))}</div>`;
@@ -375,6 +380,7 @@ function showKey(btn: HTMLElement | null) {
 }
 
 function toggleOneOffs(on: boolean) { LS.set('skipOneOffs', !!on); PAGES.clear(); toast(on ? 'One-offs left out of spending' : 'One-offs counted again'); }
+function toggleHideClosed(on: boolean) { LS.set('hideInactive', !!on); CACHE.clear(); clearCache(); PAGES.clear(); toast(on ? 'Closed accounts left out' : 'Closed accounts counted again'); }
 function toggleLogos(on: boolean) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
 function toggleHaptics(on: boolean) { LS.set('haptics', !!on); if (on) buzz(); toast(on ? 'Haptics on' : 'Haptics off'); }
 // The month start day: stay on the current month, and redraw every page with the new ranges
@@ -402,6 +408,7 @@ const methods = {
   currency,
   toggleLogos,
   toggleOneOffs,
+  toggleHideClosed,
   toggleHaptics,
   toggleWorkLens,
   setLocale,

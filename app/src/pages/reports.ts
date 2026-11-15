@@ -1,9 +1,9 @@
 import { html, htmlList, raw } from '../core/html';
 import { getAll } from '../core/api';
-import { App, absDiff, el, arr, fmtDate, fmtDay, money, money0, monthOf, monthRange, noneHref, nowMonth, num, type Range, sumDiff, todayIso, txHref, type ApiData } from '../core/base';
+import { App, absDiff, el, arr, fmtDate, fmtDay, money, money0, monthOf, monthRange, noneHref, nowMonth, type Range, sumDiff, todayIso, txHref, type ApiData } from '../core/base';
 import { head, ICON_X, opt, toast } from '../core/dom';
 import { LS, addDays, daysBetween, saveBlob } from '../core/helpers';
-import { type Account, isAsset, isLiab, lists } from '../core/lists';
+import { type Account, isAsset, isLiab, lists, normAccount } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
 import { cashFlow } from './overview';
 import { insight, lessRefundTx, refundsIn, type Refund } from '../features/refunds';
@@ -18,7 +18,7 @@ import { trendsHtml } from '../features/trends';
 async function balancesOn(own: Account[], date: string): Promise<(number | null)[]> {
   try {
     const [as, ls] = await Promise.all([getAll('/accounts', { type: 'asset', date }), getAll('/accounts', { type: 'liabilities', date })]);
-    const by = new Map([...as, ...ls].map(x => [String(x.id), num(x.attributes.current_balance)]));
+    const by = new Map([...as, ...ls].map(x => [String(x.id), normAccount(x).balance]));      // in the main currency (core/fx.ts)
     return own.map(a => by.get(String(a.id)) ?? null);
   } catch (e) { return own.map(() => null); }
 }

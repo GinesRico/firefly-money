@@ -1,5 +1,5 @@
 import { type Html, html, htmlList } from '../core/html';
-import { type ApiData, App, type Period, absDiff, arr, el, fmtDay, isoDate, money, money0, monthRange, nowMonth, num, sumDiff, todayIso } from '../core/base';
+import { type ApiData, App, type Period, absDiff, arr, el, fmtDay, isoDate, money, money0, monthRange, nowMonth, sumDiff, todayIso, spentSum } from '../core/base';
 import { ICON_X, vt, vtName } from '../core/dom';
 import { LS, addDays, budgetAlert, daysBetween } from '../core/helpers';
 import { type Account, ordinal } from '../core/lists';
@@ -84,7 +84,7 @@ async function insightCards({ cur: period, future, budgets, limits, cards, trend
   if (isCur) {
     // 3. Budgets on pace to run out before the month ends (ones already near/over the limit show in "Needs attention")
     budgets.filter(b => b.attributes.active !== false).forEach(b => {
-      const lim = limits[String(b.id)], spent = Math.abs((b.attributes.spent || []).reduce((s: number, x: ApiData) => s + num(x.sum), 0));
+      const lim = limits[String(b.id)], spent = spentSum(b);
       if (!lim || !lim.amount || spent >= lim.amount * budgetAlert() / 100 || N < 5) return;
       const perDay = spent / N, runDay = perDay > 0 ? Math.ceil(lim.amount / perDay) : Infinity;
       if (runDay >= dim) return;
