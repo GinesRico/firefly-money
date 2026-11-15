@@ -46,6 +46,15 @@ export function groupUpdate(g: Group, patch: (s: Split) => Record<string, unknow
   return body;
 }
 
+// Firefly keeps an account's opening balance as a transaction in whatever currency the account had when it was made, and
+// changing the account's currency later leaves it there: the account then adds up to 0 in its new currency. These are the
+// opening-balance groups with a part in another currency than `code`, as PUT /transactions/{id} bodies that move them to it
+// (the amount stays as it is: 55,000 stays 55,000).
+export function openingRepairs(groups: Group[], code: string): { id: string, body: Record<string, unknown> }[] {
+  return groups.filter(g => g.splits.some(s => s.type === 'opening balance' && (s.cur || S.currency) !== code))
+    .map(g => ({ id: g.id, body: groupUpdate(g, () => ({ currency_code: code })) }));
+}
+
 // Firefly rejects a location without zoom_level ("Undefined array key zoom_level"), so always send all three.
 export const placeFields = (latitude: number, longitude: number) => ({ latitude, longitude, zoom_level: 16 });
 export const unplaceFields = () => ({ latitude: null, longitude: null, zoom_level: null });

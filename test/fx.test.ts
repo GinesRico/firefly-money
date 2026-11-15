@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { FX, FX_TTL, type FxFetch, convertFromPrimary, convertMinor, convertToPrimary, fromMinor, fxEnsure, fxSetup, fxStatus, inPrimary, readRates, sumPrimary, toMinor } from '../app/src/core/fx';
 import { S, absDiff, moneyIn, spentSum, sumDiff } from '../app/src/core/base';
 import { normAccount, withPlan } from '../app/src/core/lists';
-import { nativeFor, normGroup, signed, signedNative } from '../app/src/core/feed';
+import { nativeFor, normGroup, openingRepairs, signed, signedNative } from '../app/src/core/feed';
 
 const T0 = 1_800_000_000_000;
 const frank = (rates: Record<string, number>) => ({ amount: 1, base: 'USD', date: '2026-11-13', rates });
@@ -232,5 +232,23 @@ describe('loans and card payments in another currency', () => {
     expect(withPlan('', { amount: 8390, day: 5 }, 'INR')).toBe('Monthly payment: 8390.00 on day 5');
     expect(withPlan('', { amount: 500 }, 'USD')).toBe('Monthly payment: $500.00');
     expect(withPlan('', { amount: 500 })).toBe('Monthly payment: $500.00');
+  });
+});
+
+describe('opening balance in the wrong currency', () => {
+  const ob = (cur: string) => normGroup({ id: '9', attributes: { group_title: null, transactions: [{ transaction_journal_id: '5', type: 'opening balance', date: '2026-11-01', amount: '55000', currency_code: cur, description: 'Initial balance', source_id: '1', destination_id: '7' }] } });
+  it('moves a USD opening balance to the account currency, keeping the amount', () => {
+    const r = openingRepairs([ob('USD')], 'INR');
+    expect(r.length).toBe(1);
+    expect(r[0].id).toBe('9');
+    expect(r[0].body.transactions).toEqual([{ currency_code: 'INR', transaction_journal_id: '5' }]);
+  });
+  it('leaves one already in the account currency alone', () => {
+    expect(openingRepairs([ob('INR')], 'INR')).toEqual([]);
+    expect(openingRepairs([ob('USD')], 'USD')).toEqual([]);
+  });
+  it('ignores other transactions', () => {
+    const g = ob('USD'); g.splits[0].type = 'deposit';
+    expect(openingRepairs([g], 'INR')).toEqual([]);
   });
 });
