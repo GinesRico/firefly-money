@@ -227,6 +227,10 @@ async function accountForm(id: string | null, kind: string) {
   let f = html`<form id="accForm" data-onsubmit="event.preventDefault();App.saveAccount()">`;
   if (!id) f = html`${f}<label>Kind of account<select id="a-kind" data-onchange="App.accountForm(null,this.value)">${htmlList(kinds.map(([v, l]) => opt(v, l, k)))}</select></label>`;
   f = html`${f}<label>Name<input type="text" id="a-name" value="${a ? a.name : ''}" required></label>`;
+  if (k === 'asset' || k === 'card' || k === 'liability') {
+    const mine = a ? a.currency || S.currency : S.currency, codes = L.currencies.filter(c => c.enabled || c.code === mine);
+    if (codes.length > 1) f = html`${f}<label>Currency<select id="a-cur">${htmlList(codes.map(c => opt(c.code, c.code + ' · ' + c.name + (c.code === S.currency ? ' (main)' : ''), mine)))}</select></label><p class="hint">Balances show in this currency, with the ${S.currency} value at today’s rate beside them. Enable more currencies in Settings.</p>`;
+  }
   if (k === 'asset') {
     f = html`${f}<label>Type<select id="a-role">${htmlList(['defaultAsset', 'savingAsset', 'sharedAsset', 'cashWalletAsset'].map(v => opt(v, ROLE_LABEL[v], a ? a.role : 'defaultAsset')))}</select></label>`;
     f = html`${f}<label>Account number (optional)<input type="text" id="a-number" value="${a ? a.number : ''}"></label>`;
@@ -269,7 +273,7 @@ async function saveAccount() {
     b.interest = v('a-interest') || '0'; b.interest_period = v('a-iperiod');
     const day = parseInt(v('a-pday'), 10);
     if (v('a-pday') && !(day >= 1 && day <= 31)) return formError('The due day must be between 1 and 31.');
-    b.notes = withPlan(b.notes, { amount: num(v('a-pamt')), day: day || null, from: v('a-pfrom') }, id && S.lists && S.lists.byId[id] ? S.lists.byId[id].currency : '');
+    b.notes = withPlan(b.notes, { amount: num(v('a-pamt')), day: day || null, from: v('a-pfrom') }, v('a-cur') || (id && S.lists && S.lists.byId[id] ? S.lists.byId[id].currency : ''));
   }
   if (kind === 'expense' || kind === 'revenue') b.type = kind;
   if (id && el('a-open') && v('a-open') !== '') {
@@ -283,7 +287,9 @@ async function saveAccount() {
     b.opening_balance = String(kind === 'card' || kind === 'liability' ? -amt : num(v('a-open')));
     b.opening_balance_date = v('a-opendate') || todayIso();
   }
-  if (!id) b.currency_code = S.currency;
+  const curSel = v('a-cur');
+  if (!id) b.currency_code = curSel || S.currency;
+  else if (curSel && curSel !== (S.lists && S.lists.byId[id] ? S.lists.byId[id].currency : curSel)) b.currency_code = curSel;
   if (id) { b.active = el<HTMLInputElement>('a-active').checked; if (el<HTMLInputElement>('a-networth')) b.include_net_worth = el<HTMLInputElement>('a-networth').checked; delete b.type; }
   await busy(el('accSave'), async () => {
     const res = id ? await api('/accounts/' + id, { method: 'PUT', body: b }) : await api('/accounts', { method: 'POST', body: b });
