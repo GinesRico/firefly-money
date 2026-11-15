@@ -57,8 +57,8 @@ export function budgetInsight(months: BMonth[], today: string, alertPct: number)
     if (!gone) { head = 'Not started'; text = 'Nothing spent yet.'; }
     else if (spent > limit) { tone = 'over'; head = 'Went over'; text = money0(spent - limit) + ' over the ' + money0(limit) + ' budget.'; }
     else { tone = 'good'; head = 'Stayed within'; text = money0(limit - spent) + ' to spare of ' + money0(limit) + '.'; }
-  } else if (spent > limit) { tone = 'over'; head = 'Over budget'; text = money0(spent - limit) + ' over with ' + plural(daysLeft, 'day') + ' to go.'; }
-  else if (spent / limit * 100 >= alertPct) { tone = 'warn'; head = 'Nearly used up'; text = Math.round(spent / limit * 100) + '% used with ' + plural(daysLeft, 'day') + ' to go' + (safeDaily != null ? ' · ' + money0(safeDaily) + ' a day to stay within.' : '.'); }
+  } else if (spent > limit) { tone = 'over'; head = 'Over budget'; text = money0(spent - limit) + ' over with ' + plural(daysLeft + 1, 'day') + ' to go.'; }
+  else if (spent / limit * 100 >= alertPct) { tone = 'warn'; head = 'Nearly used up'; text = Math.round(spent / limit * 100) + '% used with ' + plural(daysLeft + 1, 'day') + ' to go' + (safeDaily != null ? ' · ' + money0(safeDaily) + ' a day to stay within.' : '.'); }
   else if (ahead != null && ahead > limit) { tone = 'warn'; head = 'Ahead of pace'; text = 'Heading for ' + money0(ahead) + ' of ' + money0(limit) + (safeDaily != null ? ' · ' + money0(safeDaily) + ' a day keeps you within.' : '.'); }
   else { tone = 'good'; head = 'On track'; text = ahead != null ? 'Heading for about ' + money0(ahead) + ' of ' + money0(limit) + '.' : money0(limit - spent) + ' left of ' + money0(limit) + '.'; }
   return { months, past, live, spent, limit, len, gone, avgSpend, usual, vsUsual, vsLast, ahead, daysLeft, safeDaily, streak, worst, overCount, counted: rated.length, tone, head, text };

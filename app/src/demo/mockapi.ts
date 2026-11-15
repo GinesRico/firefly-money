@@ -26,6 +26,7 @@ type MockSplit = {
   source_id: string, source_name: string, source_type: string, destination_id: string, destination_name: string, destination_type: string,
   category_name: string | null, category_id: string | null, budget_id: string | null, budget_name: string | null, bill_id: string | null, bill_name: string | null, tags: string[], notes: string,
   foreign_amount: string | null, foreign_currency_code: string | null, reconciled: boolean, latitude: number | null, longitude: number | null,
+  source_balance_after: string | null, destination_balance_after: string | null,
 };
 type MockGroup = { id: string, type: 'transactions', attributes: { group_title: string | null, created_at: string, transactions: MockSplit[] } };
 
@@ -108,7 +109,8 @@ export function createMockApi(now = new Date()) {
       transaction_journal_id: gid, type, date: iso(d) + 'T12:00:00-05:00', amount: amt.toFixed(2), description,
       source_id: src, source_name: s.name, source_type: s.type, destination_id: dst, destination_name: t.name, destination_type: t.type,
       category_name: cat, category_id: CAT_ID[cat ?? ''] ?? null, budget_id: BUDGETS[bud ?? ''] ?? null, budget_name: bud, bill_id: bill ? bill[0] : null, bill_name: bill ? bill[1] : null, tags: [], notes: '',
-      foreign_amount: null, foreign_currency_code: null, reconciled: false, latitude: spot ? spot[0] : null, longitude: spot ? spot[1] : null }] } });
+      foreign_amount: null, foreign_currency_code: null, reconciled: false, latitude: spot ? spot[0] : null, longitude: spot ? spot[1] : null,
+      source_balance_after: src in BAL ? BAL[src].toFixed(2) : null, destination_balance_after: dst in BAL ? BAL[dst].toFixed(2) : null }] } });
   };
 
   // Ten years of history, always up to today, in today's money: what things cost now, scaled back for inflation,
@@ -217,6 +219,7 @@ export function createMockApi(now = new Date()) {
     if (last && d < TODAY) addTx(d, 'deposit', r2(BAL['2'] * APY(d) / 1200), 'Interest', '148', '2', 'Interest');
   }
   addTx(TODAY - Math.min(9, td - 1) * DAY, 'withdrawal', 312.40, 'Airline tickets', '3', PID['Online Store'], 'Travel');
+  const airlineGid = String(TX.length);      // so the refund below links to this purchase, not whichever one ends up last
   // For Unusual: a lunch charged twice, a pharmacy bill far above the usual, a large first-time merchant, and a new bakery
   const back = (n: number) => TODAY - Math.min(n, td - 1) * DAY;
   addTx(back(2), 'withdrawal', 18.5, 'Burrito Bar', '3', PID['Burrito Bar'], 'Dining', 'Food'); addTx(back(2), 'withdrawal', 18.5, 'Burrito Bar', '3', PID['Burrito Bar'], 'Dining', 'Food');
@@ -227,7 +230,7 @@ export function createMockApi(now = new Date()) {
   const LINKS: { id: string, type: string, attributes: { link_type_id: string, inward_id: string, outward_id: string } }[] = [];
   addTx(TODAY - Math.min(3, td - 1) * DAY, 'deposit', 80, 'Refund: Airline tickets', '142', '3', 'Travel');
   TX[TX.length - 1].attributes.transactions[0].tags = ['Refund'];
-  LINKS.push({ id: '1', type: 'transaction_links', attributes: { link_type_id: '2', inward_id: String(TX.length - 1), outward_id: String(TX.length) } });
+  LINKS.push({ id: '1', type: 'transaction_links', attributes: { link_type_id: '2', inward_id: airlineGid, outward_id: String(TX.length) } });
   // One move to savings that came in from two banks' imports as an expense and an income (Review → Transfers to match)
   addTx(TODAY - 5 * DAY, 'withdrawal', 250, 'Online transfer to savings', '1', '130');
   addTx(TODAY - 4 * DAY, 'deposit', 250, 'Transfer from Everyday Checking', '131', '2');
@@ -260,6 +263,34 @@ export function createMockApi(now = new Date()) {
   const total = (q: Query, type: string) => {
     const v = TX.filter(g => jd(g).type === type && inRange(g, q)).reduce((s, g) => s + +jd(g).amount, 0);
     return [{ difference: v.toFixed(2), difference_float: v, currency_code: 'USD' }];
+  };
+  const incomeByCat = (q: Query, nocat = false) => {
+    const sums = new Map<string | null, number>();
+    for (const g of TX) {
+      const t = jd(g);
+      if (t.type !== 'deposit' || !inRange(g, q)) continue;
+      const c = t.category_name;
+      if (nocat !== (c === null)) continue;
+      sums.set(c, (sums.get(c) || 0) + +t.amount);
+    }
+    if (nocat) return [...sums.values()].map(v => ({ difference: v.toFixed(2), difference_float: v, currency_code: 'USD' }));
+    return [...sums].map(([c, v]) => ({ id: CAT_ID[c!], name: c, difference: v.toFixed(2), difference_float: v, currency_code: 'USD' }));
+  };
+  const expenseByBudget = (q: Query, nobudget = false) => {
+    const sums = new Map<string | null, number>();
+    for (const g of TX) {
+      const t = jd(g);
+      if (t.type !== 'withdrawal' || !inRange(g, q)) continue;
+      if (nobudget !== (t.budget_id === null)) continue;
+      sums.set(t.budget_id, (sums.get(t.budget_id) || 0) + +t.amount);
+    }
+    if (nobudget) return [...sums.values()].map(v => ({ difference: '-' + v.toFixed(2), difference_float: -v, currency_code: 'USD' }));
+    return [...sums].map(([b, v]) => ({ id: b, name: Object.keys(BUDGETS).find(n => BUDGETS[n] === b) || '', difference: '-' + v.toFixed(2), difference_float: -v, currency_code: 'USD' }));
+  };
+  const expenseByTag = (q: Query) => {
+    const sums = new Map<string, number>();
+    for (const g of TX) { const t = jd(g); if (t.type !== 'withdrawal' || !inRange(g, q)) continue; for (const tag of t.tags) sums.set(tag, (sums.get(tag) || 0) + +t.amount); }
+    return [...sums].map(([tag, v]) => ({ id: tag, name: tag, difference: '-' + v.toFixed(2), difference_float: -v, currency_code: 'USD' }));
   };
 
   // An account as it stood at the end of a past day: today's balance minus everything that moved it since
@@ -323,7 +354,7 @@ export function createMockApi(now = new Date()) {
       PREFS[body.name] = body.data; return { data: { id: '1', attributes: { name: body.name, data: body.data } } };
     }
     if ((m = path.match(/^\/accounts\/(\d+)\/transactions$/))) return page(TX.filter(g => [jd(g).source_id, jd(g).destination_id].includes(m![1]) && inRange(g, q)), q);
-    if ((m = path.match(/^\/accounts\/(\d+)$/))) return { data: ACC_BY[m[1]] };
+    if ((m = path.match(/^\/accounts\/(\d+)$/))) { if (!ACC_BY[m[1]]) throw new NotFound(); return { data: ACC_BY[m[1]] }; }
     if (path === '/categories') return page(CATS.map(c => ({ id: CAT_ID[c], attributes: { name: c } })), q);
     if (path === '/budgets') {
       return page(Object.entries(BUDGETS).map(([name, bid]) => {
@@ -352,6 +383,12 @@ export function createMockApi(now = new Date()) {
     if (path === '/insight/expense/no-category') return expenseByCat(q, true);
     if (path === '/insight/expense/total') return total(q, 'withdrawal');
     if (path === '/insight/income/total') return total(q, 'deposit');
+    if (path === '/insight/transfer/total') return total(q, 'transfer');
+    if (path === '/insight/income/category') return incomeByCat(q);
+    if (path === '/insight/income/no-category') return incomeByCat(q, true);
+    if (path === '/insight/expense/budget') return expenseByBudget(q);
+    if (path === '/insight/expense/no-budget') return expenseByBudget(q, true);
+    if (path === '/insight/expense/tag') return expenseByTag(q);
     if (path === '/insight/income/revenue') {
       const sums = new Map<string, number>();
       for (const g of TX) { const t = jd(g); if (t.type === 'deposit' && inRange(g, q)) sums.set(t.source_id, (sums.get(t.source_id) || 0) + +t.amount); }

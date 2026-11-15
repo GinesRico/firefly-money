@@ -16,7 +16,7 @@ export const LS = {
 export function monthEnds(today: string, n: number, step = 1) {
   const y = +today.slice(0, 4), m = +today.slice(5, 7) - 1, out = [today];
   for (let i = 1; i < n; i++) {
-    const d = new Date(y, m - (i - 1) * step, 0);      // day 0 = the last day of the month before
+    const d = new Date(y, m - i * step + 1, 0);      // day 0 = the last day of the month before (month - i*step)
     out.unshift(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
   }
   return out;

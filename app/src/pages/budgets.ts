@@ -29,7 +29,8 @@ export function budgetPace(spent: number, amount: number, start: string, end: st
   if (!amount || today < start || today > end) return null;
   const len = daysBetween(start, end) + 1, gone = daysBetween(start, today) + 1, at = gone / len, used = spent / amount;
   if (used > 1) return { at, tone: 'over', text: '' };
-  if (used * 100 >= alertPct) return { at, tone: 'warn', text: Math.round(used * 100) + '% used with ' + (len - gone) + ' day' + (len - gone === 1 ? '' : 's') + ' to go' };
+  const left = len - gone + 1;      // days left including today, same count as the budget detail card's "days left"
+  if (used * 100 >= alertPct) return { at, tone: 'warn', text: Math.round(used * 100) + '% used with ' + left + ' day' + (left === 1 ? '' : 's') + ' to go' };
   const runDay = spent > 0 ? Math.ceil(amount / (spent / gone)) : Infinity;
   if (gone >= 3 && runDay <= len) return { at, tone: 'warn', text: 'Ahead of pace · may run out around ' + fmtDay(addDays(start, runDay - 1)) };
   return { at, tone: 'ok', text: used <= at ? 'On pace' : 'A little ahead of pace' };

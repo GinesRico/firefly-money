@@ -19,7 +19,8 @@ export async function loanHistory(loans: Account[]) {
     let borrowed = Math.abs(l.opening), repaid = 0, charged = 0;
     groups.forEach(g => g.splits.forEach(s => {
       if (s.type === 'opening balance') return;
-      if (s.source_id === l.id) { borrowed += s.amount; if (INTEREST_RE.test(s.description) || INTEREST_RE.test(s.destination_name)) charged += s.amount; }
+      // Money charged as interest never reached the borrower, so it isn't counted as borrowed (only as "charged")
+      if (s.source_id === l.id) { if (INTEREST_RE.test(s.description) || INTEREST_RE.test(s.destination_name)) charged += s.amount; else borrowed += s.amount; }
       else if (s.destination_id === l.id) { repaid += s.amount; pays.push({ d: String(s.date).slice(0, 10), a: s.amount, from: s.source_id, bill: s.bill_id }); }
     }));
     pays.sort((a, b) => a.d.localeCompare(b.d));
@@ -29,14 +30,14 @@ export async function loanHistory(loans: Account[]) {
     // Typical monthly payment: the latest payment if it was recent, otherwise the 3-month average.
     const detected = last && daysBetween(last.d, todayIso()) <= 45 ? Math.round(last.a) : Math.round(recent / 3);
     const monthly = l.plan && l.plan.amount > 0 ? l.plan.amount : detected;   // the loan's own monthly payment, if set
-    out[l.id] = { borrowed, repaid, pays, last, monthly, interest: interestPaid(borrowed, repaid, l.debt, charged),
+    out[l.id] = { borrowed, repaid, pays, last, monthly, interest: interestPaid(borrowed + charged, repaid, l.debt, charged),
       pct: borrowed > 0 ? Math.min(100, Math.max(0, repaid / borrowed * 100)) : null };
   }));
   return out;
 }
 
 /* ================= Loan payoff planner ================= */
-function monthlyRate(l: Account) {
+export function monthlyRate(l: Account) {
   const r = num(l.interest) / 100; if (!r) return 0;
   return ({ daily: r * 365 / 12, weekly: r * 52 / 12, monthly: r, quarterly: r / 3, 'half-year': r / 6, yearly: r / 12 } as Record<string, number>)[l.interestPeriod || 'yearly'] ?? r / 12;
 }
@@ -64,7 +65,7 @@ export function simulate(loans: LoanModel[], extra: number, strategy: string) {
     if (st.every(l => l.bal <= .005 || (l.pay <= 0 && strategy === 'now'))) break;
     if (strategy !== 'now' && extra + st.reduce((s, l) => s + l.pay, 0) <= 0) break;
   }
-  return { loans: st, months: st.every(l => l.paidOff !== null) ? Math.max(...st.map(l => l.paidOff!)) : null, interest: st.reduce((s, l) => s + l.accrued, 0), totals };
+  return { loans: st, months: st.length && st.every(l => l.paidOff !== null) ? Math.max(...st.map(l => l.paidOff!)) : st.length ? null : 0, interest: st.reduce((s, l) => s + l.accrued, 0), totals };
 }
 // A loan with no payment of its own that only gets paid off because other loans' money rolls onto it
 export const rollsOnly = (l: { pay: number, rolled: number, paidOff: number | null }) => l.pay <= 0 && l.rolled > 0 && l.paidOff !== null;

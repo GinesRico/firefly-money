@@ -15,7 +15,7 @@ import { CAL_DAYS, cashCalendar } from '../features/cashcal';
 import { projectMonthly, usualDay, type Hist } from '../features/projections';
 
 /* ================= Safe-to-spend forecast ================= */
-type Income = { name: string, amount: number, p: { kind: 'semimonthly' } | { kind: 'every', n: number } | { kind: 'monthly', day: number }, last: string, salary: boolean };
+type Income = { name: string, amount: number, p: { kind: 'semimonthly', days: [number, number] } | { kind: 'every', n: number } | { kind: 'monthly', day: number }, last: string, salary: boolean };
 function detectIncome(groups: Group[], accIds: string[]) {
   const by: Record<string, { name: string, list: { d: string, a: number, cat: string }[] }> = {};
   groups.forEach(g => g.splits.forEach(s => {
@@ -33,8 +33,10 @@ function detectIncome(groups: Group[], accIds: string[]) {
     const doms = recent.map(x => +x.d.slice(8, 10));
     let p: Income['p'];
     if (gap >= 12 && gap <= 17) {
-      const late = doms.filter(d => d >= 25).length, mid = doms.filter(d => d >= 11 && d <= 18).length;
-      p = late && mid && late + mid >= doms.length - 1 ? { kind: 'semimonthly' } : { kind: 'every', n: 14 };
+      // Semimonthly pay lands either on the 15th and the last day of the month, or the 1st and the 15th.
+      const late = doms.filter(d => d >= 25).length, mid = doms.filter(d => d >= 11 && d <= 18).length, early = doms.filter(d => d <= 3).length;
+      const lateMid = late && mid && late + mid >= doms.length - 1, earlyMid = early && mid && early + mid >= doms.length - 1;
+      p = lateMid ? { kind: 'semimonthly', days: [15, 31] } : earlyMid ? { kind: 'semimonthly', days: [1, 15] } : { kind: 'every', n: 14 };
     } else if (gap >= 26 && gap <= 35) { const s = doms.slice().sort((a, b) => a - b), med = s[Math.floor(s.length / 2)]; p = { kind: 'monthly', day: med >= 28 ? 31 : med }; }
     else if (gap >= 6 && gap <= 8) p = { kind: 'every', n: 7 };
     else return;
@@ -47,7 +49,7 @@ function detectIncome(groups: Group[], accIds: string[]) {
 function incomeDates(inc: Income, from: string, to: string) {
   const out: string[] = [], p = inc.p;
   if (p.kind === 'every') { for (let d = addDays(inc.last, p.n); d <= to; d = addDays(d, p.n)) if (d >= from) out.push(d); }
-  else monthsFrom(from, to).forEach(([y, m]) => (p.kind === 'semimonthly' ? [15, 31] : [p.day]).forEach(day => { const d = bizDay(y, m, day); if (d > inc.last && d >= from && d <= to) out.push(d); }));
+  else monthsFrom(from, to).forEach(([y, m]) => (p.kind === 'semimonthly' ? p.days : [p.day]).forEach(day => { const d = bizDay(y, m, day); if (d > inc.last && d >= from && d <= to) out.push(d); }));
   return out.sort();
 }
 // A planned purchase, raise or subscription on the Forecast page (money.fcWhatIf)
@@ -151,7 +153,7 @@ export async function forecastModel(sel: string, horizon: number, withWhatIfs = 
   const likely = withWhatIfs ? cashBands(start, horizon, ev.filter(e => !e.off).map(e => ({ day: daysBetween(from, e.date), amount: e.amount, kind: e.kind }))) : null;
   const buffer = +LS.get('fcBuffer', 100), whatIfOn = ev.some(e => e.kind === 'What if' && !e.off);
   const nextPay = ev.find(e => !e.off && (e.kind === 'Payday' || e.kind === 'Income'));
-  return { sel, accIds, name: sel === 'all' ? 'all bank accounts' : (L.byId[sel] || {}).name, banks, start, ev, series, min, minDate, buffer,
+  return { sel, accIds, name: sel === 'all' ? 'all bank accounts' : sel && (L.byId[sel] || {}).name || 'your account', banks, start, ev, series, min, minDate, buffer,
     safe: Math.max(0, Math.floor(min - buffer)), short: min < 0 ? -min : 0, firstNeg, nextPay, incomes, horizon, whatIfs, whatIfOn,
     safeBase: Math.max(0, Math.floor(minBase - buffer)), minBase, careful, hopeful, likely };
 }
@@ -305,11 +307,12 @@ function cashCalPanel(m: Awaited<ReturnType<typeof forecastModel>>) {
   const days = cashCalendar({ dates: s.map(x => x.d), bal: s.map(x => x.v), events: m.ev, pNeg: lk ? lk.pNeg : undefined, p10: lk ? lk.p10 : undefined });
   if (days.length < 2) return '';
   const lead = leadDays(new Date(days[0].iso + 'T12:00:00')), tight = days.find(d => d.tightest)!, risky = days.filter(d => d.risk);
+  const priv = !!LS.get('privacy', false);      // hide amounts means hide them from the aria-label too, not just blur them on screen
   let cells: Html | string = '';
   for (let i = 0; i < lead; i++) cells = html`${cells}<span class="hm-cell pad"></span>`;
   days.forEach(d => {
     const pct = d.risk ? Math.round(30 + 70 * Math.min(1, Math.max(d.pNeg, d.bal < 0 ? 1 : 0))) : 0;
-    const tip = fmtDay(d.iso) + (d.inn ? '\nIn  +' + money(d.inn) : '') + (d.out ? '\nOut  -' + money(d.out) : '') + '\nBalance  ' + money(d.bal)
+    const tip = fmtDay(d.iso) + (d.inn ? '\nIn  ' + (priv ? 'hidden' : '+' + money(d.inn)) : '') + (d.out ? '\nOut  ' + (priv ? 'hidden' : '-' + money(d.out)) : '') + '\nBalance  ' + (priv ? 'hidden' : money(d.bal))
       + (lk ? '\nChance below zero  ' + (d.pNeg < .01 ? 'under 1%' : Math.round(d.pNeg * 100) + '%') : d.bal < 0 ? '\nBelow zero' : '') + (d.tightest ? '\nTightest day' : '');
     cells = html`${cells}<button type="button" class="hm-cell cc-cell${d.i === 0 ? ' today' : ''}${d.tightest ? ' tight' : ''}${d.risk ? ' risk' : ''}"${pct ? html` style="--p:${pct}%"` : ''} data-tip="${tip}" aria-label="${tip.replace(/\n/g, ', ')}"><span class="cc-n">${+d.iso.slice(8, 10)}</span>${d.inn || d.out ? html`<i class="cc-dots">${d.inn ? html`<b class="in"></b>` : ''}${d.out ? html`<b class="out"></b>` : ''}</i><span class="cc-amt">${d.inn ? html`<em class="in num">+${money0(d.inn)}</em>` : ''}${d.out ? html`<em class="out num">−${money0(d.out)}</em>` : ''}</span>` : ''}</button>`;
   });

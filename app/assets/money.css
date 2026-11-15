@@ -110,7 +110,8 @@
 
   /* ---------- Page head ---------- */
   .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
-  .head h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 0; }
+  .head h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 0; overflow-wrap: anywhere; }
+  .head > div:first-child { min-width: 0; }
   .head .sub { color: var(--muted); margin: 2px 0 0; font-size: 13.5px; }
   .head .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .month { display: flex; align-items: center; gap: 4px; }
@@ -319,9 +320,10 @@
   .tbl tr.click:hover td { background: var(--faint); }
   .tbl .r { text-align: right; }
   .tbl .date { color: var(--muted); white-space: nowrap; width: 80px; }
-  .tbl .desc { font-weight: 500; }
+  .tbl .desc { font-weight: 500; overflow-wrap: anywhere; min-width: 0; }
   .tbl .meta { margin-top: 3px; }
   .tbl .fromto { color: var(--muted); font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tbl .fromto span { display: block; overflow: hidden; text-overflow: ellipsis; }
   .tbl .amt { text-align: right; white-space: nowrap; font-weight: 500; font-variant-numeric: tabular-nums; }
   .tbl .act { text-align: right; white-space: nowrap; width: 1%; }
   .tbl input.inline { width: 120px; padding: 6px 10px; text-align: right; }
@@ -914,7 +916,7 @@
   .grab { display: none; }
   /* Privacy: blur money everywhere (hover to peek on desktop) */
   html.privacy .num, html.privacy .amt, html.privacy .big, html.privacy .val, html.privacy .total, html.privacy .insight .d, html.privacy .tip, html.privacy .hm-foot strong,
-  html.privacy .dhero .sub-s, html.privacy .cat .sub, html.privacy .sub-s, html.privacy .kpi .val { filter: blur(7px); transition: filter var(--t-hover); }
+  html.privacy .dhero .sub-s, html.privacy .sub, html.privacy .sub-s, html.privacy .kpi .val, html.privacy .st-p, html.privacy .bi-verdict, html.privacy .tl-moments li, html.privacy .ax-amt, html.privacy .bv, html.privacy .priv-txt { filter: blur(7px); transition: filter var(--t-hover); }
   html.priv-snap .num, html.priv-snap .amt, html.priv-snap .big, html.priv-snap .val, html.priv-snap .total, html.priv-snap .insight .d, html.priv-snap .tip, html.priv-snap .hm-foot strong, html.priv-snap .dhero .sub-s, html.priv-snap .cat .sub, html.priv-snap .sub-s, html.priv-snap .kpi .val { transition: none; }
   html.privacy .settings .sub-s { filter: none; }   /* Settings hints hold no amounts */
   html.privacy .amtx { visibility: hidden; }
@@ -2124,7 +2126,7 @@
   @media print { .ld { display: none !important; } }
   /* While Firefly can't be reached: the page gives way to this screen (no saved data to show instead) */
   .app > .ff-out { display: none; }
-  html.ff-out .app > #view, html.ff-out .fab { display: none !important; }
+  html.ff-out .app > #view, html.ff-out .fab, html.ff-out #drawer, html.ff-out #pickpop { display: none !important; }
   html.ff-out .app > .ff-out { display: grid; place-items: center; min-height: 100vh; min-height: 100dvh; box-sizing: border-box; padding: 40px 16px 120px; }
   .ff-out-card { --ff: var(--spend); display: flex; flex-direction: column; align-items: center; max-width: 420px; text-align: center; }
   .ff-out[data-ff="auth"] .ff-out-card { --ff: var(--warn); }

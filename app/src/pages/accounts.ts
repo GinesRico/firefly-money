@@ -10,7 +10,7 @@ import { LS, addDays, daysBetween } from '../core/helpers';
 import { type Account, invalidate, isAsset, isCard, isLiab, lists, normAccount, planText, stripPlan, withPlan } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
 import { loanHistory } from './loans';
-import { runway, runwayPanel } from '../features/moneyhealth';
+import { INTEREST_RE, runway, runwayPanel } from '../features/moneyhealth';
 import { insight } from '../features/refunds';
 
 /* ================= Accounts ================= */
@@ -91,12 +91,75 @@ VIEWS.account = async (r, paint) => {
   const groups = txs.map(normGroup).sort((x, y) => String(y.date).localeCompare(String(x.date)));
   const kind = isCard(a) ? 'card' : isLiab(a) ? 'liability' : a.type;
   const own = isAsset(a) || isLiab(a);
-  // One account: always its own currency (₹1,25,000.00), with the main-currency figure beside it
-  const n = a.nat || a, cm = (v: number) => moneyIn(v, own ? a.currency : ''), eq = a.nat ? html` ${fxEq(isLiab(a) ? a.debt : a.balance, a.unconv)}` : '';
-  const headline = isCard(a) ? (n.balance < 0 ? html`${cm(-n.balance)} owed${eq}` : n.balance > 0 ? html`${cm(n.balance)} in credit${eq}` : 'Paid off') : isLiab(a) ? html`${cm(n.debt)} remaining${eq}` : own ? html`${cm(n.balance)}${eq}` : '';
-  const signed = (g: Group, id: string) => own ? g.splits.reduce((s, x) => s + (x.source_id === id ? -nativeFor(x, a.currency) : x.destination_id === id ? nativeFor(x, a.currency) : 0), 0) : g.splits.reduce((s, x) => s + (x.source_id === id ? -x.amount : x.destination_id === id ? x.amount : 0), 0);
-  const inflow = groups.reduce((s, g) => s + Math.max(0, signed(g, a.id)), 0), outflow = groups.reduce((s, g) => s + Math.max(0, -signed(g, a.id)), 0);
-  const subtitle = html`<span style="text-transform:capitalize">${isCard(a) ? 'Credit card' : isLiab(a) ? (a.liabType || 'Liability') : a.type === 'expense' ? 'Payee' : a.type === 'revenue' ? 'Income source' : (ROLE_LABEL[a.role] || 'Account')}</span>${a.active ? '' : ' · inactive'}${a.number ? ' · ' + a.number : ''}${isLiab(a) ? ((a.nat ? a.nat.plan : a.plan) && (a.nat ? a.nat.plan : a.plan)!.amount ? ' · pays ' + planText(a.nat ? a.nat.plan : a.plan, a.currency) : html` · <button class="link" data-onclick="App.accountForm('${a.id}','liability')">set a monthly payment</button>`) : ''}`;
+
+  // One account: always its own currency, with the main-currency figure beside it
+  const n = a.nat || a;
+  const cm = (v: number) => moneyIn(v, own ? a.currency : '');
+  const eq = a.nat
+    ? html` ${fxEq(isLiab(a) ? a.debt : a.balance, a.unconv)}`
+    : '';
+
+  const headline = isCard(a)
+    ? (n.balance < 0
+        ? html`${cm(-n.balance)} owed${eq}`
+        : n.balance > 0
+          ? html`${cm(n.balance)} in credit${eq}`
+          : 'Paid off')
+    : isLiab(a)
+      ? html`${cm(n.debt)} remaining${eq}`
+      : own
+        ? html`${cm(n.balance)}${eq}`
+        : '';
+
+  const signed = (g: Group, id: string) =>
+    own
+      ? g.splits.reduce((s, x) =>
+          s + (x.source_id === id
+            ? -nativeFor(x, a.currency)
+            : x.destination_id === id
+              ? nativeFor(x, a.currency)
+              : 0), 0)
+      : g.splits.reduce((s, x) =>
+          s + (x.source_id === id
+            ? -x.amount
+            : x.destination_id === id
+              ? x.amount
+              : 0), 0);
+
+  const inflow = groups.reduce(
+    (s, g) => s + Math.max(0, signed(g, a.id)), 0
+  );
+
+  // For loans, borrowed principal should exclude interest charges.
+  const outflow = isLiab(a)
+    ? groups.flatMap(g => g.splits).reduce(
+        (s, sp) =>
+          s + (
+            sp.source_id === a.id &&
+            !(INTEREST_RE.test(sp.description) ||
+              INTEREST_RE.test(sp.destination_name))
+              ? nativeFor(sp, a.currency)
+              : 0
+          ), 0
+      )
+    : groups.reduce(
+        (s, g) => s + Math.max(0, -signed(g, a.id)), 0
+      );
+
+  const subtitle = html`<span style="text-transform:capitalize">${
+    isCard(a) ? 'Credit card'
+      : isLiab(a) ? (a.liabType || 'Liability')
+      : a.type === 'expense' ? 'Payee'
+      : a.type === 'revenue' ? 'Income source'
+      : (ROLE_LABEL[a.role] || 'Account')
+  }</span>${a.active ? '' : ' · inactive'}${a.number ? ' · ' + a.number : ''}${
+    isLiab(a)
+      ? ((n.plan && n.plan.amount)
+          ? ' · pays ' + planText(n.plan, a.currency)
+          : html` · <button class="link" data-onclick="App.accountForm('${a.id}','liability')">set a monthly payment</button>`)
+      : ''
+  }`;
+
   const PER = 50, pages = Math.max(1, Math.ceil(groups.length / PER));
   const shown = groups.slice(0, PER);
   if (paint.live) S.feed = { next: 2, pages, opts: { accountId: own ? a.id : '' }, more: async n => groups.slice((n - 1) * PER, n * PER) };

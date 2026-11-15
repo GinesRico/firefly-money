@@ -190,4 +190,4 @@ export function txHref(q: Record<string, string | null | undefined>, range?: Ran
   return '#/transactions' + (s ? '?' + s : '');
 }
 // Spending with no category (or no budget) over some dates, as a search: Firefly has no list of those otherwise
-export const noneHref = (what: 'category' | 'budget', r: Range) => txHref({ search: 'has_no_' + what + ':true transaction_type:withdrawal date_after:' + r.start + ' date_before:' + r.end });
+export const noneHref = (what: 'category' | 'budget', r: Range, type: 'withdrawal' | 'deposit' = 'withdrawal') => txHref({ search: 'has_no_' + what + ':true transaction_type:' + type + ' date_after:' + r.start + ' date_before:' + r.end });

@@ -21,7 +21,7 @@ import { auditSubs } from '../features/subaudit';
 import { subAuditTile } from '../features/subauditview';
 import { fcHorizon } from './forecast';
 import { type BudgetLimit, budgetLimits, budgetPace } from './budgets';
-import { loanHistory } from './loans';
+import { loanHistory, monthlyRate } from './loans';
 import { type Piggy, normPiggy, paceBits } from './piggy';
 import { INVEST_RE } from '../features/moneyhealth';
 import { budgetsLessRefunds, insight, lessRefundTx, refundsIn } from '../features/refunds';
@@ -262,10 +262,16 @@ function loansPanel(loans: Account[], prog: any = {}) {
   const sorted = [...loans].sort((a, b) => b.debt - a.debt), more = sorted.length > 4 ? sorted.length - 3 : 0;
   const rows = htmlList(sorted.slice(0, more ? 3 : undefined).map(l => {
     const pr = prog[l.id] || {}, paid = l.debt ? pr.pct ?? null : null;
-    const months = pr.monthly > 0 && l.debt > 0 ? Math.ceil(l.debt / pr.monthly) : 0;
+    // The same amortization the loan planner uses (payment minus interest each month), not a plain debt ÷ payment
+    // guess, so the two pages don't show a different payoff time for the same loan.
+    const rate = monthlyRate(l);
+    const months = pr.monthly > 0 && l.debt > 0
+      ? (rate > 0 && pr.monthly > l.debt * rate ? Math.ceil(Math.log(pr.monthly / (pr.monthly - l.debt * rate)) / Math.log(1 + rate)) : rate > 0 ? 0 : Math.ceil(l.debt / pr.monthly))
+      : 0;
     const bits: string[] = [];
     if (paid !== null) bits.push(paid.toFixed(0) + '% paid' + (pr.repaid ? ' (' + money0(pr.repaid) + ' of ' + money0(pr.borrowed) + ')' : ' of ' + money0(pr.borrowed)));
     if (months) bits.push('about ' + months + ' month' + (months === 1 ? '' : 's') + ' to go at ' + money0(pr.monthly) + '/mo');
+    else if (pr.monthly > 0) bits.push(money0(pr.monthly) + '/mo doesn’t cover the interest');
     else if (l.debt) bits.push('no payments in the last 3 months');
     if (!l.debt) bits.push('Paid off');
     return html`<div style="padding:11px 0;border-top:1px solid var(--line)"><a class="row" href="#/account/${l.id}" style="text-decoration:none"><span class="name">${l.name}</span><span class="num">${acctAmt(l, (l.nat || l).debt, l.debt, money0)}</span></a>${paid ? html`<div class="track"><div class="fill good" style="width:${paid.toFixed(1)}%"></div></div>` : ''}<div class="sub-s">${bits.join(' · ')}</div></div>`;
@@ -339,7 +345,8 @@ function budgetsMini(budgets: ApiData[], limits: Record<string, BudgetLimit>, al
     const lim = limits[String(b.id)], spent = spentSum(b), p = b.attributes.active !== false && lim ? budgetPace(spent, lim.amount, cur.start, cur.end, t, budgetAlert()) : null;
     return p && (p.tone === 'warn' || p.tone === 'over');
   }).length;
-  return html`<section class="panel"><div class="panel-head"><h2>Budgets</h2><a class="link" href="#/budgets">Insights</a></div><p class="lead">${all ? 'Spent of all time' : 'This month'}${ahead ? html` · <span class="up">${ahead} over or near limit</span>` : ''}</p>${rows ? html`<div class="brings">${rows}</div>` : html`<p class="empty">No budgets yet.</p>`}</section>`;
+  const periodLabel = all ? 'Spent of all time' : cur && !(t >= cur.start && t <= cur.end) ? cur.label : 'This month';
+  return html`<section class="panel"><div class="panel-head"><h2>Budgets</h2><a class="link" href="#/budgets">Insights</a></div><p class="lead">${periodLabel}${ahead ? html` · <span class="up">${ahead} over or near limit</span>` : ''}</p>${rows ? html`<div class="brings">${rows}</div>` : html`<p class="empty">No budgets yet.</p>`}</section>`;
 }
 // Where the money went by who was paid (Firefly's expense accounts), against last month
 function payeesPanel(now: ApiData[], prev: ApiData[], future: boolean, all: boolean, count = 8, compare = true) {

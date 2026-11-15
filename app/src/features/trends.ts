@@ -150,7 +150,7 @@ export const CREEP_COLORS = ['var(--income)', 'var(--muted)', 'var(--spend)'];
 // Income, fixed and everyday spending by month as three lines (the same drawing and text rules as the other line charts)
 export function creepChart(rows: CreepRow[], label: string) {
   const W = innerWidth < 600 ? 360 : 640, H = innerWidth < 600 ? 220 : 280, pl = 46, pr = 8, pt = 10, pb = 26, n = rows.length, base = H - pb;
-  const max = niceMax(Math.max(1, ...rows.flatMap(r => [r.income, r.fixed, r.flex])) / 4) * 4;
+  const max = niceMax(Math.max(100, ...rows.flatMap(r => [r.income, r.fixed, r.flex])) / 4) * 4;
   const x = (i: number) => pl + (W - pl - pr) * (n < 2 ? .5 : i / (n - 1)), y = (v: number) => pt + (base - pt) * (1 - v / max);
   const line = (pick: (r: CreepRow) => number, c: string, w: number) => html`<path class="draw" pathLength="1" d="${smoothPath(rows.map((r, i) => [x(i), y(pick(r))]))}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`;
   const grid = htmlList([0, 1, 2, 3, 4].map(k => { const v = max * k / 4, yy = y(v).toFixed(1); return html`<line x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}"/><text x="${pl - 8}" y="${(+yy + 4).toFixed(1)}" text-anchor="end">${short$(v)}</text>`; }));
