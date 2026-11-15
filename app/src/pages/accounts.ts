@@ -3,7 +3,7 @@ import { api, getAll } from '../core/api';
 import { busy } from '../core/auth';
 import { App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, moneyIn, monthRange, nowMonth, num, period, sumDiff, today, todayIso, type Field, viewYM } from '../core/base';
 import { closeDrawer, confirmBox, formError, head, monthNav, openDrawer, opt, toast } from '../core/dom';
-import { type Group, acctAmt, fxEq, nameAvatar, nativeFor, normGroup, txRows } from '../core/feed';
+import { type Group, acctAmt, fxEq, nameAvatar, nativeFor, normGroup, openingRepairs, txRows } from '../core/feed';
 import { sumPrimary } from '../core/fx';
 import { logoDomain, setLogoSite } from '../core/logo';
 import { LS, addDays, daysBetween } from '../core/helpers';
@@ -294,6 +294,14 @@ async function saveAccount() {
   await busy(el('accSave'), async () => {
     const res = id ? await api('/accounts/' + id, { method: 'PUT', body: b }) : await api('/accounts', { method: 'POST', body: b });
     setLogoSite(b.name, site, name);
+    // Firefly leaves the opening balance in the account's old currency; saving puts it in the account's own
+    const aid = id || (res && res.data ? String(res.data.id) : ''), code = b.currency_code || (id && S.lists && S.lists.byId[id] ? S.lists.byId[id].currency : '');
+    if (aid && code && (kind === 'asset' || kind === 'card' || kind === 'liability')) {
+      try {
+        const fix = openingRepairs((await getAll('/accounts/' + aid + '/transactions', { type: 'opening_balance' })).map(normGroup), code);
+        for (const f of fix) await api('/transactions/' + f.id, { method: 'PUT', body: f.body });
+      } catch (e) { invalidate(); closeDrawer(); route(); return toast('Account saved, but its opening balance is still in the old currency: ' + (e as Error).message); }
+    }
     invalidate(); closeDrawer(); toast(id ? 'Account saved' : 'Account created');
     if (!id && res && res.data) location.hash = '#/account/' + res.data.id; else route();
   });

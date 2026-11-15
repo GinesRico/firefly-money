@@ -59,7 +59,7 @@ export type Lists = {
 export async function lists(force?: boolean): Promise<Lists> {
   if (S.lists && !force && Date.now() - S.listsAt! < 300000) return S.lists;
   const [accounts, categories, budgets, bills, tags, currencies] = await Promise.all([
-    getAll('/accounts', { type: 'all' }), getAll('/categories'), getAll('/budgets'), getAll('/bills'), getAll('/tags'), getAll('/currencies').catch(() => []),
+    getAll('/accounts', { type: 'all' }), getAll('/categories'), getAll('/budgets'), getAll('/bills'), getAll('/tags'), getAll('/currencies', {}, true).catch(() => [])   // always fresh: a currency just enabled must show up in pickers, not the saved list,
   ]);
   const cur = currencies.map(c => ({ id: String(c.id), code: c.attributes.code, name: c.attributes.name, symbol: c.attributes.symbol, enabled: !!c.attributes.enabled,
     primary: !!(c.attributes.primary || c.attributes.default || c.attributes.native) }));

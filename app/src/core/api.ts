@@ -191,14 +191,15 @@ export async function eachLimited<T>(items: T[], n: number, fn: (item: T, i: num
 // asked can say it shows only the latest ones (Firefly lists newest first).
 export const MAX_PAGES = 60, CAP = { at: 0 };
 export const capNote = (n = MAX_PAGES * 100) => 'Showing the latest ' + n.toLocaleString('en-US') + '.';
-export async function getAll(path: string, params: ApiOpts['params'] = {}): Promise<ApiData[]> {
-  const first = await api(path, { params: { ...params, page: 1, limit: 100 } });
+// fresh: skip the saved answer (even an out-of-date one that would be shown first and updated later)
+export async function getAll(path: string, params: ApiOpts['params'] = {}, fresh = false): Promise<ApiData[]> {
+  const first = await api(path, { params: { ...params, page: 1, limit: 100 }, fresh });
   const total = (first && first.meta && first.meta.pagination && first.meta.pagination.total_pages) || 1, pages = Math.min(MAX_PAGES, total);
   if (total > MAX_PAGES) CAP.at = Date.now();
   progPages(path, pages);
   const out = [...arr(first)];
   for (let p = 2; p <= pages; p += 6) {      // remaining pages, six at a time
-    const batch = await Promise.all(Array.from({ length: Math.min(6, pages - p + 1) }, (_, i) => api(path, { params: { ...params, page: p + i, limit: 100 } })));
+    const batch = await Promise.all(Array.from({ length: Math.min(6, pages - p + 1) }, (_, i) => api(path, { params: { ...params, page: p + i, limit: 100 }, fresh })));
     batch.forEach(r => out.push(...arr(r)));
   }
   return out;
