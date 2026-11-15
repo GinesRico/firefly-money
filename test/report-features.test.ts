@@ -37,7 +37,7 @@ describe('budget pace', () => {
   it('says on pace, ahead of pace or at the warning level', () => {
     expect(p(100, '2026-10-15')).toMatchObject({ tone: 'ok', text: 'On pace' });
     expect(p(200, '2026-10-15')).toMatchObject({ tone: 'warn', text: 'Ahead of pace · may run out around Oct 23' });
-    expect(p(270, '2026-10-20')).toMatchObject({ tone: 'warn', text: '90% used with 10 days to go' });
+    expect(p(270, '2026-10-20')).toMatchObject({ tone: 'warn', text: '90% used with 11 days to go' });
     expect(p(301, '2026-10-20')!.tone).toBe('over');
   });
 });

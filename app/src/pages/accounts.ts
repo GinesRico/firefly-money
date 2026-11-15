@@ -9,7 +9,7 @@ import { LS, addDays, daysBetween } from '../core/helpers';
 import { type Account, invalidate, isAsset, isCard, isLiab, lists, normAccount, planText, stripPlan, withPlan } from '../core/lists';
 import { VIEWS, hashWith, route } from '../core/router';
 import { loanHistory } from './loans';
-import { runway, runwayPanel } from '../features/moneyhealth';
+import { INTEREST_RE, runway, runwayPanel } from '../features/moneyhealth';
 import { insight } from '../features/refunds';
 
 /* ================= Accounts ================= */
@@ -85,7 +85,11 @@ VIEWS.account = async (r, paint) => {
   const kind = isCard(a) ? 'card' : isLiab(a) ? 'liability' : a.type;
   const own = isAsset(a) || isLiab(a);
   const headline = isCard(a) ? (a.balance < 0 ? money(-a.balance) + ' owed' : 'Paid off') : isLiab(a) ? money(a.debt) + ' remaining' : own ? money(a.balance) : '';
-  const inflow = groups.reduce((s, g) => s + Math.max(0, signed(g, a.id)), 0), outflow = groups.reduce((s, g) => s + Math.max(0, -signed(g, a.id)), 0);
+  const inflow = groups.reduce((s, g) => s + Math.max(0, signed(g, a.id)), 0);
+  // For a loan, "Borrowed" should be the principal that reached the borrower, not interest charged against it
+  const outflow = isLiab(a)
+    ? groups.flatMap(g => g.splits).reduce((s, sp) => s + (sp.source_id === a.id && !(INTEREST_RE.test(sp.description) || INTEREST_RE.test(sp.destination_name)) ? sp.amount : 0), 0)
+    : groups.reduce((s, g) => s + Math.max(0, -signed(g, a.id)), 0);
   const subtitle = html`<span style="text-transform:capitalize">${isCard(a) ? 'Credit card' : isLiab(a) ? (a.liabType || 'Liability') : a.type === 'expense' ? 'Payee' : a.type === 'revenue' ? 'Income source' : (ROLE_LABEL[a.role] || 'Account')}</span>${a.active ? '' : ' · inactive'}${a.number ? ' · ' + a.number : ''}${isLiab(a) ? (a.plan && a.plan.amount ? ' · pays ' + planText(a.plan) : html` · <button class="link" data-onclick="App.accountForm('${a.id}','liability')">set a monthly payment</button>`) : ''}`;
   const PER = 50, pages = Math.max(1, Math.ceil(groups.length / PER));
   const shown = groups.slice(0, PER);

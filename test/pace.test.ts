@@ -27,7 +27,8 @@ describe('monthEnds', () => {
     expect(monthEnds('2026-03-15', 4)).toEqual(['2025-12-31', '2026-01-31', '2026-02-28', '2026-03-15']);
   });
   it('steps by quarters', () => {
-    expect(monthEnds('2026-10-20', 3, 3)).toEqual(['2026-06-30', '2026-09-30', '2026-10-20']);
+    // 3 points, 3 months apart: the oldest is a full 6 months (2 steps) before today, not 4
+    expect(monthEnds('2026-10-20', 3, 3)).toEqual(['2026-04-30', '2026-07-31', '2026-10-20']);
   });
 });
 

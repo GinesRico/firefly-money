@@ -49,6 +49,7 @@ export function newTx(preset: { type?: string, date?: string, account?: string, 
   renderTxForm();
 }
 const EDITABLE = ['withdrawal', 'deposit', 'transfer'];
+let saving = false;      // guards against a double-tap or double-click firing two saves of the same form
 // The edit form for a saved transaction
 function formOf(g: Group): TxForm {
   const f = g.splits[0];
@@ -244,6 +245,11 @@ async function alreadyThere(body: ReturnType<typeof buildTxPayload>): Promise<bo
   catch (e) { if (e instanceof AuthError) throw e; return false; }      // can't tell: let the save go ahead
 }
 async function saveTx(formEl: HTMLFormElement) {
+  if (saving) return;      // a second click/tap while the first save is still in flight
+  saving = true;
+  try { await saveTxInner(formEl); } finally { saving = false; }
+}
+async function saveTxInner(formEl: HTMLFormElement) {
   collectTx();
   const f: TxForm = S.form;
   if (f.type === 'transfer') {
@@ -255,6 +261,11 @@ async function saveTx(formEl: HTMLFormElement) {
     if (!s.description.trim()) return formError('Every part needs a description.');
     if (!(num(s.amount) > 0)) return formError('Every part needs an amount above zero.');
   }
+  // A number or date far outside what's plausible is usually a typo (an extra digit, the wrong year): ask before saving it
+  const hugeAmt = f.splits.find(s => num(s.amount) >= 1000000);
+  if (hugeAmt && !await confirmBox('That’s a big amount', money(num(hugeAmt.amount)) + ' for “' + hugeAmt.description + '” — save it anyway?', 'Save anyway')) return;
+  const yr = +f.date.slice(0, 4), thisYr = +todayIso().slice(0, 4);
+  if ((yr < thisYr - 10 || yr > thisYr + 5) && !await confirmBox('Check the date', fmtDate(f.date) + ' — save it anyway?', 'Save anyway')) return;
   // Optimistic: close right away and show the change; if Firefly refuses, reopen the form with the error.
   const body = buildTxPayload();
   if (!f.id && f.maybeSaved) {
@@ -347,6 +358,15 @@ function openDraft(id: string) {
   S.drawerHero = null; S.form = { ...d.form, draft: id }; renderTxForm();
 }
 function deleteDraft(id: string) { dropDraft(id); toast('Draft deleted'); route(); }
+// Esc or a tap on the backdrop: ask first if a transaction form has anything typed that isn't saved (Save as draft, or
+// Cancel in the footer, closes without asking — this is only for the two ways to dismiss the drawer by accident).
+async function closeDrawerAsk() {
+  if (S.form && el('txForm')) {
+    collectTx();
+    if (JSON.stringify(S.form) !== S.formBase && !await confirmBox('Discard this transaction?', 'What you’ve typed hasn’t been saved.', 'Discard')) return;
+  }
+  closeDrawer();
+}
 export function draftsPanel() {
   const list = drafts().sort((a, b) => b.t - a.t);
   if (!list.length) return '';
@@ -363,6 +383,7 @@ const methods = {
   editTx,
   saveTx,
   deleteTx,
+  closeDrawerAsk,
 };
 Object.assign(App, methods);
 type Methods = typeof methods;

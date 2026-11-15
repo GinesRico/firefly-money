@@ -94,9 +94,13 @@ export const ffSuspect = () => dispatchEvent(new Event('money-ff-suspect'));
 export function ffSeenResponse(r: Response, ping = false) {
   const date = r.headers.get('Date'), age = date ? Date.now() - Date.parse(date) : NaN;
   const failed = (r.status === 503 && !date) || (r.status >= 502 && r.status <= 504);
+  // A reverse proxy or captive portal in front of Firefly can answer 200 with its own HTML (a sign-in page) for
+  // any path: that isn't Firefly answering, so don't take it as "connected" just because the status is ok.
+  const masked = r.ok && (r.headers.get('Content-Type') || '').includes('text/html');
   if (failed && !ping) ffSuspect();
   else if (failed) ffSeen('down', r.status === 503 && !date ? 'money' : '');
   else if (r.status === 401) ffSeen('auth');
+  else if (masked) { if (ping) ffSeen('down'); else ffSuspect(); }
   else if (!(age > 12e4)) ffSeen('ok');      // a reply over two minutes old came from a saved copy
 }
 export const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));

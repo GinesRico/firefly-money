@@ -130,6 +130,7 @@ function paint() {
   paintPop();
   // Money keeps no copy of Firefly's data, so while it can't be reached the page gives way to a screen saying so
   const bad = st === 'down' || st === 'auth' || st === 'offline';
+  if (bad && !wasDown) App.closeDrawer();      // don't leave an open transaction's data showing over the out-screen
   document.documentElement.classList.toggle('ff-out', bad);
   if (bad) paintOut();
   let a = document.getElementById('ffAlert');
