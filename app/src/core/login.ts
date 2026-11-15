@@ -59,7 +59,7 @@ document.addEventListener('click', e => {
   if (!/^https?:\/\//.test(href)) a.hidden = true;
 })();
 window.addEventListener('hashchange', () => { const instant = S.tabNav; S.tabNav = false; if (!el('app').hidden) route({ nav: true, instant }); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer').classList.contains('open') && !el<HTMLDialogElement>('confirm').open) App.closeDrawerAsk ? App.closeDrawerAsk() : closeDrawer(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && el('drawer').classList.contains('open') && !el<HTMLDialogElement>('confirm').open) { e.preventDefault(); App.closeDrawerAsk ? App.closeDrawerAsk() : closeDrawer(); } });
 (async function boot() {
   await migrateSavedPassword();
   S.remember = rememberedSignIn(); S.signedIn = false;      // the saved flag only says how long to stay in: the server says whether you are

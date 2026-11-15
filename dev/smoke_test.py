@@ -101,14 +101,18 @@ async def check(pw, width, height, mobile):
     await page.locator('#nlq').press_sequentially('coffee 4.50 yesterday'); await page.wait_for_timeout(300)
     if await page.evaluate('S.form.splits[0].amount') != '4.50':
         errors.append('quick add did not parse the amount')
-    await page.keyboard.press('Escape'); await page.wait_for_timeout(400)
+    # typing left the form dirty, so Escape asks before discarding it
+    await page.keyboard.press('Escape'); await page.wait_for_selector('#confirm[open]')
+    await page.locator('#confirm .btn.primary').click(); await page.wait_for_timeout(400)
     # Duplicate a transaction, keep a draft, and months that start on the 15th
     await page.locator('tr[data-gid]').first.click(); await page.wait_for_function('() => S.form && S.form.id && el("txForm")')
     await page.evaluate('App.duplicateTx()'); await page.wait_for_timeout(300)
     if await page.evaluate("S.form.id + '|' + S.form.splits.map(s => s.jid).join('')") != '|':
         errors.append('duplicate kept the original transaction ids')
     # A refund made from an expense: an income into the same account, tagged Refund (and not saved, since the demo can't)
-    await page.keyboard.press('Escape'); await page.wait_for_timeout(400)
+    # duplicateTx() left the form dirty (a copy, not the original), so Escape asks before discarding it
+    await page.keyboard.press('Escape'); await page.wait_for_selector('#confirm[open]')
+    await page.locator('#confirm .btn.primary').click(); await page.wait_for_timeout(400)
     await page.evaluate("App.editTx(Object.values(S.txMeta).find(m => m.g.type === 'withdrawal').g.id)"); await page.wait_for_function('() => S.form && S.form.id && el("txForm")')
     await page.evaluate('App.refundTx()'); await page.wait_for_timeout(300)
     if await page.evaluate("S.form.type + '|' + S.form.id + '|' + S.form.splits[0].tags + '|' + !!S.form.refundOf") != 'deposit||Refund|true':
