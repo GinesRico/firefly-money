@@ -7,7 +7,7 @@ import { LS, budgetAlert, saveBlob } from '../core/helpers';
 import { skipOneOffs } from '../features/refunds';
 import { buzz, hapticsOn } from '../core/haptics';
 import { logosOn } from '../core/logo';
-import { hourlyRate, learnRate, lensOn, workHours } from '../core/worklens';
+import { hourlyRate, learnRate, lensOn, setWorkSkip, workHours, workSkip, workSources } from '../core/worklens';
 import { THEMES, themeButtons } from '../core/login';
 import { type Custom, KEY, PHOTO_KEY, SCENES, applyCustom, isHex, lum, readCustom } from '../core/themevars';
 import { type Account, invalidate, isAsset, isLiab, lists, ordinal } from '../core/lists';
@@ -65,8 +65,9 @@ VIEWS.settings = async (r, paint) => {
     ${row('Logos', 'Payees’ and banks’ logos instead of initials', html`<input ${SWITCH} aria-label="Show logos"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)">`)}
     ${row('Haptics', 'A light tap when you save, delete or flip a switch. iPhone needs iOS 18 or later.', html`<input ${SWITCH} aria-label="Haptics"${hapticsOn() ? ' checked' : ''} data-onchange="App.toggleHaptics(this.checked)">`)}
     ${row('Hours of work', 'Under each purchase, the hours you worked to pay for it', html`<input ${SWITCH} aria-label="Hours of work"${lensOn() ? ' checked' : ''} data-onchange="App.toggleWorkLens(this.checked)">`)}
-    ${lensOn() ? html`${row('Hours a week', 'How long you work', html`<select aria-label="Hours a week" data-onchange="App.setWorkHours(this.value)">${htmlList([10, 15, 20, 25, 30, 32, 35, 37.5, 40, 45, 50, 55, 60].map(h => opt(h, h + ' hours', workHours())))}</select>`)}
-    ${row('Hourly take-home', +LS.get('workRate', 0) > 0 ? 'Yours. Clear it to work it out from your income.' : hourlyRate() ? 'Worked out from what came in over the last six months: ' + money(hourlyRate()) + ' an hour' : 'Working it out from your income…', html`<input type="number" inputmode="decimal" min="0" step="0.01" class="set-num" aria-label="Hourly take-home" placeholder="${hourlyRate() ? hourlyRate().toFixed(2) : 'Auto'}" value="${+LS.get('workRate', 0) > 0 ? String(LS.get('workRate', 0)) : ''}" data-onchange="App.setWorkRate(this.value)">`)}` : ''}
+    ${lensOn() ? html`${row('Hours a week', 'How long you work', html`<input type="number" inputmode="decimal" min="1" max="168" step="0.5" class="set-num" aria-label="Hours a week" value="${workHours()}" data-onchange="App.setWorkHours(this.value)">`)}
+    ${row('Hourly take-home', +LS.get('workRate', 0) > 0 ? 'Yours. Clear it to work it out from your income.' : hourlyRate() ? 'Worked out from what came in over the last six months: ' + money(hourlyRate()) + ' an hour' : 'Working it out from your income…', html`<input type="number" inputmode="decimal" min="0" step="0.01" class="set-num" aria-label="Hourly take-home" placeholder="${hourlyRate() ? hourlyRate().toFixed(2) : 'Auto'}" value="${+LS.get('workRate', 0) > 0 ? String(LS.get('workRate', 0)) : ''}" data-onchange="App.setWorkRate(this.value)">`)}
+    ${workSources().length ? more('workinc', 'Income counted', workSources().length - workSkip().filter(n => workSources().includes(n)).length + ' of ' + workSources().length, html`<p class="sub-s">Untick what isn’t pay, like tax refunds. Counted by who paid it, over the last six months.</p>${workSources().map((n, i) => html`<label class="set-row"><span class="set-label">${n}</span><input ${SWITCH} aria-label="${n}"${workSkip().includes(n) ? '' : ' checked'} data-onchange="App.toggleWorkSource(${i}, this.checked)"></label>`)}`) : ''}` : ''}
     ${more('logos', 'About logos', '', html`<p class="sub-s">Your Money server fetches each logo from DuckDuckGo’s icon service by the payee’s website (guessed from its name; change it in the account’s settings) and keeps it, so your browser never contacts another site.</p>`)}`,
     'Theme, hide amounts, compact view, haptics are saved on this device only. Number & date format, hours of work and your colors for each theme sync like your other settings.');
 
@@ -399,7 +400,8 @@ function localeOptions() {
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const localeSample = () => money(1234.56) + ' · ' + fmtDate(todayIso()) + ' · weeks start on ' + DAYS[weekStart()];
 function setLocale(v: string) { LS.set('locale', v); PAGES.clear(); S.pageKey = ''; toast('Amounts and dates now look like ' + money(1234.56) + ' and ' + fmtDate(todayIso())); route({ quiet: true }); }
-function setWorkHours(v: string) { LS.set('workHours', num(v) || 40); PAGES.clear(); route({ quiet: true }); }
+function setWorkHours(v: string) { LS.set('workHours', Math.min(168, Math.max(1, num(v))) || 40); PAGES.clear(); route({ quiet: true }); }
+function toggleWorkSource(i: number, on: boolean) { const n = workSources()[i]; if (n == null) return; const k = workSkip().filter(x => x !== n); setWorkSkip(on ? k : [...k, n]); PAGES.clear(); route({ quiet: true }); }
 function setWorkRate(v: string) { LS.set('workRate', Math.max(0, Math.round(num(v) * 100) / 100)); PAGES.clear(); route({ quiet: true }); }
 function setBudgetAlert(v: string) { LS.set('budgetAlert', num(v)); PAGES.clear(); toast('Budget warnings at ' + budgetAlert() + '%'); }
 
@@ -414,6 +416,7 @@ const methods = {
   setLocale,
   setWorkHours,
   setWorkRate,
+  toggleWorkSource,
   setCycleDay,
   setBudgetAlert,
   copyText,
