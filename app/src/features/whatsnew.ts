@@ -26,6 +26,12 @@ const ICONS: Record<string, Html> = {
 };
 type Notes = { lead: string, items: [string, string, string][] };
 const NOTES: Record<string, Notes> = {
+  '2.5.0': { lead: 'Prices in any currency add up, your own weekly hours, and a round of fixes from a full audit.', items: [
+    ['globe', 'Every currency adds up', 'Amounts in other currencies are converted into your main currency in every total, with the original shown beside them. Accounts can have their own currency.'],
+    ['pulse', 'Your hours, your income', 'Set any weekly hours from 1 to 168, and pick which income counts toward your hourly take-home.'],
+    ['lens', 'Audit fixes', 'Forecast no longer adds a paycheck for 1st-and-15th pay, Net worth ranges cover the full period, Hide amounts leaks are closed, and a double tap no longer saves a transaction twice.'],
+    ['phone', 'Safer forms and offline', 'Escape on an edited form asks before discarding, and Money no longer shows stale data when Firefly is down.'],
+  ] },
   '2.4.0': { lead: 'Pay cards in a tap, leave out closed accounts, and more accurate bills and audit fixes.', items: [
     ['list', 'Pay now on cards', 'Credit card balances get a Pay now button that opens a prefilled transfer into the card, like bills.'],
     ['sliders', 'Leave out closed accounts', 'A new setting leaves closed accounts’ transactions out of lists and totals. Thanks to Amatsugu for the request.'],
