@@ -1,4 +1,4 @@
-import { App, fmtNum, monthRange, nowMonth, sumDiff } from './base';
+import { App, absDiff, arr, fmtNum, monthRange, nowMonth } from './base';
 import { LS } from './helpers';
 import { api } from './api';
 
@@ -6,8 +6,19 @@ import { api } from './api';
    Settings → Appearance → Hours of work. Your hourly take-home is the one you set, or else what came in over the last
    six full months spread over the hours you work in that time (40 a week unless you say otherwise). */
 export const lensOn = () => !!LS.get('workLens', false);
-export const workHours = () => { const v = +LS.get('workHours', 40); return v >= 1 && v <= 100 ? v : 40; };
-type Learned = { v: number, at: number, hrs: number };
+export const workHours = () => { const v = +LS.get('workHours', 40); return v >= 1 && v <= 168 ? v : 40; };
+type Source = { n: string, s: number };
+type Learned = { v: number, at: number, hrs: number, src?: Source[] };
+// Income you leave out of the hourly take-home (tax refunds, benefits…), by who paid it
+export const workSkip = (): string[] => { const v = LS.get('workSkip', []); return Array.isArray(v) ? v : []; };
+export const workSources = (): string[] => { const a: Learned | null = LS.get('workRateAuto', null); return ((a && a.src) || []).map(x => x.n).sort(); };
+const rateOf = (src: Source[], hrs: number) => { const skip = workSkip(); return src.filter(x => !skip.includes(x.n)).reduce((t, x) => t + x.s, 0) / 6 / (hrs * 52 / 12); };
+// Counting a source in or out redraws from what was fetched, no new request
+export function setWorkSkip(list: string[]) {
+  LS.set('workSkip', list);
+  const a: Learned | null = LS.get('workRateAuto', null);
+  if (a && a.src) LS.set('workRateAuto', { ...a, v: rateOf(a.src, a.hrs) });
+}
 export function hourlyRate() {
   const own = +LS.get('workRate', 0); if (own > 0) return own;
   const a: Learned | null = LS.get('workRateAuto', null);
@@ -26,12 +37,14 @@ let learning: Promise<number> | null = null;
 // Work out the hourly rate from income, once a week (or when the hours change). Redraws the page the first time.
 export function learnRate(force = false) {
   const a: Learned | null = LS.get('workRateAuto', null);
-  if (!force && a && Date.now() - a.at < 7 * 864e5) return Promise.resolve(a.v);
+  if (!force && a && a.src && Date.now() - a.at < 7 * 864e5) return Promise.resolve(a.v);
   if (learning) return learning;
   const [y, m] = nowMonth(), from = monthRange(y, m - 6), to = monthRange(y, m - 1);
-  learning = api('/insight/income/total', { params: { start: from.start, end: to.end } }).then(r => {
-    const v = sumDiff(r) / 6 / (workHours() * 52 / 12);
-    LS.set('workRateAuto', { v, at: Date.now(), hrs: workHours() });
+  learning = api('/insight/income/revenue', { params: { start: from.start, end: to.end } }).then(r => {
+    const by: Record<string, number> = {};
+    for (const x of arr(r)) by[x.name || 'Other'] = (by[x.name || 'Other'] || 0) + absDiff(x);
+    const src = Object.keys(by).map(n => ({ n, s: by[n] })), v = rateOf(src, workHours());
+    LS.set('workRateAuto', { v, at: Date.now(), hrs: workHours(), src });
     if (!a && v > 0 && lensOn() && App.reload) App.reload({ quiet: true });
     return v;
   }).catch(() => 0).finally(() => { learning = null; });
