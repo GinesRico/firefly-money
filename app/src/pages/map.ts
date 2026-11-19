@@ -1,6 +1,6 @@
 import { html, htmlList } from '../core/html';
 import { api, getAll } from '../core/api';
-import { App, el, fmtDay, money, money0, period } from '../core/base';
+import { App, el, fmtDay, money, money0, period, todayIso, ALL_START } from '../core/base';
 import { head, monthNav, toast } from '../core/dom';
 import { type Group, avatarHtml, groupUpdate, normGroup, payeeOf, placeFields, unplaceFields } from '../core/feed';
 import { LS } from '../core/helpers';
@@ -82,10 +82,14 @@ const pickOf = (i: number) => Math.min(chosen.get(wants[i].key) ?? 0, found[i].l
 
 // Also used by the To do > Places page (pages/places.ts): same suggestions, same one-tap pin, its own empty state
 export let storeSolo = false;
-export async function suggestStores(groups: Group[] = allGroups, solo = storeSolo) {
-  allGroups = groups; storeSolo = solo;
+// Map page "Re-analyze all": every withdrawal ever (not just the month on screen), every store without a place, no cap
+export let storeFull = false;
+let scanning = false, keepFull = false;
+const redraw = () => { keepFull = storeFull; return route({ quiet: true }); };
+export async function suggestStores(groups: Group[] = allGroups, solo = storeSolo, full = storeFull) {
+  allGroups = groups; storeSolo = solo; storeFull = full;
   const box = document.getElementById('storeList'); if (!box) return;
-  wants = wantedStores(allGroups).slice(0, 30);
+  wants = wantedStores(allGroups); if (!full) wants = wants.slice(0, 30);
   if (!wants.length) { found = []; ticked.clear(); drawStores(); return; }
   const anchors = spotsOf(allGroups).map(x => ({ lat: x.lat, lng: x.lng }));
   found = await Promise.all(wants.map(w => candidates(w, anchors).catch(() => [])));
@@ -95,13 +99,31 @@ export async function suggestStores(groups: Group[] = allGroups, solo = storeSol
 function drawStores() {
   const box = document.getElementById('storeList'); if (!box) return;
   const hit = wants.map((w, i) => i).filter(i => found[i].length), miss = wants.length - hit.length, n = hit.reduce((a, i) => a + wants[i].groups.length, 0);
-  box.hidden = !wants.length && !storeSolo;
+  box.hidden = false;
   for (const k of ticked) if (!hit.some(i => wants[i].key === k)) ticked.delete(k);
   const nTick = ticked.size, nTickBuys = hit.filter(i => ticked.has(wants[i].key)).reduce((a, i) => a + wants[i].groups.length, 0), busy = !!bulk.run;
   const bar = (hit.length > 1 || nTick || bulk.run || bulk.failed.length || bulk.undo.length) ? html`<div class="bulkbar" id="pinBar">${bulk.run ? html`<strong>Pinning ${bulk.run.done} of ${bulk.run.total}…</strong>` : html`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-onchange="App.pinAll(this.checked)"${nTick === hit.length && hit.length ? ' checked' : ''}${hit.length ? '' : ' disabled'} aria-label="Select all stores"> <strong>${nTick ? nTick + ' selected' : 'Select all'}</strong></label>${nTick ? html`<button type="button" class="btn primary small" data-onclick="App.pinSelected()">Pin ${nTick} store${nTick === 1 ? '' : 's'} · ${nTickBuys} purchase${nTickBuys === 1 ? '' : 's'}</button>` : ''}`}${bulk.undo.length && !bulk.run ? html`<span class="sub-s">Pinned ${bulk.undo.length} store${bulk.undo.length === 1 ? '' : 's'}. <button type="button" class="link" data-onclick="App.pinUndo()">Undo</button></span>` : ''}${bulk.failed.length && !bulk.run ? html`<span class="sub-s neg" style="flex-basis:100%">Firefly didn’t accept ${bulk.failed.length}: ${bulk.failed.map(f => f.label + ' (' + f.err + ')').join(', ')}. Still selected; tap Pin to retry.</span>` : ''}</div>` : '';
+  if (!wants.length && !storeSolo && !storeFull) { box.innerHTML = String(html`${rescan()}<p class="sub-s" style="margin:0">Looks at every purchase ever, not just this month, and lists the stores that still need a pin.</p>`); return; }
+  if (!wants.length && storeFull) { box.innerHTML = String(html`${rescan()}<p class="sub-s" style="margin:0">Checked every purchase: none names a store without a place.</p>`); return; }
   if (!wants.length) { box.innerHTML = String(html`<div class="center-empty" style="padding:60px 20px"><div style="font-size:40px">✓</div><h2 style="font-size:18px;margin:10px 0 4px">No places to pin</h2>Purchases that name a store but have no location show up here.</div>`); return; }
-  box.innerHTML = String(html`${storeSolo ? '' : html`<h2 style="margin:0 0 2px">Stores found</h2>`}<p class="sub-s" style="margin:0 0 10px">${hit.length ? html`${n} purchase${n === 1 ? '' : 's'} name a store but have no place. Tap the right store to pin them; nothing is saved until you do.` : html`No match yet for the ${wants.length} store${wants.length === 1 ? '' : 's'} named in your purchases.`}</p>${bar}${htmlList(hit.map(i => { const w = wants[i], pj = pickOf(i), many = found[i].length > 1;
+  box.innerHTML = String(html`${storeSolo ? '' : html`<h2 style="margin:0 0 2px">${storeFull ? 'All stores found' : 'Stores found'}</h2>`}${rescan()}<p class="sub-s" style="margin:0 0 10px">${hit.length ? html`${n} purchase${n === 1 ? '' : 's'} name a store but have no place. Tap the right store to pin them; nothing is saved until you do.` : html`No match yet for the ${wants.length} store${wants.length === 1 ? '' : 's'} named in your purchases.`}</p>${bar}${htmlList(hit.map(i => { const w = wants[i], pj = pickOf(i), many = found[i].length > 1;
     return html`<div class="list" style="margin-bottom:10px"><p style="margin:0 0 4px;display:flex;gap:8px;align-items:center"><input type="checkbox" data-onchange="App.pinTick(${i},this.checked)"${ticked.has(w.key) ? ' checked' : ''}${busy ? ' disabled' : ''} aria-label="Select ${w.label} #${w.num}"><span><b>${w.label} #${w.num}</b> <span class="sub-s">· ${w.groups.length} purchase${w.groups.length === 1 ? '' : 's'} · ${money(w.total)}</span></span></p>${htmlList(found[i].map((p, j) => html`<button type="button" class="row" style="width:100%;text-align:left" data-onclick="App.pinStore(${i},${j})"><span class="name">${p.addr || 'Address not listed'}<br><span class="sub-s">${srcText(p)}${awayText(p)}${many && j === pj ? ' · used for the selection' : ''}</span></span><span class="link">Pin</span></button>${many && j !== pj ? html`<button type="button" class="link sub-s" style="padding:0 0 6px 16px" data-onclick="App.pinChoose(${i},${j})">Use this one when selecting</button>` : ''}`))}</div>`; }))}${miss && !osmOn() ? html`<p class="sub-s" style="margin:0">${miss} more ha${miss === 1 ? 's' : 've'} no store in the bundled lists. <button type="button" class="link" data-onclick="App.storeOsm(true)">Look them up online</button> (sends only the chain and store number, through this server).</p>` : osmOn() ? html`<p class="sub-s" style="margin:0">Online lookup is on${miss ? ' · ' + miss + ' not found' : ''}. <button type="button" class="link" data-onclick="App.storeOsm(false)">Turn off</button></p>` : ''}`);
+}
+const rescan = () => storeSolo ? '' : html`<p style="margin:0 0 10px"><button type="button" class="btn small" id="reanalyze" data-onclick="App.reanalyzeAll()"${scanning ? ' disabled' : ''}>${scanning ? 'Analyzing every purchase…' : storeFull ? 'Re-analyze all again' : 'Re-analyze all purchases'}</button></p>`;
+// Rescans every purchase ever recorded and lists pin options for each store still without a place. Always asks Firefly; if it can't answer, nothing is shown.
+async function reanalyzeAll() {
+  if (scanning) return;
+  const box = document.getElementById('storeList'); if (!box) return;
+  scanning = true; drawStores();
+  try {
+    const groups = (await getAll('/transactions', { type: 'withdrawal', start: ALL_START, end: todayIso() }, true)).map(normGroup);
+    scanning = false;
+    await suggestStores(groups, false, true);
+  } catch (e) {
+    scanning = false;
+    toast('Couldn’t reach Firefly: ' + ((e as Error).message || 'try again'));
+    drawStores();
+  }
 }
 function pinTick(i: number, on: boolean) { const w = wants[i]; if (!w) return; if (on) ticked.add(w.key); else ticked.delete(w.key); drawStores(); }
 function pinAll(on: boolean) { ticked.clear(); if (on) wants.forEach((w, i) => { if (found[i].length) ticked.add(w.key); }); drawStores(); }
@@ -125,7 +147,7 @@ async function pinSelected() {
   const n = bulk.undo.reduce((a, u) => a + u.w.groups.length, 0);
   if (bulk.undo.length) toast('Pinned ' + n + ' purchase' + (n === 1 ? '' : 's') + ' at ' + bulk.undo.length + ' store' + (bulk.undo.length === 1 ? '' : 's'));
   drawStores();
-  if (bulk.undo.length) await route({ quiet: true });
+  if (bulk.undo.length) await redraw();
 }
 async function pinUndo() {
   const done = bulk.undo; if (!done.length || bulk.run) return;
@@ -139,14 +161,14 @@ async function pinUndo() {
   bulk.run = null; bulk.undo = left;
   toast(left.length ? 'Couldn’t undo ' + left.length + ' store' + (left.length === 1 ? '' : 's') : 'Unpinned');
   drawStores();
-  await route({ quiet: true });
+  await redraw();
 }
 async function pinStore(i: number, j: number) {
   const w = wants[i], p = found[i]?.[j]; if (!w || !p) return;
   try { await writePlace(w.groups, p.lat, p.lng); } catch (e) { toast('Firefly didn’t accept it: ' + ((e as Error).message || 'try again')); return; }
   learn(w.key, p);
   toast('Pinned ' + w.groups.length + ' purchase' + (w.groups.length === 1 ? '' : 's') + ' at ' + w.label + ' #' + w.num);
-  route({ quiet: true });
+  redraw();
 }
 
 /* ---------- Correct a pin ---------- */
@@ -193,7 +215,7 @@ async function fixSave() {
   if (f.key) learn(f.key, { lat: to.lat, lng: to.lng, addr: '', src: 'learned' });
   moved = { groups: s.groups, from: { lat: s.lat, lng: s.lng }, key: f.key, prev, name: s.name };
   endFix(false);
-  await route({ quiet: true });
+  await redraw();
   if (moved) { const box = document.getElementById('mapList'); if (box) box.insertAdjacentHTML('afterbegin', String(html`<p class="sub-s" style="margin:0 0 10px">Moved ${moved.groups.length} purchase${moved.groups.length === 1 ? '' : 's'} at ${moved.name}. <button type="button" class="link" data-onclick="App.fixUndo()">Undo</button></p>`)); }
 }
 async function fixUndo() {
@@ -201,11 +223,11 @@ async function fixUndo() {
   try { await writePlace(m.groups, m.from.lat, m.from.lng); } catch (e) { toast('Couldn’t undo: ' + ((e as Error).message || 'try again')); moved = m; return; }
   if (m.key) { const all = { ...learned() }; if (m.prev) all[m.key] = m.prev; else delete all[m.key]; LS.set('stores', all); }
   toast('Moved back');
-  route({ quiet: true });
+  redraw();
 }
 function storeOsm(on: boolean) { LS.set('storeOsm', on); suggestStores(allGroups, storeSolo); }
 
-const methods = { pinStore, pinTick, pinAll, pinChoose, pinSelected, pinUndo, fixSpot, fixPick, fixCancel, fixSave, fixUndo, storeOsm };
+const methods = { reanalyzeAll, pinStore, pinTick, pinAll, pinChoose, pinSelected, pinUndo, fixSpot, fixPick, fixCancel, fixSave, fixUndo, storeOsm };
 Object.assign(App, methods);
 type Methods = typeof methods;
 declare module '../core/base' { interface AppApi extends Methods {} }
@@ -215,9 +237,10 @@ VIEWS.map = async (r, paint) => {
   const p = period();
   const groups = (await getAll('/transactions', { start: p.start, end: p.end, type: 'withdrawal' })).map(normGroup);
   allGroups = groups; spots = spotsOf(groups); fix = null;
+  const again = keepFull; keepFull = false;     // a pin just saved redraws the page: keep the all-purchases list
   const placed = spots.reduce((n, s) => n + s.groups.length, 0), spent = spots.reduce((n, s) => n + s.total, 0);
   const sub = placed ? placed + ' of ' + groups.length + ' purchases have a place · ' + money0(spent) : 'No purchases with a place in ' + p.label;
-  paint(html`${head('Map', sub, monthNav())}<section class="panel" style="padding:0;overflow:hidden"><div id="map" class="map"></div></section><section class="panel" id="mapList">${spots.length ? html`<p class="sub-s" style="margin:0">Tap a pin to see what you bought there. Bigger pins are where you spent more.</p>` : html`<div class="center-empty">Purchases get a place when the Apple Pay shortcut sends your location. See <a class="link" href="https://github.com/Muffy0906/firefly-money/blob/main/docs/apple-pay.md" target="_blank" rel="noopener">Optional extras</a>.</div>`}</section><section class="panel" id="storeList" hidden></section>`);
+  paint(html`${head('Map', sub, monthNav())}<section class="panel" style="padding:0;overflow:hidden"><div id="map" class="map"></div></section><section class="panel" id="mapList">${spots.length ? html`<p class="sub-s" style="margin:0">Tap a pin to see what you bought there. Bigger pins are where you spent more.</p>` : html`<div class="center-empty">Purchases get a place when the Apple Pay shortcut sends your location. See <a class="link" href="https://github.com/Muffy0906/firefly-money/blob/main/docs/apple-pay.md" target="_blank" rel="noopener">Optional extras</a>.</div>`}</section><section class="panel" id="storeList"></section>`);
   const L = await loadLeaflet().catch(() => null), box = document.getElementById('map');
   if (map) { map.remove(); map = null; }
   if (!box) return;
@@ -232,5 +255,6 @@ VIEWS.map = async (r, paint) => {
   });
   if (spots.length) map.fitBounds(L.latLngBounds(spots.map(s => [s.lat, s.lng] as [number, number])), { padding: [40, 40], maxZoom: 16 });
   else map.setView([39.8, -98.6], 3);
-  suggestStores(groups, false);
+  if (again) { storeFull = false; reanalyzeAll(); return; }
+  suggestStores(groups, false, false);
 };

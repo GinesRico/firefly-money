@@ -753,7 +753,7 @@
   .dash-opts { display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap; flex-basis: 100%; padding-top: 10px; border-top: 1px solid var(--line); }
   .dash-opts .grow { flex: 1; }
   .dash-opts label.check { font-size: 13px; }
-  .seg.mini { margin: 0; } .seg.mini button { padding: 4px 12px; font-size: 12.5px; }
+  .nwcust { display: flex; gap: 6px; align-items: center; } .nwcust input { width: 64px; padding: 4px 6px; font-size: 13px; min-height: 0; } .seg.mini { margin: 0; } .seg.mini button { padding: 4px 12px; font-size: 12.5px; }
   /* Customizable overview (ui.js): bands of --n columns you arrange yourself, with wide cards between the bands */
   .dash-wrap { --gap: 20px; }
   .cards.free { columns: auto; }

@@ -36,13 +36,13 @@ describe('places tab (store suggestions under To do)', () => {
     expect(b.textContent).not.toContain('Stores found');
     expect(b.querySelectorAll('[data-onclick^="App.pinStore("]').length).toBe(1);
   });
-  it('says there is nothing to pin when every purchase has a place, but the Map panel just hides', async () => {
+  it('says there is nothing to pin when every purchase has a place, but the Map panel only offers Re-analyze all', async () => {
     localStorage.clear();
     const placed = [tx('3', 'WAL-MART #3826', 30, 36.3, -94.1)];
     let b = box(); await suggestStores(placed, true);
     expect(b.hidden).toBe(false); expect(b.textContent).toContain('No places to pin');
-    b = box(); await suggestStores(placed, false);
-    expect(b.hidden).toBe(true);
+    b = box(); await suggestStores(placed, false, false);
+    expect(b.hidden).toBe(false); expect(b.textContent).not.toContain('No places to pin'); expect(b.textContent).toContain('Re-analyze all purchases');
   });
   it('is the third To do tab and highlights To do', () => {
     expect(String(todoTabs('places'))).toMatch(/<a href="#\/places" class="on">Places<\/a>/);
@@ -112,4 +112,43 @@ describe('places tab: pin several stores in one go', () => {
     expect(css).toMatch(/#storeList input\[type=checkbox\] \{[^}]*width: 18px; height: 18px;[^}]*padding: 0;/);
     expect(css).toMatch(/#storeList \.bulkbar label \{ white-space: nowrap; \}/);
   });
+});
+
+describe('map page: Re-analyze all', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const wm = (id: string, n: string) => tx(id, 'WAL-MART #' + n, 30);
+  const setup = async () => {
+    localStorage.clear();
+    for (let i = 1; i <= 35; i++) learn('walmart:' + (1000 + i), { lat: i, lng: i, addr: 'St ' + i, src: 'learned' });
+    document.body.innerHTML = '<div id="toast"></div><section id="storeList" hidden></section>';
+    await suggestStores([], false, false);       // module state from an earlier test
+    return document.getElementById('storeList')!;
+  };
+  it('shows the button with the normal suggestions and caps them at 30 until you re-analyze', async () => {
+    const b = await setup();
+    await suggestStores(Array.from({ length: 35 }, (_, i) => wm('p' + i, String(1001 + i))), false, false);
+    expect(b.textContent).toContain('Re-analyze all purchases');
+    expect(b.querySelectorAll('[data-onchange^="App.pinTick("]').length).toBe(30);
+  });
+  it('rescans every purchase ever (fresh from Firefly) and lists a pin option for all 35 stores', async () => {
+    const b = await setup(); let url = '';
+    vi.stubGlobal('location', { origin: 'http://x', href: 'http://x/', hash: '' });
+    vi.stubGlobal('navigator', { onLine: true });
+    const rows = Array.from({ length: 35 }, (_, i) => ({ id: 'q' + i, attributes: { transactions: [{ transaction_journal_id: 'q' + i, type: 'withdrawal', date: '2020-01-01T12:00:00Z', amount: '30', description: 'WAL-MART #' + (1001 + i), destination_name: 'WAL-MART #' + (1001 + i), destination_type: 'Expense account', source_name: 'Card' }] } }));
+    vi.stubGlobal('fetch', async (u: string) => { url = String(u); return new Response(JSON.stringify({ data: rows, meta: { pagination: { total_pages: 1 } } }), { status: 200, headers: { 'content-type': 'application/json' } }); });
+    await App.reanalyzeAll();
+    expect(url).toContain('start=1970-01-01');
+    expect(b.hidden).toBe(false);
+    expect(b.textContent).toContain('All stores found');
+    expect(b.querySelectorAll('[data-onchange^="App.pinTick("]').length).toBe(35);
+    expect(b.textContent).toContain('Re-analyze all again');
+  });
+  it('shows nothing when Firefly can’t be reached', async () => {
+    const b = await setup();
+    vi.stubGlobal('location', { origin: 'http://x', href: 'http://x/', hash: '' });
+    vi.stubGlobal('navigator', { onLine: true });
+    vi.stubGlobal('fetch', async () => { throw new TypeError('offline'); });
+    await App.reanalyzeAll();
+    expect(b.textContent).toContain('Re-analyze all purchases'); expect(b.textContent).not.toContain('Analyzing'); expect(b.querySelectorAll('[data-onchange^="App.pinTick("]').length).toBe(0);
+  }, 30000);   // the API client retries a failed read a few times before giving up
 });
