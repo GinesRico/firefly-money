@@ -1,6 +1,7 @@
 import { html, htmlList } from '../core/html';
 import { getAll, PAGES } from '../core/api';
 import { App, el, fmtD, money0, monthOf, monthRange, S, todayIso } from '../core/base';
+import { toast } from '../core/dom';
 import { buzz } from '../core/haptics';
 import { type Account, isAsset, isLiab, lists, normAccount } from '../core/lists';
 import { LS, monthEnds } from '../core/helpers';
@@ -24,9 +25,14 @@ const firstOpened = () => (S.lists ? S.lists.accounts : []).filter(a => a.active
 // The range in use: the saved one (an old 1 or 3 means years), or the longest one offered if history is shorter
 export const nwMonths = () => {
   const saved = LS.get('nwMonths', 0) || LS.get('nwYears', 1) * 12, opts = nwOptions(firstOpened());
+  if (isCustom(saved)) return saved;
   return opts.includes(saved) ? saved : opts.filter(m => m <= saved).pop() || opts[0];
 };
-export const nwWords = () => RANGES.find(r => r[0] === nwMonths())![2];
+// A range typed in by hand (any whole number of months from 3 to 600) rather than one of the buttons
+const isCustom = (m: number) => Number.isInteger(m) && m >= 3 && m <= 600 && !RANGES.some(r => r[0] === m);
+export const customLabel = (m: number) => m % 12 === 0 ? m / 12 + 'Y' : m < 24 ? m + 'M' : +(m / 12).toFixed(1) + 'Y';
+export const nwWords = () => { const m = nwMonths(), r = RANGES.find(x => x[0] === m); return r ? r[2] : m % 12 === 0 || m >= 24 ? +(m / 12).toFixed(1) + ' years' : m + ' months'; };
+let editing = false;
 async function netWorthHistory(): Promise<NetWorthPoint[]> {
   return netWorthOn(monthEnds(todayIso(), POINTS, nwMonths() / (POINTS - 1)));
 }
@@ -49,7 +55,11 @@ export async function netWorthOn(days: string[]): Promise<NetWorthPoint[]> {
       .then(([as, ls]) => ({ date, ...total([...as, ...ls].map(normAccount)) }))));
 }
 // The range switch for the Overview's net worth tile
-export const nwSeg = () => { const cur = nwMonths(); return html`<div class="seg mini">${htmlList(nwOptions(firstOpened()).map(m => html`<button type="button" class="${cur === m ? 'on' : ''}" data-onclick="App.nwRange(${m})">${RANGES.find(r => r[0] === m)![1]}</button>`))}</div>`; };
+export const nwSeg = () => {
+  const cur = nwMonths(), custom = isCustom(cur);
+  if (editing) return html`<form class="nwcust" data-onsubmit="event.preventDefault();App.nwSet(this.yrs.value)"><input name="yrs" type="number" inputmode="decimal" min="0.25" max="50" step="any" value="${+(cur / 12).toFixed(2)}" aria-label="Years of history"> <span class="sub-s">years</span> <button class="btn small primary">Set</button> <button type="button" class="link" data-onclick="App.nwCustom(false)">Cancel</button></form>`;
+  return html`<div class="seg mini">${htmlList(nwOptions(firstOpened()).map(m => html`<button type="button" class="${cur === m ? 'on' : ''}" data-onclick="App.nwRange(${m})">${RANGES.find(r => r[0] === m)![1]}</button>`))}<button type="button" class="${custom ? 'on' : ''}" data-onclick="App.nwCustom(true)" aria-label="Custom range" title="Custom range">${custom ? customLabel(cur) : '…'}</button></div>`;
+};
 
 /* ---------- Time scrubber: drag along the tile's line and it goes back to that month ----------
    The big number and the line under it show that point, and a tip names the accounts that moved most since.
@@ -140,9 +150,20 @@ addEventListener('scroll', () => { const c = document.querySelector<HTMLElement>
 // Open the month of a point on the Overview: the whole page as it was then
 function nwOpen(y: number, m: number) { S.all = false; S.y = y; S.m = m; if (location.hash.replace(/^#\/?/, '') === '') App.reload(); else location.hash = '#/'; }
 function nwRange(m: number) {
-  LS.set('nwMonths', RANGES.some(r => r[0] === m) ? m : 12);
+  LS.set('nwMonths', RANGES.some(r => r[0] === m) || isCustom(m) ? m : 12);
+  editing = false;
   PAGES.clear(); S.pageHtml = '';
   // Redraw only the Net worth tile; the whole page only if the tile isn't there (e.g. another page)
+  if (!S.dashEdit && App.nwRedraw) App.nwRedraw().then(ok => { if (!ok) route(); }); else route();
+}
+// Free-form range: years typed in (0.25 to 50), kept as whole months
+function nwSet(years: string) {
+  const y = parseFloat(years), m = Math.round(y * 12);
+  if (!Number.isFinite(y) || m < 3 || m > 600) { toast('Enter 3 months to 50 years'); return; }
+  nwRange(m);
+}
+function nwCustom(on: boolean) {
+  editing = on;
   if (!S.dashEdit && App.nwRedraw) App.nwRedraw().then(ok => { if (!ok) route(); }); else route();
 }
 
@@ -150,6 +171,8 @@ function nwRange(m: number) {
 const methods = {
   netWorthHistory,
   nwRange,
+  nwSet,
+  nwCustom,
   nwOpen,
 };
 Object.assign(App, methods);
