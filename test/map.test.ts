@@ -117,20 +117,21 @@ describe('places tab: pin several stores in one go', () => {
 describe('map page: Re-analyze all', () => {
   afterEach(() => vi.unstubAllGlobals());
   const wm = (id: string, n: string) => tx(id, 'WAL-MART #' + n, 30);
-  const setup = () => {
+  const setup = async () => {
     localStorage.clear();
     for (let i = 1; i <= 35; i++) learn('walmart:' + (1000 + i), { lat: i, lng: i, addr: 'St ' + i, src: 'learned' });
     document.body.innerHTML = '<div id="toast"></div><section id="storeList" hidden></section>';
+    await suggestStores([], false, false);       // module state from an earlier test
     return document.getElementById('storeList')!;
   };
   it('shows the button with the normal suggestions and caps them at 30 until you re-analyze', async () => {
-    const b = setup();
+    const b = await setup();
     await suggestStores(Array.from({ length: 35 }, (_, i) => wm('p' + i, String(1001 + i))), false, false);
     expect(b.textContent).toContain('Re-analyze all purchases');
-    expect(b.querySelectorAll('[data-onclick^="App.pinTick("]').length).toBe(30);
+    expect(b.querySelectorAll('[data-onchange^="App.pinTick("]').length).toBe(30);
   });
   it('rescans every purchase ever (fresh from Firefly) and lists a pin option for all 35 stores', async () => {
-    const b = setup(); let url = '';
+    const b = await setup(); let url = '';
     vi.stubGlobal('location', { origin: 'http://x', href: 'http://x/', hash: '' });
     vi.stubGlobal('navigator', { onLine: true });
     const rows = Array.from({ length: 35 }, (_, i) => ({ id: 'q' + i, attributes: { transactions: [{ transaction_journal_id: 'q' + i, type: 'withdrawal', date: '2020-01-01T12:00:00Z', amount: '30', description: 'WAL-MART #' + (1001 + i), destination_name: 'WAL-MART #' + (1001 + i), destination_type: 'Expense account', source_name: 'Card' }] } }));
@@ -139,11 +140,11 @@ describe('map page: Re-analyze all', () => {
     expect(url).toContain('start=1970-01-01');
     expect(b.hidden).toBe(false);
     expect(b.textContent).toContain('All stores found');
-    expect(b.querySelectorAll('[data-onclick^="App.pinTick("]').length).toBe(35);
+    expect(b.querySelectorAll('[data-onchange^="App.pinTick("]').length).toBe(35);
     expect(b.textContent).toContain('Re-analyze all again');
   });
   it('shows nothing when Firefly can’t be reached', async () => {
-    const b = setup();
+    const b = await setup();
     vi.stubGlobal('location', { origin: 'http://x', href: 'http://x/', hash: '' });
     vi.stubGlobal('navigator', { onLine: true });
     vi.stubGlobal('fetch', async () => { throw new TypeError('offline'); });
