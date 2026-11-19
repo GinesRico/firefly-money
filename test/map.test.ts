@@ -36,13 +36,13 @@ describe('places tab (store suggestions under To do)', () => {
     expect(b.textContent).not.toContain('Stores found');
     expect(b.querySelectorAll('[data-onclick^="App.pinStore("]').length).toBe(1);
   });
-  it('says there is nothing to pin when every purchase has a place, but the Map panel just hides', async () => {
+  it('says there is nothing to pin when every purchase has a place, but the Map panel only offers Re-analyze all', async () => {
     localStorage.clear();
     const placed = [tx('3', 'WAL-MART #3826', 30, 36.3, -94.1)];
     let b = box(); await suggestStores(placed, true);
     expect(b.hidden).toBe(false); expect(b.textContent).toContain('No places to pin');
-    b = box(); await suggestStores(placed, false);
-    expect(b.hidden).toBe(true);
+    b = box(); await suggestStores(placed, false, false);
+    expect(b.hidden).toBe(false); expect(b.textContent).not.toContain('No places to pin'); expect(b.textContent).toContain('Re-analyze all purchases');
   });
   it('is the third To do tab and highlights To do', () => {
     expect(String(todoTabs('places'))).toMatch(/<a href="#\/places" class="on">Places<\/a>/);
@@ -149,6 +149,6 @@ describe('map page: Re-analyze all', () => {
     vi.stubGlobal('navigator', { onLine: true });
     vi.stubGlobal('fetch', async () => { throw new TypeError('offline'); });
     await App.reanalyzeAll();
-    expect(b.hidden).toBe(true); expect(b.textContent).toBe('');
+    expect(b.textContent).toContain('Re-analyze all purchases'); expect(b.textContent).not.toContain('Analyzing'); expect(b.querySelectorAll('[data-onchange^="App.pinTick("]').length).toBe(0);
   });
 });
