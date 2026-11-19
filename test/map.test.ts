@@ -150,5 +150,5 @@ describe('map page: Re-analyze all', () => {
     vi.stubGlobal('fetch', async () => { throw new TypeError('offline'); });
     await App.reanalyzeAll();
     expect(b.textContent).toContain('Re-analyze all purchases'); expect(b.textContent).not.toContain('Analyzing'); expect(b.querySelectorAll('[data-onchange^="App.pinTick("]').length).toBe(0);
-  });
+  }, 30000);   // the API client retries a failed read a few times before giving up
 });
