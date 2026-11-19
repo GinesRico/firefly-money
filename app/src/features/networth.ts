@@ -13,8 +13,8 @@ import { miniLine } from './charts';
 const POINTS = 13;
 export type NetWorthPoint = { date: string, assets: number, debts: number, net: number, by?: Record<string, number> };
 // The ranges the tile can show, in months. Only those the history reaches are offered (plus the first one past it, so
-// the longest button always covers everything): 6M and 1Y for a new setup, up to 10Y for a long one.
-const RANGES: [number, string, string][] = [[6, '6M', 'six months'], [12, '1Y', 'the year'], [36, '3Y', 'three years'], [60, '5Y', 'five years'], [120, '10Y', 'ten years']];
+// the longest button always covers everything): 6M and 1Y for a new setup, up to 30Y for a long one.
+const RANGES: [number, string, string][] = [[6, '6M', 'six months'], [12, '1Y', 'the year'], [36, '3Y', 'three years'], [60, '5Y', 'five years'], [120, '10Y', 'ten years'], [180, '15Y', 'fifteen years'], [240, '20Y', 'twenty years'], [360, '30Y', 'thirty years']];
 export function nwOptions(first = ''): number[] {
   const span = first ? (new Date().getFullYear() - +first.slice(0, 4)) * 12 + new Date().getMonth() + 1 - +first.slice(5, 7) : 1e9;
   const i = RANGES.findIndex(r => r[0] >= span);
