@@ -3,7 +3,7 @@ import { api, getAll, sleep } from '../core/api';
 import { paceForecast } from '../features/projections';
 import { monthEnd } from '../features/predict';
 import { ALL_START, App, S, absDiff, arr, el, fmtDate, fmtDay, isoDate, money, money0, monthRange, noneHref, nowMonth, num, sumDiff, todayIso, txHref, type ApiData, type Period, viewPeriod, viewYM, spentSum } from '../core/base';
-import { head, monthNav } from '../core/dom';
+import { head, monthNav, toast } from '../core/dom';
 import { acctAmt, normGroup, rankCats, txRows } from '../core/feed';
 import { addDays, budgetAlert, daysBetween } from '../core/helpers';
 import { type Account, isAsset, isCard, isLiab, lists } from '../core/lists';
@@ -12,7 +12,7 @@ import { VIEWS, quiet } from '../core/router';
 import { type Unusual, loadUnusual } from '../features/unusual';
 import { gettingStarted } from '../features/started';
 import { DASH_NAMES, tileOn, tileOpt } from '../features/dashboard';
-import { activityPanel, activityRange, barChart, paceChart, ring, shareChart, sparkBars, twoLines } from '../features/charts';
+import { activityPanel, activityRange, barChart, categoryTagBreakdown, paceChart, ring, shareChart, sparkBars, twoLines } from '../features/charts';
 import { type NetWorthPoint, nwLine, nwSeg, nwWords } from '../features/networth';
 import { bindSwipe } from '../features/phone';
 import { drafts } from '../features/txform';
@@ -85,7 +85,11 @@ VIEWS[''] = async (r, paint) => {
     // The activity grid ignores the month at the top: it covers its own range up to today (from Firefly only, nothing when it is down)
     on('activity') ? (() => { const a0 = actRange === 'all' ? ALL_START : activityRange(actRange, t0, '').start; return Promise.all([getAll('/transactions', { start: a0, end: t0, type: 'withdrawal' }), refundsIn(a0, t0).catch(() => [])]).then(([tx, rs]) => lessRefundTx(tx, rs)).catch(() => null); })() : none,
     // The subscription audit works from the past year's charges (from Firefly only, a note when it can't be reached)
-    on('subs') ? subCharges().then(cs => auditSubs(cs, t0)).catch(() => null) : none]);
+    on('subs') ? subCharges().then(cs => auditSubs(cs, t0)).catch(() => null) : none,
+    on('spending') && tileOpt('spending', 'style') !== 'bars' ? coreP.then(c => categoryTagBreakdown(cur.start, cur.end, [
+      ...arr(c[1]).map(x => ({ name: String(x.name), v: absDiff(x) })),
+      ...(sumDiff(c[3]) ? [{ name: 'Uncategorized', v: sumDiff(c[3]) }] : []),
+    ])).catch(() => new Map<string, Map<string, number>>()) : none]);
   slowP.catch(() => {});
   if (r.at) { await Promise.all([coreP, slowP]).catch(() => {}); return; }     // loading a month ahead: the data is all it needs
   const [summary, catNow, catPrev, noCatNow, noCatPrev, trend, recent, budgets, limits, bills, uncat, allTot, prevSoFar] = await coreP;
@@ -107,7 +111,7 @@ VIEWS[''] = async (r, paint) => {
   let unusual: Unusual | null = null, lastSlow: ApiData[] | null = null;     // odd charges: found after the page is up (below)
   const build = (slow: ApiData[] | null) => {
     lastSlow = slow;
-    const [prog, safe, insights, sparks, dayTx, incomeSrc, payNow, payPrev, piggies, nw, prevTx, monthCats, actTx, subAudit] = slow || [];
+    const [prog, safe, insights, sparks, dayTx, incomeSrc, payNow, payPrev, piggies, nw, prevTx, monthCats, actTx, subAudit, tagTotals] = slow || [];
     const wait = (k: string) => slow ? null : skeletonPanel(k);
     // A card with nothing to show for this month says so rather than vanishing, so the cards around it stay put
     const idle = (k: string, why = future ? 'Fills in once this month starts.' : 'Shows for one month at a time: pick a month at the top.') => quietPanel(k, why);
@@ -118,7 +122,7 @@ VIEWS[''] = async (r, paint) => {
       ['insights', monthOnly ? idle('insights') : wait('insights') ?? (insights || quietPanel('insights', 'Nothing unusual this month.'))],
       ['safe', future ? idle('safe') : wait('safe') ?? (safe || idle('safe'))],
       ['attention', attentionPanel({ uncat, uncatQ, bills: arr(bills), budgets: arr(budgets), limits, future, unusual })],
-      ['spending', spendingPanel([...cats.values()], future, all, tileOpt('spending', 'count'), tileOpt('spending', 'compare'), noneHref('category', cur))],
+      ['spending', spendingPanel([...cats.values()], future, all, tileOpt('spending', 'count'), tileOpt('spending', 'compare'), noneHref('category', cur), tagTotals)],
       ['budgets', budgetsMini(arr(budgets), limits, all, tileOpt('budgets', 'unset'), all || future ? null : cur)],
       ['cash', balancesPanel('Cash & savings', 'Bank account balances', cashShown.filter(a => !INVEST_RE.test(a.name)), a => a.balance, false, tileOpt('cash', 'sparks') ? sparks : {}, cashShown.filter(a => INVEST_RE.test(a.name)))],
       ['cards', balancesPanel('Credit cards', 'Current balances owed', cardsShown, a => Math.max(0, -a.balance), true, tileOpt('cards', 'sparks') ? sparks : {})],
@@ -237,15 +241,15 @@ function earnedTile(income: number, spend: number, part = false) {
   const sub = !income && !spend ? 'Nothing came in yet' : kept >= 0 ? html`Kept <span class="down num">${money0(kept)}</span>${income ? html` · <span class="${part ? 'neutral' : ''}"${part ? html` title="Not final: the month isn't over"` : ''}>${pct}%</span>` : ''}` : html`<span class="up num">${money0(-kept)}</span> more out than in`;
   return html`<section class="panel stat earned"><div class="eyebrow">${t(part ? 'Earned so far' : 'Earned')}</div><div class="stat-v num go-num" data-count="${income}" data-go="${txHref({ type: 'deposit' })}" title="${t('See this income')}">${money0(income)}</div><div class="sub-s">${sub}</div><div class="io">${bar('In', income, 'in')}${bar('Out', spend, kept < 0 ? 'over' : 'out')}</div></section>`;
 }
-function spendingPanel(cats: CatRow[], future: boolean, all: boolean, count = 6, compare = true, uncat = '') {
+function spendingPanel(cats: CatRow[], future: boolean, all: boolean, count = 6, compare = true, uncat = '', tagTotals?: Map<string, Map<string, number>>) {
   const cmp = compare && !all, total = cats.reduce((t, c) => t + c.amt, 0);
   const items = cats.map(c => {
     const d = c.amt - c.prev;
     const vs = !cmp ? '' : !c.prev ? ' · ' + t('new') : Math.abs(d) < 1 ? ' · ' + t('same') : html` · <span class="${d > 0 ? 'up' : 'down'}">${t('{amount} {direction}', { amount: money0(Math.abs(d)), direction: t(d > 0 ? 'more' : 'less') })}</span>`;
-    return { name: c.name, v: c.amt, href: c.id ? '#/transactions?category=' + c.id : c.name === 'Uncategorized' ? uncat || undefined : undefined, sub: html`${money0(c.amt)}${vs}` };
+    return { name: c.name, v: c.amt, href: c.id ? '#/transactions?category=' + c.id : c.name === 'Uncategorized' ? uncat || undefined : undefined, sub: html`${money0(c.amt)}${vs}`, children: [...(tagTotals?.get(c.name) || new Map())].map(([name, v]) => ({ name, v })) };
   });
   const chart = shareChart(items, html`<span class="eyebrow">Spent</span><strong class="num">${money0(total)}</strong>`, 'Spending by category', { limit: count, ring: tileOpt('spending', 'style') !== 'bars', go: txHref({ type: 'withdrawal' }), rest: '#/categories' });
-  return html`<section class="panel"><h2>Where it went</h2><p class="lead">${t(cmp ? 'Spending by category {period}, against last month' : 'Spending by category {period}', { period: t(all ? 'of all time' : 'this month') })}</p>${chart || html`<p class="empty">${future ? t('This month hasn’t started yet.') : t(all ? 'No spending recorded yet.' : 'No spending recorded this month.')}</p>`}</section>`;
+  return html`<section class="panel overview-spending"><h2>Where it went</h2><p class="lead">${t(cmp ? 'Spending by category {period}, against last month' : 'Spending by category {period}', { period: t(all ? 'of all time' : 'this month') })}</p>${chart || html`<p class="empty">${future ? t('This month hasn’t started yet.') : t(all ? 'No spending recorded yet.' : 'No spending recorded this month.')}</p>`}</section>`;
 }
 // A card row: the whole row opens the account; Pay now (owed > 0) opens a transfer to the card for what is owed, like Pay now on a bill
 export function payRow(a: Account, v: number, paidOff: boolean, sparks: any = {}, nv = v) {      // nv: the same figure in the account's own currency
