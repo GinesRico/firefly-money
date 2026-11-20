@@ -9,6 +9,7 @@ import { type RouteInfo, VIEWS, parseHash, route } from '../core/router';
 import { openPalette } from './palette';
 import { bindSwipe } from './phone';
 import { newTx } from './txform';
+import { t } from '../core/spanish';
 
 /* Polish: prefetch on hover, after-paint effects, chart tooltips, quick add and keyboard shortcuts,
    payee memory, undo for deletes, instant rules filter. */
@@ -197,16 +198,16 @@ function softDeleteTx(ids: string[]) {
     if (undone) return;
     let failed = 0;
     await eachLimited(ids, 4, async id => { try { await api('/transactions/' + id, { method: 'DELETE', keepalive: leaving }); } catch (e) { failed++; } S.pendingDel.delete(id); });
-    if (failed) toast(failed + ' couldn’t be deleted');
+    if (failed) toast(t('{count} items couldn’t be deleted', { count: failed }));
     if (['', 'transactions', 'account'].includes(parseHash().name)) route();
   };
   if (S.undoCommit) S.undoCommit();              // finish any earlier pending delete first
   S.undoCommit = (leaving?: boolean) => { clearTimeout(S.undoT); S.undoCommit = null; commit(leaving === true); };
-  box.innerHTML = String(html`<span>${ids.length === 1 ? 'Transaction deleted' : ids.length + ' transactions deleted'}</span><button type="button">Undo</button><span class="bar"></span>`);
+  box.innerHTML = String(html`<span>${ids.length === 1 ? t('Transaction deleted') : t('{count} transactions deleted', { count: ids.length })}</span><button type="button">${t('Undo')}</button><span class="bar"></span>`);
   box.hidden = false;
   box.querySelector('button')!.onclick = () => {
     undone = true; clearTimeout(S.undoT); S.undoCommit = null; box.hidden = true;
-    ids.forEach(id => S.pendingDel.delete(id)); toast('Restored'); route();
+    ids.forEach(id => S.pendingDel.delete(id)); toast(t('Restored')); route();
   };
   S.undoT = setTimeout(() => S.undoCommit && S.undoCommit(), 5000);
 }
