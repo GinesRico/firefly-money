@@ -2437,6 +2437,51 @@ html[data-theme="polar"] .opill { background: var(--accent); }
 html[data-theme="polar"] :is(.panel, .daycards tbody.day, .daycards > .center-empty, .kpi, .insight, .extra, .split, .dash-bar) { -webkit-backdrop-filter: none; backdrop-filter: none; }
 html[data-theme="sakura"] .panel,html[data-theme="mint"] .panel,html[data-theme="lavender"] .panel,html[data-theme="peach"] .panel,html[data-theme="sky"] .panel,html[data-theme="butter"] .panel { box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 6%, transparent), 0 8px 24px color-mix(in srgb, var(--accent) 6%, transparent); }
 
+/* ---------- Theme: Interstellar (black page, warm amber accent, muted blue-grey; a sky behind everything that follows the clock: sun and moon on their arcs, dawn and dusk, stars at night). The colours come from src/core/sky.ts as --sky-* / --sun-* / --moon-* once a minute; nothing animates, so reduced motion changes nothing. The sun is a dark disc with an amber rim, so text over it still reads. ---------- */
+html[data-theme="interstellar"] { --bg: #05070b; --panel: rgba(9, 12, 18, .9); --line: rgba(190, 204, 224, .14); --text: #efe8da; --muted: #c2c9d3; --faint: rgba(190, 204, 224, .07);
+  --good: #8fd1a9; --spend: #f0a07c; --income: #9ab8d8; --warn: #e8bd6a; --good-t: #8fd1a9; --spend-t: #f0a07c; --warn-t: #e8bd6a;
+  --accent: #e8a23c; --on-accent: #1a1105; --ag: #e8a23c; --hero-grad: linear-gradient(90deg, #f3c777, #e8a23c); --shadow: 0 18px 44px rgba(0, 0, 0, .55); --radius: 14px; color-scheme: dark;
+  --sky-top: #04060a; --sky-mid: #080c14; --sky-bot: #0e131c; --sun-x: 94; --sun-y: 74; --sun-o: 0; --sun-c: #e8a23c; --moon-x: 50; --moon-y: 20; --moon-o: 1; --star-o: 1;
+  background: var(--sky-bot); }
+html[data-theme="interstellar"] body { background: transparent; }
+html[data-theme="interstellar"] body::after { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(circle 20px at calc(var(--moon-x) * 1%) calc(var(--moon-y) * 1%), color-mix(in srgb, #3f4b5d calc(var(--moon-o) * 100%), transparent) 0 17px, color-mix(in srgb, #8d9db3 calc(var(--moon-o) * 70%), transparent) 18px 19px, transparent 20px),
+    radial-gradient(circle 150px at calc(var(--moon-x) * 1%) calc(var(--moon-y) * 1%), color-mix(in srgb, #8d9db3 calc(var(--moon-o) * 9%), transparent), transparent),
+    radial-gradient(circle 32px at calc(var(--sun-x) * 1%) calc(var(--sun-y) * 1%), color-mix(in srgb, #0b0906 calc(var(--sun-o) * 100%), transparent) 0 26px, color-mix(in srgb, var(--sun-c) calc(var(--sun-o) * 80%), transparent) 27px 30px, transparent 31px),
+    radial-gradient(circle 240px at calc(var(--sun-x) * 1%) calc(var(--sun-y) * 1%), color-mix(in srgb, var(--sun-c) calc(var(--sun-o) * 8%), transparent), transparent),
+    radial-gradient(1.2px 1.2px at 8% 14%, color-mix(in srgb, #fff calc(var(--star-o) * 70%), transparent), transparent),
+    radial-gradient(1px 1px at 17% 52%, color-mix(in srgb, #fff calc(var(--star-o) * 55%), transparent), transparent),
+    radial-gradient(1.2px 1.2px at 26% 27%, color-mix(in srgb, #fff calc(var(--star-o) * 65%), transparent), transparent),
+    radial-gradient(1px 1px at 35% 8%, color-mix(in srgb, #fff calc(var(--star-o) * 60%), transparent), transparent),
+    radial-gradient(1.2px 1.2px at 44% 44%, color-mix(in srgb, #fff calc(var(--star-o) * 50%), transparent), transparent),
+    radial-gradient(1px 1px at 58% 18%, color-mix(in srgb, #fff calc(var(--star-o) * 65%), transparent), transparent),
+    radial-gradient(1.2px 1.2px at 66% 60%, color-mix(in srgb, #fff calc(var(--star-o) * 50%), transparent), transparent),
+    radial-gradient(1px 1px at 74% 33%, color-mix(in srgb, #fff calc(var(--star-o) * 60%), transparent), transparent),
+    radial-gradient(1.2px 1.2px at 83% 10%, color-mix(in srgb, #fff calc(var(--star-o) * 70%), transparent), transparent),
+    radial-gradient(1px 1px at 91% 48%, color-mix(in srgb, #fff calc(var(--star-o) * 55%), transparent), transparent),
+    radial-gradient(1px 1px at 96% 24%, color-mix(in srgb, #fff calc(var(--star-o) * 60%), transparent), transparent),
+    linear-gradient(180deg, var(--sky-top), var(--sky-mid) 55%, var(--sky-bot)); }
+html[data-theme="interstellar"] :is(.panel, .daycards tbody.day, .daycards > .center-empty, .kpi, .insight, .extra, .split, .login form, .dash-bar) {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-theme="interstellar"] :is(.drawer, dialog, .calpop, .pickpop, .palette-box, .bulkbar, .ff-pop) { background: rgba(9, 12, 18, .97); border-color: var(--line); border-radius: 14px; }
+html[data-theme="interstellar"] :is(input[type=text], input[type=number], input[type=date], input[type=password], input[type=search], select, textarea, .round, .wctl button, .btn, .seg, .tabs) { background: rgba(190, 204, 224, .07); border-color: rgba(190, 204, 224, .18); }
+html[data-theme="interstellar"] select option { background: #0b0f16; }
+html[data-theme="interstellar"] :is(input, select, textarea):focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+html[data-theme="interstellar"] :is(.btn.primary, .seg button.on, .tabs a.on, .tabbar .plus, .fab) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+html[data-theme="interstellar"] .tbl.feed td { background: rgba(190, 204, 224, .04); border-color: rgba(190, 204, 224, .08); }
+html[data-theme="interstellar"] .tbl.feed tr.dayhead div { background: rgba(9, 12, 18, .94); }
+html[data-theme="interstellar"] .track { background: rgba(190, 204, 224, .14); }
+html[data-theme="interstellar"] .appbar.scrolled { background: rgba(9, 12, 18, .88); }
+html[data-theme="interstellar"] .scrim { background: rgba(2, 3, 6, .6); }
+html[data-theme="interstellar"] .side { background: rgba(9, 12, 18, .82); border: 1px solid var(--line); border-radius: 18px; }
+html[data-theme="interstellar"] :is(.tab-pill, .nav a.on) { background: rgba(232, 162, 60, .14); box-shadow: inset 0 0 0 1px rgba(232, 162, 60, .35); }
+html[data-theme="interstellar"] :is(.tabbar :is(a, button.more).on, .nav a.on) { color: var(--accent); }
+html[data-theme="interstellar"] .tabbar { background: rgba(9, 12, 18, .94); border: 1px solid var(--line); box-shadow: var(--shadow); }
+html[data-theme="interstellar"] .tabbar :is(a, button.more) { color: var(--muted); }
+html[data-theme="interstellar"] .big { color: transparent; background: var(--hero-grad); -webkit-background-clip: text; background-clip: text; }
+@media (max-width: 900px) { html[data-theme="interstellar"] .tbl.feed tr.dayhead div { background: rgba(9, 12, 18, .97); } }
+
 /* ---------- Theme picker: grouped chips with a swatch preview, one tab stop, arrow keys to move ---------- */
 .tp-wrap { padding: 12px 0 16px; }
 .tp-title { font-size: var(--fs-md); margin-bottom: 12px; }
