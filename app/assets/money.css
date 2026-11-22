@@ -753,7 +753,8 @@
   .dash-opts { display: flex; gap: 12px 16px; align-items: center; flex-wrap: wrap; flex-basis: 100%; padding-top: 12px; border-top: 1px solid var(--line); }
   .dash-opts .grow { flex: 1; }
   .dash-opts label.check { font-size: 13px; }
-  .nwcust { display: flex; gap: 6px; align-items: center; } .nwcust input { width: 64px; padding: 4px 6px; font-size: 13px; min-height: 0; } .seg.mini { margin: 0; } .seg.mini button { padding: 4px 12px; font-size: 12.5px; }
+  .nwcust { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-bottom: 8px; } .nwcust[hidden] { display: none; } .nwcust input { width: 60px; padding: 4px 6px; font-size: 13px; min-height: 0; margin: 0; }
+  .nw-gear { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; margin: -4px -6px -4px 0; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; } .nw-gear svg { width: 18px; height: 18px; display: block; } .nw-gear[aria-expanded="true"] { color: var(--text); background: var(--faint, rgba(128,128,128,.14)); }
   /* Customizable overview (ui.js): bands of --n columns you arrange yourself, with wide cards between the bands */
   .dash-wrap { --gap: 20px; }
   .cards.free { columns: auto; }
@@ -1787,9 +1788,8 @@
   .panel.stat { display: flex; flex-direction: column; }
   .panel.stat .eyebrow { margin-bottom: 8px; }
   .panel.stat .panel-head { margin-bottom: 4px; } .panel.stat .panel-head .eyebrow { margin: 0; }
-  /* Net worth: the range chips sit centred on their own row under the heading, at any card width */
-  .panel.stat.nw .panel-head { flex-direction: column; align-items: flex-start; }
-  .panel.stat.nw .panel-head > .seg { align-self: center; margin: 4px 0 8px; }
+  /* Net worth: the heading and its options button share a row; the years box opens on its own row under it */
+  .panel.stat.nw .panel-head { flex-wrap: nowrap; align-items: center; }
   .stat-v { font-size: 30px; font-weight: 400; letter-spacing: -.025em; line-height: 1.1; }
   .panel.stat .big { font-size: clamp(34px, 11cqi, 52px); }
   .panel.stat .sub-s { margin-top: 4px; }

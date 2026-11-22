@@ -24,10 +24,10 @@ describe('card chips redraw only their card', () => {
   });
 });
 
-describe('Net worth range chips are centred', () => {
-  it('sit on their own centred row under the heading at any card width', () => {
+describe('Net worth options button', () => {
+  it('shares a row with the heading, and the options row opens under it', () => {
     const css = readFileSync('app/assets/money.css', 'utf8');
-    expect(css).toMatch(/\.panel\.stat\.nw \.panel-head \{ flex-direction: column; align-items: flex-start; \}/);
-    expect(css).toMatch(/\.panel\.stat\.nw \.panel-head > \.seg \{ align-self: center;/);
+    expect(css).toMatch(/\.panel\.stat\.nw \.panel-head \{ flex-wrap: nowrap; align-items: center; \}/);
+    expect(ov).toMatch(/\$\{nwGear\(\)\}<\/div>\$\{nwOptsForm\(\)\}/);
   });
 });

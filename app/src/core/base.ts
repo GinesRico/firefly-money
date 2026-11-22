@@ -2,6 +2,7 @@ import type { Html } from './html';
 import type { Group, TxMeta } from './feed';
 import type { Lists } from './lists';
 import { decimalsOf, inPrimary } from './fx';
+import { langPref } from './spanish';
 
 /* ================= Settings ================= */
 export const PAGE_SIZE = 50;
@@ -96,18 +97,20 @@ export const sumDiff = (r: ApiData): number => arr(r).reduce((s, x) => s + absDi
    Every amount and date goes through these, in the locale picked in Settings → Appearance → Number & date format
    ("Automatic" follows the browser). Interface text stays English; only how numbers and dates are written changes. */
 export const LOCALE_KEY = 'money.locale';
-let locCache: [string | null, string] | null = null;
+let locCache: [string, string] | null = null;
 // Read on every format call (a setting synced from another device can change it), so the parsed value is kept
 export function locale() {
   let raw: string | null = null;
   try { raw = localStorage.getItem(LOCALE_KEY); } catch (e) { /* storage blocked */ }
-  if (locCache && locCache[0] === raw) return locCache[1];
+  const es = langPref() === 'es', stamp = (raw ?? '') + '|' + es;
+  if (locCache && locCache[0] === stamp) return locCache[1];
   let pick = '';
   try { pick = raw ? String(JSON.parse(raw) || '') : ''; } catch (e) { /* not JSON */ }
-  const want = pick || (typeof navigator !== 'undefined' && navigator.language) || 'en-US';
+  // With Spanish picked and no format chosen, dates and months follow Spanish too (es-US keeps $1,234.50 and month/day order)
+  const want = pick || (es ? (typeof navigator !== 'undefined' && /^es\b/i.test(navigator.language) ? navigator.language : 'es-US') : (typeof navigator !== 'undefined' && navigator.language) || 'en-US');
   let ok = 'en-US';
   try { ok = Intl.NumberFormat.supportedLocalesOf([want])[0] || 'en-US'; } catch (e) { /* not a locale tag */ }
-  locCache = [raw, ok];
+  locCache = [stamp, ok];
   return ok;
 }
 const FMT = new Map<string, Intl.NumberFormat | Intl.DateTimeFormat>();
