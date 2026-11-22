@@ -5,6 +5,9 @@ type PhraseTemplate = { re: RegExp, names: string[], translated: string, prefix:
 type PatternIndex<T> = { byPrefix: Map<string, T[]>, withoutPrefix: T[], order: Map<T, number> };
 // A placeholder stands for one piece of text: it never spans a line break or a " · " divider
 const HOLE = '(?:(?! · )[^\\n])*?';
+// An {amount} or {pct} is a number ("$1,234.50", "−12%", "EUR 5"): it never swallows a name like "Everyday Checking"
+const NUMBER_HOLE = '(?:[A-Z]{3} ?)?[^\\p{L}\\n]{1,40}(?: ?[A-Z]{3})?';
+const holeFor = (name: string) => /^(amount\d*|pct)$/.test(name) ? NUMBER_HOLE : HOLE;
 const PLACEHOLDER = /\{([a-zA-Z][a-zA-Z0-9_]*)\}/g;
 const literalLength = (s: string) => s.replace(PLACEHOLDER, '').length;   // more fixed text = more specific
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -53,11 +56,11 @@ const PHRASES: PhraseTemplate[] = Object.entries(ES).flatMap(([source, translate
   const names: string[] = [];
   for (const match of matches) {
     const at = match.index!;
-    pattern += escapeRe(source.slice(offset, at)) + '(' + HOLE + ')';
+    pattern += escapeRe(source.slice(offset, at)) + '(' + holeFor(match[1]) + ')';
     names.push(match[1]); offset = at + match[0].length;
   }
   pattern += escapeRe(source.slice(offset)) + '$';
-  return [{ re: new RegExp(pattern), names, translated, source, strong: literalLength(source) >= 10, prefix: source.slice(0, matches[0].index!) }];
+  return [{ re: new RegExp(pattern, 'u'), names, translated, source, strong: literalLength(source) >= 10, prefix: source.slice(0, matches[0].index!) }];
 }).sort((a, b) => literalLength(b.source) - literalLength(a.source) || b.names.length - a.names.length).map(({ source, ...phrase }) => phrase);
 const phraseIndex = patternIndex(PHRASES, phrase => phrase.prefix);
 
