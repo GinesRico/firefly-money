@@ -1,5 +1,5 @@
 import { html, htmlList } from '../core/html';
-import { getAll, PAGES } from '../core/api';
+import { api, getAll, PAGES } from '../core/api';
 import { App, el, fmtD, money0, monthOf, monthRange, S, todayIso } from '../core/base';
 import { toast } from '../core/dom';
 import { buzz } from '../core/haptics';
@@ -13,27 +13,31 @@ import { miniLine } from './charts';
    point and type: the last day of each month, plus today. */
 const POINTS = 13;
 export type NetWorthPoint = { date: string, assets: number, debts: number, net: number, by?: Record<string, number> };
-// The ranges the tile can show, in months. Only those the history reaches are offered (plus the first one past it, so
-// the longest button always covers everything): 6M and 1Y for a new setup, up to 30Y for a long one.
-const RANGES: [number, string, string][] = [[6, '6M', 'six months'], [12, '1Y', 'the year'], [36, '3Y', 'three years'], [60, '5Y', 'five years'], [120, '10Y', 'ten years'], [180, '15Y', 'fifteen years'], [240, '20Y', 'twenty years'], [360, '30Y', 'thirty years']];
-export function nwOptions(first = ''): number[] {
-  const span = first ? (new Date().getFullYear() - +first.slice(0, 4)) * 12 + new Date().getMonth() + 1 - +first.slice(5, 7) : 1e9;
-  const i = RANGES.findIndex(r => r[0] >= span);
-  return RANGES.slice(0, i < 0 ? RANGES.length : Math.max(i + 1, 2)).map(r => r[0]);
-}
+// The range in months: the number of years typed in (3 months to 50 years), or all time (saved as -1), which starts at
+// the very first transaction. One year until chosen otherwise.
+const ALL = -1, DEFAULT = 12;
+const sinceMonths = (first: string) => Math.max(3, (new Date().getFullYear() - +first.slice(0, 4)) * 12 + new Date().getMonth() + 1 - +first.slice(5, 7) + 1);
 const firstOpened = () => (S.lists ? S.lists.accounts : []).filter(a => a.active && a.netWorth && a.openingDate).map(a => a.openingDate.slice(0, 10)).sort()[0] || '';
-// The range in use: the saved one (an old 1 or 3 means years), or the longest one offered if history is shorter
+const validMonths = (m: number) => Number.isInteger(m) && m >= 3 && m <= 600;
+export const nwAll = () => LS.get('nwMonths', 0) === ALL;
+let allFrom = '';       // the first transaction's day, kept only while an all-time history is drawn
 export const nwMonths = () => {
-  const saved = LS.get('nwMonths', 0) || LS.get('nwYears', 1) * 12, opts = nwOptions(firstOpened());
-  if (isCustom(saved)) return saved;
-  return opts.includes(saved) ? saved : opts.filter(m => m <= saved).pop() || opts[0];
+  if (nwAll()) return sinceMonths(allFrom || firstOpened() || todayIso());
+  const saved = LS.get('nwMonths', 0) || LS.get('nwYears', 1) * 12;
+  return validMonths(saved) ? saved : DEFAULT;
 };
-// A range typed in by hand (any whole number of months from 3 to 600) rather than one of the buttons
-const isCustom = (m: number) => Number.isInteger(m) && m >= 3 && m <= 600 && !RANGES.some(r => r[0] === m);
-export const customLabel = (m: number) => m % 12 === 0 ? m / 12 + 'Y' : m < 24 ? m + 'M' : +(m / 12).toFixed(1) + 'Y';
-export const nwWords = () => { const m = nwMonths(), r = RANGES.find(x => x[0] === m); return r ? r[2] : m % 12 === 0 || m >= 24 ? +(m / 12).toFixed(1) + ' years' : m + ' months'; };
-let editing = false;
+export const nwWords = () => { if (nwAll()) return 'all time'; const m = nwMonths(); return m % 12 === 0 || m >= 24 ? +(m / 12).toFixed(1) + (m === 12 ? ' year' : ' years') : m + ' months'; };
+// The day of the first transaction of any kind (Firefly lists newest first, so it is the last one on the last page)
+async function firstTxDay(): Promise<string> {
+  const q = { type: 'all', start: '1900-01-01', end: todayIso() };
+  const head = await api('/transactions', { params: { ...q, page: 1, limit: 1 }, fresh: true });
+  const last = (head && head.meta && head.meta.pagination && head.meta.pagination.total_pages) || 1;
+  const res = last > 1 ? await api('/transactions', { params: { ...q, page: last, limit: 1 }, fresh: true }) : head;
+  const d = String(res && res.data && res.data[0] && res.data[0].attributes.transactions[0].date || '').slice(0, 10);
+  return d || firstOpened() || todayIso();
+}
 async function netWorthHistory(): Promise<NetWorthPoint[]> {
+  allFrom = nwAll() ? await firstTxDay() : '';
   return netWorthOn(monthEnds(todayIso(), POINTS, nwMonths() / (POINTS - 1)));
 }
 // Net worth on each of these days, in the same order (a day from today on uses today's balances)
@@ -54,11 +58,12 @@ export async function netWorthOn(days: string[]): Promise<NetWorthPoint[]> {
     : Promise.all([getAll('/accounts', { type: 'asset', date }), getAll('/accounts', { type: 'liabilities', date })])
       .then(([as, ls]) => ({ date, ...total([...as, ...ls].map(normAccount)) }))));
 }
-// The range switch for the Overview's net worth tile
-export const nwSeg = () => {
-  const cur = nwMonths(), custom = isCustom(cur);
-  if (editing) return html`<form class="nwcust" data-onsubmit="event.preventDefault();App.nwSet(this.yrs.value)"><input name="yrs" type="number" inputmode="decimal" min="0.25" max="50" step="any" value="${+(cur / 12).toFixed(2)}" aria-label="Years of history"> <span class="sub-s">years</span> <button class="btn small primary">Set</button> <button type="button" class="link" data-onclick="App.nwCustom(false)">Cancel</button></form>`;
-  return html`<div class="seg mini">${htmlList(nwOptions(firstOpened()).map(m => html`<button type="button" class="${cur === m ? 'on' : ''}" data-onclick="App.nwRange(${m})">${RANGES.find(r => r[0] === m)![1]}</button>`))}<button type="button" class="${custom ? 'on' : ''}" data-onclick="App.nwCustom(true)" aria-label="Custom range" title="Custom range">${custom ? customLabel(cur) : '…'}</button></div>`;
+// The range control for the Overview's net worth tile: a small options button in the card's header, and under it (shut
+// until the button is pressed) a years box and an All time button
+export const nwGear = () => html`<button type="button" class="nw-gear" data-onclick="App.nwOpts(this)" aria-expanded="false" aria-label="Net worth options" title="Options"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>`;
+export const nwOptsForm = () => {
+  const all = nwAll();
+  return html`<form class="nwcust" hidden data-onsubmit="event.preventDefault();App.nwSet(this.yrs.value)"><label class="sub-s" for="nw-yrs">History</label><input id="nw-yrs" name="yrs" type="number" inputmode="decimal" min="0.25" max="50" step="any" value="${all ? '' : +(nwMonths() / 12).toFixed(2)}" placeholder="Years" aria-label="Years of history"> <span class="sub-s">years</span> <button class="btn small primary">Set</button> <button type="button" class="btn small${all ? ' primary' : ''}" aria-pressed="${all}" data-onclick="App.nwRange(-1)">All time</button></form>`;
 };
 
 /* ---------- Time scrubber: drag along the tile's line and it goes back to that month ----------
@@ -150,8 +155,7 @@ addEventListener('scroll', () => { const c = document.querySelector<HTMLElement>
 // Open the month of a point on the Overview: the whole page as it was then
 function nwOpen(y: number, m: number) { S.all = false; S.y = y; S.m = m; if (location.hash.replace(/^#\/?/, '') === '') App.reload(); else location.hash = '#/'; }
 function nwRange(m: number) {
-  LS.set('nwMonths', RANGES.some(r => r[0] === m) || isCustom(m) ? m : 12);
-  editing = false;
+  LS.set('nwMonths', m === ALL || validMonths(m) ? m : DEFAULT);
   PAGES.clear(); S.pageHtml = '';
   // Redraw only the Net worth tile; the whole page only if the tile isn't there (e.g. another page)
   if (!S.dashEdit && App.nwRedraw) App.nwRedraw().then(ok => { if (!ok) route(); }); else route();
@@ -159,12 +163,14 @@ function nwRange(m: number) {
 // Free-form range: years typed in (0.25 to 50), kept as whole months
 function nwSet(years: string) {
   const y = parseFloat(years), m = Math.round(y * 12);
-  if (!Number.isFinite(y) || m < 3 || m > 600) { toast('Enter 3 months to 50 years'); return; }
+  if (!Number.isFinite(y) || !validMonths(m)) { toast('Enter 3 months to 50 years'); return; }
   nwRange(m);
 }
-function nwCustom(on: boolean) {
-  editing = on;
-  if (!S.dashEdit && App.nwRedraw) App.nwRedraw().then(ok => { if (!ok) route(); }); else route();
+// Open or shut the options row under the card's header
+function nwOpts(b: HTMLElement) {
+  const f = b.closest('.nw')?.querySelector<HTMLElement>('.nwcust'); if (!f) return;
+  f.hidden = !f.hidden; b.setAttribute('aria-expanded', String(!f.hidden));
+  if (!f.hidden) f.querySelector<HTMLInputElement>('input')?.focus();
 }
 
 // The methods markup handlers call (see events.ts), added to App and to its type
@@ -172,7 +178,7 @@ const methods = {
   netWorthHistory,
   nwRange,
   nwSet,
-  nwCustom,
+  nwOpts,
   nwOpen,
 };
 Object.assign(App, methods);
