@@ -11,6 +11,7 @@ import { FX } from '../core/fx';
 import { VIEWS, quiet } from '../core/router';
 import { type Unusual, loadUnusual } from '../features/unusual';
 import { gettingStarted } from '../features/started';
+import { type Buy, HABIT_DAYS, habitStats, habitsHiddenToday, habitsOn, habitsPanel } from '../features/habits';
 import { DASH_NAMES, tileOn, tileOpt } from '../features/dashboard';
 import { activityPanel, activityRange, barChart, paceChart, ring, shareChart, sparkBars, twoLines } from '../features/charts';
 import { type NetWorthPoint, nwGear, nwLine, nwOptsForm, nwWords } from '../features/networth';
@@ -84,7 +85,9 @@ VIEWS[''] = async (r, paint) => {
     // The activity grid ignores the month at the top: it covers its own range up to today (from Firefly only, nothing when it is down)
     on('activity') ? (() => { const a0 = actRange === 'all' ? ALL_START : activityRange(actRange, t0, '').start; return Promise.all([getAll('/transactions', { start: a0, end: t0, type: 'withdrawal' }), refundsIn(a0, t0).catch(() => [])]).then(([tx, rs]) => lessRefundTx(tx, rs)).catch(() => null); })() : none,
     // The subscription audit works from the past year's charges (from Firefly only, a note when it can't be reached)
-    on('subs') ? subCharges().then(cs => auditSubs(cs, t0)).catch(() => null) : none]);
+    on('subs') ? subCharges().then(cs => auditSubs(cs, t0)).catch(() => null) : none,
+    // Habits work from the last 13 weeks of purchases, whatever month is showing (from Firefly only, nothing when it is down)
+    habitsShown() ? getAll('/transactions', { start: addDays(t0, -(HABIT_DAYS - 1)), end: t0, type: 'withdrawal' }).then(tx => tx.map(normGroup).flatMap(g => g.splits.filter(x => x.type === 'withdrawal').map(x => ({ date: String(x.date), amount: x.amount, category: x.category || '' })))).catch(() => null) : none]);
   slowP.catch(() => {});
   if (r.at) { await Promise.all([coreP, slowP]).catch(() => {}); return; }     // loading a month ahead: the data is all it needs
   const [summary, catNow, catPrev, noCatNow, noCatPrev, trend, recent, budgets, limits, bills, uncat, allTot, prevSoFar] = await coreP;
@@ -106,7 +109,7 @@ VIEWS[''] = async (r, paint) => {
   let unusual: Unusual | null = null, lastSlow: ApiData[] | null = null;     // odd charges: found after the page is up (below)
   const build = (slow: ApiData[] | null) => {
     lastSlow = slow;
-    const [prog, safe, insights, sparks, dayTx, incomeSrc, payNow, payPrev, piggies, nw, prevTx, monthCats, actTx, subAudit] = slow || [];
+    const [prog, safe, insights, sparks, dayTx, incomeSrc, payNow, payPrev, piggies, nw, prevTx, monthCats, actTx, subAudit, habTx] = slow || [];
     const wait = (k: string) => slow ? null : skeletonPanel(k);
     // A card with nothing to show for this month says so rather than vanishing, so the cards around it stay put
     const idle = (k: string, why = future ? 'Fills in once this month starts.' : 'Shows for one month at a time: pick a month at the top.') => quietPanel(k, why);
@@ -133,6 +136,7 @@ VIEWS[''] = async (r, paint) => {
       ['pace', monthOnly ? idle('pace') : wait('pace') ?? pacePanel(cur, prev, arr(dayTx).map(normGroup), arr(prevTx).map(normGroup))],
       ['savings', html`<section class="panel chart">${savingsRate(trend)}</section>`],
       ['subs', !tileOn('subs') ? 'off' : wait('subs') ?? subAuditTile(subAudit && !Array.isArray(subAudit) ? subAudit : null)],
+      ['habits', !habitsShown() ? '' : wait('habits') ?? habitsTile(habTx, arr(bills), arr(budgets), limits, future, nw, piggies, t0)],
       ['trends', wait('trends') ?? trendsPanel(months.map(mo => mo.short), monthCats || [], months)],
     ];
     W.forEach(w => { if (w[1] && !tileOn(w[0])) w[1] = 'off'; });     // off: not drawn, only offered under Add cards
@@ -177,11 +181,21 @@ function activityTile(tx: ApiData[] | null, range: string, today: string) {
   const r = activityRange(range, today, first);
   return activityPanel(buys, r.start, r.end, { range });
 }
+const habitsShown = () => tileOn('habits') && habitsOn() && !habitsHiddenToday();
+function habitsTile(buys: Buy[] | null | undefined, bills: ApiData[], budgets: ApiData[], limits: Record<string, BudgetLimit>, future: boolean, nw: NetWorthPoint[] | null | undefined, goals: Piggy[] | null | undefined, today: string) {
+  if (!buys) return quietPanel('habits', 'Firefly isn’t answering, so nothing is shown.');
+  const week = addDays(today, 7), live = bills.filter(b => b.attributes.active !== false);
+  const lim = budgets.filter(b => limits[String(b.id)] && limits[String(b.id)].amount);
+  const risk = future ? [] : lim.filter(b => spentSum(b) >= limits[String(b.id)].amount * budgetAlert() / 100).map(b => String(b.attributes.name));
+  const stats = habitStats(buys, today);
+  return habitsPanel({ stats, today, nw: nw && nw.map(p => ({ date: p.date, net: p.net })), goals,
+    todo: { uncat: stats ? stats.uncategorized : 0, billsDue: live.length ? live.filter(b => billDueDates(b.attributes, { end: week })[0]).length : null, atRisk: lim.length ? risk : null, drafts: drafts().length } });
+}
 function quietPanel(k: string, why: string) {
   return html`<section class="panel quiet"><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">${why}</p></section>`;
 }
 function skeletonPanel(k: string) {
-  const h = ({ insights: 120, safe: 70, loans: 90, heatmap: 230, activity: 155, flow: 240, payees: 200, networth: 230, pace: 230, trends: 220 } as Record<string, number>)[k] || 120;
+  const h = ({ insights: 120, safe: 70, loans: 90, heatmap: 230, habits: 260, activity: 155, flow: 240, payees: 200, networth: 230, pace: 230, trends: 220 } as Record<string, number>)[k] || 120;
   return html`<section class="panel" aria-busy="true"><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">&nbsp;</p><div class="sk" style="height:${h}px"></div></section>`;
 }
 function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { uncat: ApiData, uncatQ: string, bills: ApiData[], budgets: ApiData[], limits: Record<string, BudgetLimit>, future: boolean, unusual?: Unusual | null }) {

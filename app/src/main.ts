@@ -18,6 +18,7 @@ import './features/refunds';
 import './features/a11y';
 import './features/fxnote';
 import './features/started';
+import './features/habits';
 import './features/txform';
 import './features/bulk';
 import './features/attachments';

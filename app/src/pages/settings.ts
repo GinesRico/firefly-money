@@ -14,6 +14,7 @@ import { type Account, invalidate, isAsset, isLiab, lists, ordinal } from '../co
 import { VIEWS, route } from '../core/router';
 import { fxStatus } from '../core/fx';
 import { LANGS, langPref } from '../core/spanish';
+import { habitsOn } from '../features/habits';
 import { rateText } from '../features/fxnote';
 
 /* Settings: one column of named groups, like iOS Settings. Each group is a panel of rows (a label, a short hint, the
@@ -63,6 +64,7 @@ VIEWS.settings = async (r, paint) => {
     ${row('Number & date format', localeSample(), html`<select aria-label="Number and date format" data-onchange="App.setLocale(this.value)">${htmlList(localeOptions())}</select>`)}
     ${row('Hide amounts', 'Blur every amount. Press P to switch.', html`<input ${SWITCH} aria-label="Hide amounts" data-pref="privacy"${privacy ? ' checked' : ''} data-onchange="App.togglePrivacy()">`)}
     ${row('Hide when I leave the app', 'Blur amounts as the app goes to the background, so the app switcher doesn’t show them', html`<input ${SWITCH} aria-label="Hide amounts when the app is in the background"${LS.get('privacyBg', false) ? ' checked' : ''} data-onchange="App.togglePrivacyBg(this.checked)">`)}
+    ${row('Habits card', 'Streaks, weekly challenges and a short to-do on Overview', html`<input ${SWITCH} aria-label="Habits card"${habitsOn() ? ' checked' : ''} data-onchange="App.toggleHabits(this.checked)">`)}
     ${row('Compact view', 'Tighter spacing to fit more in', html`<input ${SWITCH} aria-label="Compact view" data-pref="compact"${compact ? ' checked' : ''} data-onchange="App.toggleDensity()">`)}
     ${row('Logos', 'Payees’ and banks’ logos instead of initials', html`<input ${SWITCH} aria-label="Show logos"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)">`)}
     ${row('Keyboard shortcuts', 'Every shortcut, in one list. Press ? anywhere to open it.', html`<button type="button" class="btn small" data-onclick="App.shortcutsSheet()">Show list</button>`)}
