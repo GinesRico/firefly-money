@@ -753,7 +753,7 @@
   .dash-opts { display: flex; gap: 12px 16px; align-items: center; flex-wrap: wrap; flex-basis: 100%; padding-top: 12px; border-top: 1px solid var(--line); }
   .dash-opts .grow { flex: 1; }
   .dash-opts label.check { font-size: 13px; }
-  .nwcust { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-bottom: 8px; } .nwcust[hidden] { display: none; } .nwcust input { width: 72px; padding: 4px 6px; font-size: 13px; min-height: 0; margin: 0; }
+  .nwcust { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-bottom: 8px; } .nwcust[hidden] { display: none; } .nwcust input { width: 60px; padding: 4px 6px; font-size: 13px; min-height: 0; margin: 0; }
   .nw-gear { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; margin: -4px -6px -4px 0; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; } .nw-gear svg { width: 18px; height: 18px; display: block; } .nw-gear[aria-expanded="true"] { color: var(--text); background: var(--faint, rgba(128,128,128,.14)); }
   /* Customizable overview (ui.js): bands of --n columns you arrange yourself, with wide cards between the bands */
   .dash-wrap { --gap: 20px; }

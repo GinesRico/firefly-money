@@ -63,7 +63,7 @@ export async function netWorthOn(days: string[]): Promise<NetWorthPoint[]> {
 export const nwGear = () => html`<button type="button" class="nw-gear" data-onclick="App.nwOpts(this)" aria-expanded="false" aria-label="Net worth options" title="Options"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>`;
 export const nwOptsForm = () => {
   const all = nwAll();
-  return html`<form class="nwcust" hidden data-onsubmit="event.preventDefault();App.nwSet(this.yrs.value)"><label class="sub-s" for="nw-yrs">History</label><input id="nw-yrs" name="yrs" type="number" inputmode="decimal" min="0.25" max="50" step="any" value="${all ? '' : +(nwMonths() / 12).toFixed(2)}" placeholder="Years" aria-label="Years of history"> <span class="sub-s">years</span> <button class="btn small primary">Set</button> <button type="button" class="btn small${all ? ' primary' : ''}" aria-pressed="${all}" data-onclick="App.nwRange(-1)">All time</button></form>`;
+  return html`<form class="nwcust" hidden data-onsubmit="event.preventDefault();App.nwSet(this.yrs.value)"><input id="nw-yrs" name="yrs" type="number" inputmode="decimal" min="0.25" max="50" step="any" value="${all ? '' : +(nwMonths() / 12).toFixed(2)}" placeholder="Years" aria-label="Years of history"> <span class="sub-s">years</span> <button class="btn small primary">Set</button> <button type="button" class="btn small${all ? ' primary' : ''}" aria-pressed="${all}" data-onclick="App.nwRange(-1)">All time</button></form>`;
 };
 
 /* ---------- Time scrubber: drag along the tile's line and it goes back to that month ----------
