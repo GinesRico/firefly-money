@@ -2458,7 +2458,7 @@ html[data-theme="glass"] .ag-c.l3, html[data-theme="glass"] .ag-c.l4 { box-shado
    whole rail shows without scrolling. Mouse rows go down to 26px; a touch screen keeps 40px+ rows and scrolls instead,
    as does a window too short for even the smallest rows. ---------- */
 @media (min-width: 901px) {
-  .side { --row: clamp(24px, calc((100vh - 215px) / 22), 36px); --hh: clamp(12px, 2.6vh, 30px); --hm: clamp(8px, 1.6vh, 21px);
+  .side { --row: clamp(24px, calc((100vh - 275px) / 22), 36px); --hh: clamp(12px, 2.6vh, 30px); --hm: clamp(8px, 1.6vh, 21px);
     padding-top: clamp(8px, 2.2vh, 24px); padding-bottom: clamp(8px, 2.2vh, 24px); gap: clamp(0px, .4vh, 4px); }
   .side .brand { padding-bottom: clamp(0px, .9vh, 14px); }
   .side .side-tg { margin-block: -6px; width: min(30px, var(--row)); height: min(30px, var(--row)); }
@@ -2644,4 +2644,13 @@ html[data-theme="dark"] { --e1: var(--rim), var(--lift); --e2: 0 1px 0 rgba(0,0,
 @media (max-width: 600px) {
   .drawer footer > .btn.danger { margin-right: 14px; }
   .drawer footer > :is(.btn.danger, .btn[data-onclick="App.duplicateTx()"], .btn[data-onclick="App.refundTx()"]) { padding: 6px 12px; font-size: 13px; min-height: 36px; }
+}
+
+/* A failure message waits for you: tappable, with a Dismiss button */
+.toast.sticky { pointer-events: auto; border-radius: 18px; display: flex; align-items: center; gap: 14px; }
+.toast-x { flex: none; background: var(--bg); color: var(--text); border: 0; border-radius: 99px; padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+/* Timeline Overview / Recap links and the Transactions day bars reach 44px with an invisible hit area */
+@media (pointer: coarse) {
+  .tl-go { padding-block: 12px; margin-block: -12px; }
+  .dbars .db { min-height: 44px; }
 }

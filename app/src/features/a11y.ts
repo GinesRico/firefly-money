@@ -60,3 +60,26 @@ const clearBad = (e: Event) => {
   f.removeAttribute('aria-invalid'); f.removeAttribute('aria-describedby'); f.closest('label')?.querySelector(':scope > .field-err')?.remove();
 };
 document.addEventListener('input', clearBad); document.addEventListener('change', clearBad);
+
+// Charts are drawn for the pointer: each bar or point shows its amount on hover (data-tip). The same text is offered as a
+// table under the chart ("Show as table", like the income flow already has), so a keyboard or screen reader user gets the
+// numbers too. Charts with more than 60 points (the activity grid) keep their summary label instead.
+function chartTables() {
+  document.querySelectorAll<SVGSVGElement>('#view svg[role="img"][aria-label]').forEach(svg => {
+    if (svg.nextElementSibling?.classList.contains('chart-data') || svg.closest('.sk-table, .tile-preview, .mini')) return;
+    const tips = [...svg.querySelectorAll<SVGElement>('[data-tip]')].map(n => n.getAttribute('data-tip') || '').filter(Boolean);
+    if (tips.length < 2 || tips.length > 60) return;
+    const rows = tips.map(t => {
+      const lines = t.split('\n'); let label = lines[0], rest = lines.slice(1).join(' · ');
+      if (!rest && label.includes(' · ')) { const i = label.indexOf(' · '); rest = label.slice(i + 3); label = label.slice(0, i); }
+      return '<tr><th scope="row"></th><td></td></tr>'.replace('<th scope="row"></th>', '<th scope="row">' + esc(label) + '</th>').replace('<td></td>', '<td>' + esc(rest) + '</td>');
+    });
+    const d = document.createElement('details'); d.className = 'sk-table chart-data';
+    d.innerHTML = '<summary>Show as table</summary><table class="tbl"><thead><tr><th scope="col">Point</th><th scope="col">Value</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+    svg.insertAdjacentElement('afterend', d);
+  });
+}
+const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+let ctQueued = false;
+const view0 = document.getElementById('view');
+if (view0) new MutationObserver(() => { if (!ctQueued) { ctQueued = true; setTimeout(() => { ctQueued = false; chartTables(); }, 250); } }).observe(view0, { childList: true, subtree: true });

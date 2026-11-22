@@ -83,3 +83,32 @@ describe('review follow-ups', () => {
     expect(css2).toContain('.link, a.go-num { padding-block: 13px; margin-block: -13px; }');
   });
 });
+
+describe('review follow-ups 2', () => {
+  const c = readFileSync('app/assets/money.css', 'utf8');
+  it('a failure toast waits to be dismissed (button, tap target, Esc); status toasts fade', () => {
+    const d = src('core/dom.ts');
+    expect(d).toContain('const FAILED = /couldn’t|could not');
+    expect(d).toContain("b.className = 'toast-x'");
+    expect(d).toContain("e.key === 'Escape'");
+    expect(c).toContain('.toast.sticky { pointer-events: auto;');
+  });
+  it('charts get a "Show as table" with the hover text, up to 60 points', () => {
+    const a = src('features/a11y.ts');
+    expect(a).toContain("svg[role=\"img\"][aria-label]");
+    expect(a).toContain("tips.length > 60");
+    expect(a).toContain('Show as table');
+  });
+  it('touch: day bars and timeline links reach 44px', () => {
+    expect(c).toContain('.tl-go { padding-block: 12px; margin-block: -12px; }');
+    expect(c).toContain('.dbars .db { min-height: 44px; }');
+  });
+  it('the + button steps aside from any control it covers, sampled across its whole face', () => {
+    const f = src('features/fabdodge.ts');
+    expect(f).toContain("e.matches('a[href], button, [data-onclick]')");
+    expect(f).toContain('[.05, .275, .5, .725, .95]');
+  });
+  it('the sidebar leaves room for all its rows on a 800px-tall window', () => {
+    expect(c).toContain('--row: clamp(24px, calc((100vh - 275px) / 22), 36px)');
+  });
+});
