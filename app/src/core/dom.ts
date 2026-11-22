@@ -57,7 +57,7 @@ export function toast(msg: string) {
 export function confirmBox(title: string, text: string, okLabel = 'Delete') {
   return new Promise<boolean>(res => {
     const d = el<HTMLDialogElement>('confirm');
-    d.innerHTML = String(html`<h3>${title}</h3><p>${text}</p><div class="btns"><button class="btn" value="no">Cancel</button><button class="btn primary" value="yes">${okLabel}</button></div>`);
+    d.innerHTML = String(html`<h3>${title}</h3><p>${text}</p><div class="btns"><button class="btn" value="no">Cancel</button><button class="btn ${/^(Delete|Remove|Unlink|Discard)$/.test(okLabel) ? 'danger' : 'primary'}" value="yes">${okLabel}</button></div>`);
     d.querySelectorAll('button').forEach(b => b.onclick = () => { if (b.value === 'yes') buzz(BUZZ_DELETE); d.close(); res(b.value === 'yes'); });
     d.oncancel = () => res(false);
     d.showModal();

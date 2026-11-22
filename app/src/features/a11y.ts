@@ -40,3 +40,23 @@ document.addEventListener('click', e => {
   const a = e.target instanceof Element ? e.target.closest('a.skip') : null; if (!a) return;
   e.preventDefault(); el('view').focus({ preventScroll: false });
 });
+
+// Required-field errors: a message beside the field, in the app's language and style, instead of the browser's own
+// bubble (one field at a time, in the browser's language). The first bad field takes focus; typing clears its message.
+let firstBad: HTMLElement | null = null;
+document.addEventListener('invalid', e => {
+  const f = e.target;
+  if (!(f instanceof HTMLInputElement || f instanceof HTMLSelectElement || f instanceof HTMLTextAreaElement) || !f.closest('#drawer')) return;
+  e.preventDefault();
+  const label = f.closest('label') || f.parentElement; if (!label) return;
+  let m = label.querySelector<HTMLElement>(':scope > .field-err');
+  if (!m) { m = document.createElement('span'); m.className = 'field-err'; m.id = 'err' + Math.random().toString(36).slice(2, 8); m.setAttribute('role', 'alert'); label.appendChild(m); }
+  m.textContent = f.validity.valueMissing ? (f instanceof HTMLSelectElement ? 'Choose one' : 'Required') : 'Enter a valid value';
+  f.setAttribute('aria-invalid', 'true'); f.setAttribute('aria-describedby', m.id);
+  if (!firstBad) { firstBad = f; setTimeout(() => { firstBad?.focus(); firstBad = null; }, 0); }
+}, true);      // capture: invalid doesn't bubble
+const clearBad = (e: Event) => {
+  const f = e.target; if (!(f instanceof HTMLElement) || f.getAttribute('aria-invalid') !== 'true') return;
+  f.removeAttribute('aria-invalid'); f.removeAttribute('aria-describedby'); f.closest('label')?.querySelector(':scope > .field-err')?.remove();
+};
+document.addEventListener('input', clearBad); document.addEventListener('change', clearBad);

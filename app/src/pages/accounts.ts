@@ -70,6 +70,7 @@ VIEWS.accounts = async (r, paint) => {
   paint(html`${head('Accounts', total, html`${flow ? monthNav() : ''}<button class="btn primary" data-onclick="App.accountForm(null,'${tab === 'assets' ? 'asset' : tab === 'cards' ? 'card' : tab === 'liabilities' ? 'liability' : tab}')">+ New account</button>`)}<div class="tabs">${tabLink('assets', 'Bank accounts')}${tabLink('cards', 'Credit cards')}${tabLink('liabilities', 'Loans & debts')}${tabLink('expense', 'Payees')}${tabLink('revenue', 'Income sources')}</div>${runwayHtml}<section class="panel flush">${body}</section>${inactiveCount ? html`<p style="margin-top:14px"><a class="link" href="${hashWith({ inactive: show ? '' : '1' })}">${show ? 'Hide' : 'Show'} ${inactiveCount} inactive</a></p>` : ''}`);
 };
 VIEWS.account = async (r, paint) => {
+  if (!r.id) { location.replace('#/accounts'); return; }      // no account in the address: back to the list, not an error screen
   await lists();
   const accRes = await api('/accounts/' + r.id);
   const a = normAccount(accRes.data);

@@ -2629,3 +2629,19 @@ html[data-theme="dark"] { --e1: var(--rim), var(--lift); --e2: 0 1px 0 rgba(0,0,
   .drawer header .round { width: 44px; height: 44px; }
   .tbl input[type=checkbox], .cl-row input[type=checkbox] { width: 20px; height: 20px; }
 }
+
+.field-err { display: block; margin-top: 4px; font-size: 12.5px; font-weight: 500; color: var(--spend); }
+[aria-invalid="true"] { border-color: var(--spend) !important; }
+
+/* Phone: the category and budget pills in a transaction row are 19px tall, too small to hit apart from the row, and a tap on the
+   row's middle landed on them. On touch they aren't targets: a tap opens the transaction (its Category and Budget fields), and
+   the swipe action Categorize stays. Small inline links get a hit area of 44px without moving anything. */
+@media (pointer: coarse) {
+  .tbl.feed .meta :is(.cat-s, .bud-s).inl { pointer-events: none; }
+  .link, a.go-num { padding-block: 13px; margin-block: -13px; }
+}
+/* Phone edit form: Delete sits well away from Duplicate, and the extra actions take less height */
+@media (max-width: 600px) {
+  .drawer footer > .btn.danger { margin-right: 14px; }
+  .drawer footer > :is(.btn.danger, .btn[data-onclick="App.duplicateTx()"], .btn[data-onclick="App.refundTx()"]) { padding: 6px 12px; font-size: 13px; min-height: 36px; }
+}

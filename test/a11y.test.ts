@@ -53,3 +53,33 @@ describe('keyboard and screen reader basics', () => {
     expect(src('features/a11y.ts')).toMatch(/hashchange[\s\S]*sheet-search[\s\S]*closeDrawer/);
   });
 });
+
+describe('review follow-ups', () => {
+  const css2 = readFileSync('app/assets/money.css', 'utf8');
+  it('a missing account id goes back to the list instead of an error screen', () => {
+    expect(src('pages/reconcile.ts')).toContain("if (!r.id) { location.replace('#/accounts'); return; }");
+    expect(src('pages/accounts.ts')).toContain("if (!r.id) { location.replace('#/accounts'); return; }");
+  });
+  it('an insight off a tiny base shows dollars, not a huge percentage', () => {
+    expect(src('features/insights.ts')).toContain('Math.abs(m.p) >= 5 ? money0(Math.abs(m.d))');
+  });
+  it('destructive confirms use the danger style', () => {
+    expect(src('core/dom.ts')).toContain("/^(Delete|Remove|Unlink|Discard)$/.test(okLabel) ? 'danger' : 'primary'");
+  });
+  it('required-field errors are inline, announced, and cleared on input', () => {
+    const a = src('features/a11y.ts');
+    expect(a).toContain("addEventListener('invalid'");
+    expect(a).toContain('}, true);      // capture: invalid doesn\'t bubble');
+    expect(a).toContain("m.setAttribute('role', 'alert')");
+    expect(a).toContain("'Choose one'");
+    expect(css2).toContain('.field-err');
+  });
+  it('one-letter shortcuts can be switched off in Settings', () => {
+    expect(src('pages/settings.ts')).toContain('App.toggleKeys(this.checked)');
+    expect(src('features/keyboard.ts')).toContain("LS.get('keys', true) === false");
+  });
+  it('on touch the row pills are not targets and small links get a 44px hit area', () => {
+    expect(css2).toContain('.tbl.feed .meta :is(.cat-s, .bud-s).inl { pointer-events: none; }');
+    expect(css2).toContain('.link, a.go-num { padding-block: 13px; margin-block: -13px; }');
+  });
+});

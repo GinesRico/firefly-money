@@ -1,5 +1,6 @@
 import { html, htmlList } from '../core/html';
 import { App, S, el } from '../core/base';
+import { LS } from '../core/helpers';
 import type { RouteInfo } from '../core/router';
 import { openDrawer } from '../core/dom';
 import { selChanged } from './bulk';
@@ -28,7 +29,7 @@ document.addEventListener('keydown', e => {
   e.preventDefault(); e.stopImmediatePropagation(); editTx(tr.dataset.gid!);
 });
 document.addEventListener('keydown', e => {
-  if (el('app').hidden || typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (el('app').hidden || typing(e) || e.metaKey || e.ctrlKey || e.altKey || LS.get('keys', true) === false) return;      // one-letter keys can be switched off (Settings → Appearance)
   if (el('drawer').classList.contains('open') || !el('palette').hidden || el<HTMLDialogElement>('confirm').open || !el('pickpop').hidden) return;
   const k = e.key;
   if (k === 'p' || k === 'P') { e.preventDefault(); return togglePrivacy(); }
