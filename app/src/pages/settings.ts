@@ -13,6 +13,7 @@ import { type Custom, KEY, PHOTO_KEY, SCENES, applyCustom, isHex, lum, readCusto
 import { type Account, invalidate, isAsset, isLiab, lists, ordinal } from '../core/lists';
 import { VIEWS, route } from '../core/router';
 import { fxStatus } from '../core/fx';
+import { LANGS, langPref } from '../core/spanish';
 import { rateText } from '../features/fxnote';
 
 /* Settings: one column of named groups, like iOS Settings. Each group is a panel of rows (a label, a short hint, the
@@ -58,6 +59,7 @@ VIEWS.settings = async (r, paint) => {
   const look = group('look', 'Appearance', html`
     ${html`<div class="tp-wrap"><div class="tp-title">Theme</div>${themeButtons()}</div>`}
     ${more('theme-custom', 'Customize colors', html`<span class="tc-name">${themeName()}</span>`, html`<div class="theme-custom">${customizer()}</div>`)}
+    ${row('Language', 'Interface language. Amounts and dates follow the format below.', html`<select aria-label="Language" data-onchange="App.setLang(this.value)">${htmlList(LANGS.map(([v, n]) => opt(v, n, langPref())))}</select>`)}
     ${row('Number & date format', localeSample(), html`<select aria-label="Number and date format" data-onchange="App.setLocale(this.value)">${htmlList(localeOptions())}</select>`)}
     ${row('Hide amounts', 'Blur every amount. Press P to switch.', html`<input ${SWITCH} aria-label="Hide amounts" data-pref="privacy"${privacy ? ' checked' : ''} data-onchange="App.togglePrivacy()">`)}
     ${row('Hide when I leave the app', 'Blur amounts as the app goes to the background, so the app switcher doesn’t show them', html`<input ${SWITCH} aria-label="Hide amounts when the app is in the background"${LS.get('privacyBg', false) ? ' checked' : ''} data-onchange="App.togglePrivacyBg(this.checked)">`)}
@@ -400,6 +402,8 @@ function localeOptions() {
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const localeSample = () => money(1234.56) + ' · ' + fmtDate(todayIso()) + ' · weeks start on ' + DAYS[weekStart()];
 function setLocale(v: string) { LS.set('locale', v); PAGES.clear(); S.pageKey = ''; toast('Amounts and dates now look like ' + money(1234.56) + ' and ' + fmtDate(todayIso())); route({ quiet: true }); }
+// The language is read once at start, so the page reloads to apply it (core/spanish.ts)
+function setLang(v: string) { LS.set('lang', v === 'es' ? 'es' : 'en'); location.reload(); }
 function setWorkHours(v: string) { LS.set('workHours', Math.min(168, Math.max(1, num(v))) || 40); PAGES.clear(); route({ quiet: true }); }
 function toggleWorkSource(i: number, on: boolean) { const n = workSources()[i]; if (n == null) return; const k = workSkip().filter(x => x !== n); setWorkSkip(on ? k : [...k, n]); PAGES.clear(); route({ quiet: true }); }
 function setWorkRate(v: string) { LS.set('workRate', Math.max(0, Math.round(num(v) * 100) / 100)); PAGES.clear(); route({ quiet: true }); }
@@ -414,6 +418,7 @@ const methods = {
   toggleHaptics,
   toggleWorkLens,
   setLocale,
+  setLang,
   setWorkHours,
   setWorkRate,
   toggleWorkSource,
