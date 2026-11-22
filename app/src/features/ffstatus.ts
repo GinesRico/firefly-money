@@ -1,7 +1,7 @@
 import { App, el, fmtD } from '../core/base';
 import { FF, type FfState, api, ffSeen, ffSeenResponse, sleep } from '../core/api';
 import { refreshAll } from '../core/router';
-import { html, htmlList } from '../core/html';
+import { html, htmlList, raw } from '../core/html';
 
 /* ================= Firefly III connection pill =================
    Shows whether Firefly III answers. Every request the app makes already tells (core/api.ts ffSeen), and while the
@@ -40,9 +40,9 @@ function outText(): [string, string] {
 function paintOut() {
   let o = document.getElementById('ffOut');
   if (!o) { o = document.createElement('section'); o.id = 'ffOut'; o.className = 'ff-out'; o.setAttribute('role', 'alert'); el('app').appendChild(o); }
-  const [title, text] = outText();
+  const [title, text] = outText(), open = !!o.querySelector('details[open]');     // it repaints every few seconds: keep the fold as it was
   o.dataset.ff = FF.state;
-  o.innerHTML = String(html`<div class="ff-out-card"><span class="ff-out-ic">${OUT_ICON}</span><h2>${title}</h2><p>${text}</p>${chainHtml()}<button type="button" class="btn primary" data-onclick="App.ffCheck()">Try again</button><p class="ff-out-note">Checking again every few seconds</p></div>`);
+  o.innerHTML = String(html`<div class="ff-out-card"><span class="ff-out-ic">${OUT_ICON}</span><h2>${title}</h2><p>${text}</p><button type="button" class="btn primary" data-onclick="App.ffCheck()">Try again</button><p class="ff-out-note">Checking again every few seconds</p><details class="ff-details"${open ? raw(' open') : ''}><summary>Details</summary>${chainHtml()}</details></div>`);
 }
 /* ---------- Which part is down: this device → the Money server → Firefly III (and its token) ---------- */
 type Link = 'ok' | 'bad' | 'unknown';

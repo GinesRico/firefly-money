@@ -189,7 +189,7 @@ export function txRows(groups: Group[], opts: TxRowsOpts = {}) {
     const buds = [...new Set(g.splits.map(s => s.budget_name).filter(Boolean))];
     const tags = [...new Set<string>(g.splits.flatMap(s => s.tags))].filter(t => !t.startsWith('Data Import on'));
     const fx = htmlList(g.splits.filter(s => s.fa && s.fc).map(s => html`<span class="chip">${s.fc} ${num(s.fa).toFixed(2)}</span>`));
-    const inl = (k: string) => multi ? '' : html` inl" data-k="${k}" data-onclick="event.stopPropagation();App.pick(this)" title="Change ${k}`;
+    const inl = (k: string) => multi ? '' : html` inl" data-k="${k}" role="button" tabindex="0" data-onclick="event.stopPropagation();App.pick(this)" title="Change ${k}`;
     const chips = html`<span class="cat-s${inl('category')}">${cats.length ? cats.join(', ') : g.type === 'withdrawal' ? 'Uncategorized' : g.type === 'deposit' ? 'Income' : xferLabel(g, opts.accountId)}</span>${fx}${multi ? html`<span class="chip">${g.splits.length} splits</span>` : ''}${htmlList(buds.map(b => html`<span class="bud-s${inl('budget')}">${b} budget</span>`))}${!buds.length && !multi && g.type === 'withdrawal' ? html`<span class="chip ghost${inl('budget')}">+ Budget</span>` : ''}${htmlList(tags.map(t => html`<span class="tag-s">#${t}</span>`))}`;
     S.txMeta[g.id] = { g, accountId: opts.accountId || '', opts: { select: !!opts.select, accountId: opts.accountId || '' } };
     let dh: Html | '' = '';

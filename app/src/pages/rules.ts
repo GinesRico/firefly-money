@@ -55,13 +55,18 @@ VIEWS.rules = async (r, paint) => {
         return html`<tr${at.active ? '' : html` style="opacity:.55"`}><td class="sel"><input type="checkbox" title="Active"${at.active ? ' checked' : ''} data-onchange="App.toggleRule('${x.id}',this.checked)"></td><td data-text="${(at.title + ' ' + ruleSummary(at)).toLowerCase()}"><div class="desc">${at.title}${at.stop_processing ? html` <span class="chip">Stops group</span>` : ''}${at.trigger === 'update-journal' ? html` <span class="chip">On update</span>` : ''}</div><div class="sub-s">${ruleSummary(at)}</div></td><td class="act"><button class="btn small" data-onclick="App.runRules('rule','${x.id}')">Run…</button> <button class="btn small" data-onclick="App.ruleForm('${x.id}')">Edit</button></td></tr>`;
       }))}</tbody></table>` : html`<div class="center-empty" style="padding:24px">No rules in this group.</div>`}</details>`;
   }));
-  paint(html`${head('Rules', rules.length + ' rule' + (rules.length === 1 ? '' : 's') + ' in ' + groups.length + ' group' + (groups.length === 1 ? '' : 's') + '. Groups run top to bottom when a transaction is added.',
+  paint(html`${head('Rules', rules.length + ' rule' + (rules.length === 1 ? '' : 's') + ' in ' + groups.length + ' group' + (groups.length === 1 ? '' : 's'),
       html`<button class="btn" data-onclick="App.groupForm()">+ New group</button><button class="btn primary" data-onclick="App.ruleForm()">+ New rule</button>`)}<div class="toolbar"><form class="search" data-onsubmit="event.preventDefault();App.rulesSearch(this)">${icon('search')}<input type="search" name="q" placeholder="Search rules by name, text or category" value="${r.q.q || ''}" data-oninput="App.liveRuleFilter(this.value)"></form>${q ? html`<a class="link" href="#/rules">Clear</a>` : ''}</div>${ruleHtml || (q ? html`<section class="panel"><div class="center-empty">No rules match.</div></section>` : html`<section class="panel">${emptyState('rules', 'No rules yet', 'A rule files transactions for you: when a description contains “Starbucks”, set the category to Dining. Set it once, never touch it again.', html`<button class="btn primary" data-onclick="App.ruleForm()">+ New rule</button>`)}</section>`)}`);
 };
 async function toggleRule(id: string, on: boolean) {
   const at = S.rules![id];
   await withAuth(async () => { const row = document.querySelector<HTMLElement>('input[data-onchange*="toggleRule(\'' + id + '\'"]'); if (row) row.closest('tr')!.style.opacity = on ? '' : '.55';
-    await api('/rules/' + id, { method: 'PUT', body: { title: at.title, rule_group_id: String(at.rule_group_id), active: on } }); at.active = on; toast(on ? 'Rule turned on' : 'Rule turned off'); });
+    try { await api('/rules/' + id, { method: 'PUT', body: { title: at.title, rule_group_id: String(at.rule_group_id), active: on } }); }
+    catch (e) {      // the switch and the dimming go back to what the server still has, so the row doesn't claim a change that didn't happen
+      if (row) { (row as HTMLInputElement).checked = !on; row.closest('tr')!.style.opacity = on ? '.55' : ''; }
+      throw e;
+    }
+    at.active = on; toast(on ? 'Rule turned on' : 'Rule turned off'); });
 }
 function condRow(kind: string, t: ApiData, i: number) {
   const list = kind === 't' ? TRIGGERS : ACTIONS, has = list.some(x => x[0] === t.type);

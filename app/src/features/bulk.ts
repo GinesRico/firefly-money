@@ -2,7 +2,7 @@ import { html, htmlList } from '../core/html';
 import { AuthError, api, eachLimited } from '../core/api';
 import { showLogin } from '../core/auth';
 import { App, S, el } from '../core/base';
-import { opt, toast } from '../core/dom';
+import { confirmBox, opt, toast } from '../core/dom';
 import { groupUpdate } from '../core/feed';
 import { invalidate } from '../core/lists';
 import { route } from '../core/router';
@@ -17,10 +17,11 @@ function renderBulk(progress?: string) {
   const bar = el('bulkbar'); if (!bar) return;
   const n = S.sel ? S.sel.size : 0;
   if (!n) { bar.hidden = true; return; }
-  const L = S.lists!;
+  const L = S.lists!, phone = matchMedia('(max-width: 600px)').matches;     // on a phone the three edits fold under one button so the bar stays short
   bar.hidden = false;
+  const fields = html`<input type="text" id="bk-cat" list="bk-dlcat" placeholder="Category" style="width:170px"><datalist id="bk-dlcat">${htmlList(L.categories.map(c => html`<option value="${c.name}">`))}</datalist><button class="btn small" data-onclick="App.bulk('category')">Set category</button><select id="bk-bud" style="width:170px">${opt('', 'Choose budget…', '')}${opt('0', 'No budget', '')}${htmlList(L.budgets.filter(b => b.active).map(b => opt(b.id, b.name, '')))}</select><button class="btn small" data-onclick="App.bulk('budget')">Set budget</button><input type="text" id="bk-tag" list="bk-dltag" placeholder="Tag" style="width:130px"><datalist id="bk-dltag">${htmlList(L.tags.map(t => html`<option value="${t.name}">`))}</datalist><button class="btn small" data-onclick="App.bulk('tag')">Add tag</button>`;
   bar.innerHTML = String(progress ? html`<strong>${progress}</strong>` :
-    html`<strong>${n} selected</strong><input type="text" id="bk-cat" list="bk-dlcat" placeholder="Category" style="width:170px"><datalist id="bk-dlcat">${htmlList(L.categories.map(c => html`<option value="${c.name}">`))}</datalist><button class="btn small" data-onclick="App.bulk('category')">Set category</button><select id="bk-bud" style="width:170px">${opt('', 'Choose budget…', '')}${opt('0', 'No budget', '')}${htmlList(L.budgets.filter(b => b.active).map(b => opt(b.id, b.name, '')))}</select><button class="btn small" data-onclick="App.bulk('budget')">Set budget</button><input type="text" id="bk-tag" list="bk-dltag" placeholder="Tag" style="width:130px"><datalist id="bk-dltag">${htmlList(L.tags.map(t => html`<option value="${t.name}">`))}</datalist><button class="btn small" data-onclick="App.bulk('tag')">Add tag</button><button class="btn small danger" data-onclick="App.bulk('delete')">Delete</button><button class="link" data-onclick="App.selAll(false)">Clear</button>`);
+    html`<strong>${n} selected</strong>${phone ? html`<details class="bk-set"><summary class="btn small">Change…</summary><div class="bk-fields">${fields}</div></details>` : fields}<button class="btn small danger" data-onclick="App.bulk('delete')">Delete</button><button class="link" data-onclick="App.selAll(false)">Clear</button>`);
 }
 async function bulk(kind: string) {
   const groups = [...(S.sel || [])].map(id => S.txMeta[id] && S.txMeta[id].g).filter(Boolean);
@@ -30,6 +31,7 @@ async function bulk(kind: string) {
   if (kind === 'budget') { val = el<HTMLSelectElement>('bk-bud').value; if (val === '') return toast('Choose a budget first.'); }
   if (kind === 'tag') { val = el<HTMLInputElement>('bk-tag').value.trim(); if (!val) return toast('Type a tag first.'); }
   if (kind === 'delete') return App.softDeleteTx(groups.map(g => g.id));
+  if (groups.length > 25 && !await confirmBox('Change ' + groups.length + ' transactions?', 'Rows you haven’t scrolled to are included. Every selected row gets the same change.', 'Change')) return;
   let done = 0, skipped = 0, failed = 0, authErr = null as AuthError | null;
   renderBulk('Working… 0 of ' + groups.length);
   await eachLimited(groups, 4, async g => {

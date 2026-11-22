@@ -137,7 +137,7 @@ async def check(pw, width, height, mobile):
         half = await page.evaluate("() => el('dash').querySelector('[data-w=spent]').offsetWidth / el('dash').offsetWidth")
         if not .3 < half < .6: errors.append(f'the Spent tile is not half the width on a phone: {half:.2f}')
         await page.evaluate('App.dashEdit(true)'); await page.wait_for_selector('#dash.bento.editing')
-        await page.locator('#dash [data-w="spent"] .wbtn').click(); await page.wait_for_timeout(400)
+        await page.locator('#dash [data-w="spent"] [data-onclick^="App.dashSize"]').click(); await page.wait_for_timeout(400)
         if await page.evaluate("JSON.parse(localStorage.getItem('money.dash')).size.spent") != 'm': errors.append('Full on a phone tile was not kept')
         await page.evaluate("el('dash').querySelector('[data-w=spent]').scrollIntoView({block: 'start'})"); await page.wait_for_timeout(200)
         a = await page.locator('#dash [data-w="safe"] .grip').bounding_box(); b = await page.locator('#dash [data-w="spent"]').bounding_box()

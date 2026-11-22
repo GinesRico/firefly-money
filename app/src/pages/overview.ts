@@ -208,6 +208,9 @@ function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { un
     else if (lim && lim.amount && spent >= lim.amount * budgetAlert() / 100) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">◔ ${b.attributes.name} is at ${Math.round(spent / lim.amount * 100)}%</span><span class="num">${money0(lim.amount - spent)} left</span></a>`);
   });
   if (!items.length) return html`<section class="panel attention"><h2>Needs attention</h2><p class="lead">Quick things to tidy up</p><p class="all-clear"><span aria-hidden="true">✓</span> All caught up</p></section>`;
+  // The most urgent first (overdue, over budget, unusual, uncategorized), then upcoming and routine ones, so a recap or a draft never pushes a deadline behind "more"
+  const rank = (h: unknown) => { const t = String(h), row = (href: string) => t.startsWith('<a class="row" href="#/' + href + '"'); return /<span class="up">overdue since/.test(t) ? 0 : /is over budget<\/span>/.test(t) ? 1 : row('unusual') ? 2 : row('inbox') ? 3 : row('bills') ? 4 : row('recap') ? 7 : /^<a class="row" href="#\/transactions"><span class="name">\d+ drafts? to finish/.test(t) ? 6 : 5; };
+  items.sort((a, b) => rank(a) - rank(b));
   // Two rows at most, so the card is the same height from month to month; the rest open from the heading
   const more = items.length - 2;
   return html`<section class="panel attention"><div class="panel-head"><h2>Needs attention</h2>${more > 0 ? html`<button type="button" class="link" data-onclick="App.attMore(this)">${more} more</button>` : ''}</div><p class="lead">Quick things to tidy up</p><div class="list">${htmlList(items.slice(0, 2))}${more > 0 ? html`<div class="att-more" hidden>${htmlList(items.slice(2))}</div>` : ''}</div></section>`;
@@ -255,7 +258,7 @@ export function payRow(a: Account, v: number, paidOff: boolean, sparks: any = {}
 function balancesPanel(title: string, lead: string, items: Account[], val: (a: Account) => number, paidOff: boolean, sparks: any = {}, invest: Account[] = []) {
   const rows = htmlList([...items].sort((a, b) => val(b) - val(a)).map(a => payRow(a, val(a), paidOff, sparks, a.nat ? val({ ...a, ...a.nat }) : val(a))));
   const left = [...new Set([...items, ...invest].filter(a => a.unconv).map(a => a.currency))];
-  return html`<section class="panel"><h2>${title}</h2><p class="lead">${lead}</p>${items.length ? html`<div class="total num">${money0(items.reduce((s, a) => s + val(a), 0))}</div>${left.length ? html`<p class="sub-s fx-left">Leaves out ${left.join(', ')} (not converted)</p>` : ''}<div class="list">${rows}</div>` : html`<p class="empty">None yet.</p>`}${invest.length ? html`<a class="row" href="#/accounts" style="margin-top:6px;padding-top:10px;border-top:1px solid var(--line);text-decoration:none;color:inherit"><span class="name">Investments</span><span class="num neutral" style="text-decoration:none">${money0(invest.reduce((s, a) => s + val(a), 0))}</span></a>` : ''}</section>`;
+  return html`<section class="panel"><h2>${title}</h2><p class="lead">${lead}</p>${items.length ? html`<div class="total num">${money0(items.reduce((s, a) => s + val(a), 0))}</div>${left.length ? html`<p class="sub-s fx-left">Leaves out ${left.join(', ')} (not converted)</p>` : ''}<div class="list">${rows}</div>` : html`<p class="empty">None yet. <a class="link" href="#/accounts">Add an account</a></p>`}${invest.length ? html`<a class="row" href="#/accounts" style="margin-top:6px;padding-top:10px;border-top:1px solid var(--line);text-decoration:none;color:inherit"><span class="name">Investments</span><span class="num neutral" style="text-decoration:none">${money0(invest.reduce((s, a) => s + val(a), 0))}</span></a>` : ''}</section>`;
 }
 function loansPanel(loans: Account[], prog: any = {}) {
   // The biggest four; the rest are a tap away on Loans, so one long list doesn't set the height of its whole row
@@ -276,7 +279,7 @@ function loansPanel(loans: Account[], prog: any = {}) {
     if (!l.debt) bits.push('Paid off');
     return html`<div style="padding:11px 0;border-top:1px solid var(--line)"><a class="row" href="#/account/${l.id}" style="text-decoration:none"><span class="name">${l.name}</span><span class="num">${acctAmt(l, (l.nat || l).debt, l.debt, money0)}</span></a>${paid ? html`<div class="track"><div class="fill good" style="width:${paid.toFixed(1)}%"></div></div>` : ''}<div class="sub-s">${bits.join(' · ')}</div></div>`;
   }));
-  return html`<section class="panel"><div class="panel-head"><h2>Loans</h2><a class="link" href="#/loans">Plan payoff</a></div><p class="lead">Remaining balance and payoff progress</p>${loans.length ? html`<div class="total num" style="margin-bottom:4px">${money0(loans.reduce((s, l) => s + l.debt, 0))}</div><div class="loan-rows">${rows}${more ? html`<a class="row more" href="#/loans" style="padding:11px 0;border-top:1px solid var(--line)"><span class="name">${more} more</span><span class="neutral">→</span></a>` : ''}</div>` : html`<p class="empty">No loans.</p>`}</section>`;
+  return html`<section class="panel"><div class="panel-head"><h2>Loans</h2><a class="link" href="#/loans">Plan payoff</a></div><p class="lead">Remaining balance and payoff progress</p>${loans.length ? html`<div class="total num" style="margin-bottom:4px">${money0(loans.reduce((s, l) => s + l.debt, 0))}</div><div class="loan-rows">${rows}${more ? html`<a class="row more" href="#/loans" style="padding:11px 0;border-top:1px solid var(--line)"><span class="name">${more} more</span><span class="neutral">→</span></a>` : ''}</div>` : html`<p class="empty">No loans. <a class="link" href="#/accounts">Add one</a></p>`}</section>`;
 }
 export function cashFlow(trend: CashMonth[]) {
   const W = window.innerWidth < 600 ? 420 : window.innerWidth >= 1700 ? 1500 : 960, H = 210, top = 10, bottom = 28, n = trend.length;
@@ -334,19 +337,24 @@ function trendsPanel(labels: string[], months: ApiData[][], ranges: Period[]) {
 }
 // Each budget as a ring of how much of it is used, and what's left
 function budgetsMini(budgets: ApiData[], limits: Record<string, BudgetLimit>, all: boolean, unset = true, cur: Period | null = null) {
-  const rows = htmlList(budgets.filter(b => b.attributes.active !== false && (unset || all || limits[String(b.id)])).map(b => {
+  const entries = budgets.filter(b => b.attributes.active !== false && (unset || all || limits[String(b.id)])).map(b => {
     const spent = spentSum(b), lim = limits[String(b.id)];
-    const pct = lim && lim.amount ? spent / lim.amount * 100 : 0, cls = !lim ? '' : pct > 100 ? 'over' : pct >= budgetAlert() ? 'warn' : 'good';
-    const sub = lim ? pct > 100 ? html`<span class="up">${money0(spent - lim.amount)} over</span>` : html`${money0(lim.amount - spent)} left` : html`${money0(spent)} spent`;
-    return html`<a class="bring" href="#/transactions?budget=${b.id}">${ring(pct, cls, '', lim ? '' : '–')}<span class="name">${b.attributes.name}</span><span class="sub-s num">${sub}</span></a>`;
-  }));
+    const pct = lim && lim.amount ? spent / lim.amount * 100 : 0, cls = !lim || !lim.amount ? '' : pct > 100 ? 'over' : pct >= budgetAlert() ? 'warn' : 'good';
+    const sub = lim && lim.amount ? pct > 100 ? html`<span class="up">${money0(spent - lim.amount)} over</span>` : html`${money0(lim.amount - spent)} left` : html`${money0(spent)} spent`;
+    return [pct, html`<a class="bring" href="#/transactions?budget=${b.id}">${ring(pct, cls, '', lim && lim.amount ? '' : '–')}<span class="name">${b.attributes.name}</span><span class="sub-s num">${sub}</span></a>`] as [number, Html];
+  });
+  // A glance, not a list: past six budgets the most used come first, and the rest are one tap away
+  const shown = entries.length > 6 ? [...entries].sort((x, y) => y[0] - x[0]).slice(0, 6) : entries;
+  const rows = htmlList(shown.map(e => e[1]));
+  const more = entries.length - shown.length;
+
   // How many are running ahead of their month (the Budgets page has each one's history and pace)
   const t = todayIso(), ahead = !cur ? 0 : budgets.filter(b => {
     const lim = limits[String(b.id)], spent = spentSum(b), p = b.attributes.active !== false && lim ? budgetPace(spent, lim.amount, cur.start, cur.end, t, budgetAlert()) : null;
     return p && (p.tone === 'warn' || p.tone === 'over');
   }).length;
   const periodLabel = all ? 'Spent of all time' : cur && !(t >= cur.start && t <= cur.end) ? cur.label : 'This month';
-  return html`<section class="panel"><div class="panel-head"><h2>Budgets</h2><a class="link" href="#/budgets">Insights</a></div><p class="lead">${periodLabel}${ahead ? html` · <span class="up">${ahead} over or near limit</span>` : ''}</p>${rows ? html`<div class="brings">${rows}</div>` : html`<p class="empty">No budgets yet.</p>`}</section>`;
+  return html`<section class="panel"><div class="panel-head"><h2>Budgets</h2><a class="link" href="#/budgets">Insights</a></div><p class="lead">${periodLabel}${ahead ? html` · <span class="up">${ahead} over or near limit</span>` : ''}</p>${rows ? html`<div class="brings">${rows}</div>${more > 0 ? html`<a class="link" href="#/budgets" style="display:inline-block;margin-top:10px">${more} more</a>` : ''}` : html`<p class="empty">No budgets yet. <a class="link" href="#/budgets">Set up a budget</a></p>`}</section>`;
 }
 // Where the money went by who was paid (Firefly's expense accounts), against last month
 function payeesPanel(now: ApiData[], prev: ApiData[], future: boolean, all: boolean, count = 8, compare = true) {

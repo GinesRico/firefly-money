@@ -53,7 +53,7 @@ VIEWS.accounts = async (r, paint) => {
     const t = groupTotal(items, x => x.balance); total = t.text + ' total' + t.note;
   } else if (tab === 'cards') {
     cols = html`<th>Name</th><th class="hide-s">Payment due</th><th class="r">Owed</th>`;
-    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${a.paymentDate ? 'Day ' + new Date(String(a.paymentDate).slice(0, 10) + 'T12:00:00').getDate() + ' of the month' : '—'}</td><td class="amt">${(a.nat || a).balance < 0 ? ownAmt(a, -(a.nat || a).balance, -a.balance) : html`<span class="pos">Paid off</span>`}</td>`;
+    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${a.paymentDate ? 'Day ' + new Date(String(a.paymentDate).slice(0, 10) + 'T12:00:00').getDate() + ' of the month' : '—'}</td><td class="amt">${(a.nat || a).balance < 0 ? ownAmt(a, -(a.nat || a).balance, -a.balance) : (a.nat || a).balance > 0 ? html`<span class="pos">Credit ${ownAmt(a, (a.nat || a).balance, a.balance)}</span>` : html`<span class="pos">Paid off</span>`}</td>`;
     const t = groupTotal(items, x => Math.max(0, -x.balance)); total = t.text + ' owed in total' + t.note;
   } else if (tab === 'liabilities') {
     cols = html`<th>Name</th><th class="hide-s">Paid off</th><th class="hide-s">Interest</th><th class="r">Remaining</th>`;
@@ -66,7 +66,10 @@ VIEWS.accounts = async (r, paint) => {
     row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="amt">${sums[a.id] ? money(sums[a.id]) : html`<span class="neutral">—</span>`}</td>`;
     total = money(items.reduce((s, a) => s + (sums[a.id] || 0), 0)) + (tab === 'expense' ? ' spent at ' + used + ' of ' + items.length + ' payees ' : ' received from ' + used + ' of ' + items.length + ' income sources ') + when;
   }
-  const body = items.length ? html`<table class="tbl"><thead><tr>${cols}</tr></thead><tbody>${htmlList(items.sort((a, b) => (sums[b.id] || 0) - (sums[a.id] || 0) || a.name.localeCompare(b.name)).map(a => html`<tr class="click" tabindex="0" role="link" data-onclick="App.go('#/account/${a.id}')"${a.active ? '' : html` style="opacity:.5"`}>${row(a)}</tr>`))}</tbody></table>` : html`<div class="center-empty">Nothing here yet.</div>`;
+  // A real Firefly grows one payee per merchant: past 50 the biggest are listed and the rest are one tap away
+  const ranked = [...items].sort((a, b) => (sums[b.id] || 0) - (sums[a.id] || 0) || a.name.localeCompare(b.name));
+  const capped = flow && ranked.length > 50 && r.q.all !== '1', listed = capped ? ranked.slice(0, 50) : ranked;
+  const body = items.length ? html`<table class="tbl"><thead><tr>${cols}</tr></thead><tbody>${htmlList(listed.map(a => html`<tr class="click" tabindex="0" role="link" data-onclick="App.go('#/account/${a.id}')"${a.active ? '' : html` style="opacity:.5"`}>${row(a)}</tr>`))}</tbody></table>${capped ? html`<p class="sub-s" style="padding:12px 16px 4px">Showing the biggest 50. <a class="link" href="#/accounts?tab=${tab}&all=1">Show all ${ranked.length}</a></p>` : ''}` : html`<div class="center-empty">Nothing here yet.</div>`;
   paint(html`${head('Accounts', total, html`${flow ? monthNav() : ''}<button class="btn primary" data-onclick="App.accountForm(null,'${tab === 'assets' ? 'asset' : tab === 'cards' ? 'card' : tab === 'liabilities' ? 'liability' : tab}')">+ New account</button>`)}<div class="tabs">${tabLink('assets', 'Bank accounts')}${tabLink('cards', 'Credit cards')}${tabLink('liabilities', 'Loans & debts')}${tabLink('expense', 'Payees')}${tabLink('revenue', 'Income sources')}</div>${runwayHtml}<section class="panel flush">${body}</section>${inactiveCount ? html`<p style="margin-top:14px"><a class="link" href="${hashWith({ inactive: show ? '' : '1' })}">${show ? 'Hide' : 'Show'} ${inactiveCount} inactive</a></p>` : ''}`);
 };
 VIEWS.account = async (r, paint) => {

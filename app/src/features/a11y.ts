@@ -29,6 +29,13 @@ document.addEventListener('keydown', e => {
   e.preventDefault(); t.click();
 });
 
+// The category and budget pills in a transaction row are buttons of their own: Enter or Space on one changes it and doesn't open the row
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (!(t instanceof HTMLElement) || !t.matches('.tbl.feed .inl') || (e.key !== 'Enter' && e.key !== ' ') || e.metaKey || e.ctrlKey || e.altKey) return;
+  e.preventDefault(); e.stopImmediatePropagation(); t.click();
+}, true);
+
 // Back from a page the Menu sheet linked to must not leave the sheet open on top of the previous page
 addEventListener('hashchange', () => {
   const d = el('drawer');

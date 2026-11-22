@@ -65,6 +65,7 @@ VIEWS.settings = async (r, paint) => {
     ${row('Hide when I leave the app', 'Blur amounts as the app goes to the background, so the app switcher doesn’t show them', html`<input ${SWITCH} aria-label="Hide amounts when the app is in the background"${LS.get('privacyBg', false) ? ' checked' : ''} data-onchange="App.togglePrivacyBg(this.checked)">`)}
     ${row('Compact view', 'Tighter spacing to fit more in', html`<input ${SWITCH} aria-label="Compact view" data-pref="compact"${compact ? ' checked' : ''} data-onchange="App.toggleDensity()">`)}
     ${row('Logos', 'Payees’ and banks’ logos instead of initials', html`<input ${SWITCH} aria-label="Show logos"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)">`)}
+    ${row('Keyboard shortcuts', 'Every shortcut, in one list. Press ? anywhere to open it.', html`<button type="button" class="btn small" data-onclick="App.shortcutsSheet()">Show list</button>`)}
     ${row('Single-key shortcuts', 'j, k, p, [, ? and other one-letter keys on the page. Turn off if they get in the way of voice control or a switch.', html`<input ${SWITCH} aria-label="Single-key shortcuts"${LS.get('keys', true) !== false ? ' checked' : ''} data-onchange="App.toggleKeys(this.checked)">`)}
     ${row('Haptics', 'A light tap when you save, delete or flip a switch. iPhone needs iOS 18 or later.', html`<input ${SWITCH} aria-label="Haptics"${hapticsOn() ? ' checked' : ''} data-onchange="App.toggleHaptics(this.checked)">`)}
     ${row('Hours of work', 'Under each purchase, the hours you worked to pay for it', html`<input ${SWITCH} aria-label="Hours of work"${lensOn() ? ' checked' : ''} data-onchange="App.toggleWorkLens(this.checked)">`)}
@@ -276,7 +277,13 @@ async function addHook(f: HTMLFormElement) {
   if (!/^https?:\/\//.test(body.url)) return toast('The URL must start with http:// or https://');
   await withAuth(async () => { await api('/webhooks', { method: 'POST', body }); toast('Webhook added'); route(); });
 }
-async function toggleHook(id: string, on: boolean) { await withAuth(async () => { await api('/webhooks/' + id, { method: 'PUT', body: { active: on } }); toast(on ? 'Webhook on' : 'Webhook off'); }); }
+async function toggleHook(id: string, on: boolean) {
+  await withAuth(async () => {
+    try { await api('/webhooks/' + id, { method: 'PUT', body: { active: on } }); }
+    catch (e) { const box = document.querySelector<HTMLInputElement>('input[data-onchange*="toggleHook(\'' + id + '\'"]'); if (box) box.checked = !on; throw e; }   // back to what the server still has
+    toast(on ? 'Webhook on' : 'Webhook off');
+  });
+}
 async function deleteHook(id: string) {
   if (!await confirmBox('Delete this webhook?', 'Firefly will stop calling that address.')) return;
   await withAuth(async () => { await api('/webhooks/' + id, { method: 'DELETE' }); toast('Webhook deleted'); route(); });
