@@ -3537,5 +3537,20 @@
   "Add one": "Añadir uno",
   "Set up a budget": "Configurar un presupuesto",
   "Change {n} transactions?": "¿Cambiar {n} movimientos?",
-  "Rows you haven’t scrolled to are included. Every selected row gets the same change.": "Se incluyen las filas que aún no has visto. Todas las filas seleccionadas reciben el mismo cambio."
+  "Rows you haven’t scrolled to are included. Every selected row gets the same change.": "Se incluyen las filas que aún no has visto. Todas las filas seleccionadas reciben el mismo cambio.",
+  "Spanish, any Net worth range, a cleaner look, and easier navigation and forms.": "Español, cualquier intervalo de patrimonio neto, una interfaz más limpia y navegación y formularios más sencillos.",
+  "Spanish translation": "Traducción al español",
+  "Pick Spanish in Settings → Appearance → Language. English stays the default. Thanks to GinesRico for the original translation.": "Elige español en Ajustes → Apariencia → Idioma. El inglés sigue siendo el predeterminado. Gracias a GinesRico por la traducción original.",
+  "Any Net worth range": "Cualquier intervalo de patrimonio neto",
+  "Type any number of years, or choose All time, from the options menu on the Net worth card.": "Escribe cualquier número de años o elige Todo el tiempo en el menú de opciones de la tarjeta de patrimonio neto.",
+  "A cleaner interface": "Una interfaz más limpia",
+  "Sentence-case labels, even spacing, lighter text weights, and no emoji or looping pulse.": "Etiquetas en minúsculas, espaciado uniforme, tipografía más ligera y sin emojis ni pulsos en bucle.",
+  "Map re-analyze": "Reanálisis en el mapa",
+  "Re-analyze all is always available on the Map, with a range box for how far back to look.": "Volver a analizar todo siempre está disponible en el Mapa, con un cuadro de intervalo para elegir hasta cuándo mirar atrás.",
+  "Easier on a phone": "Más fácil en el móvil",
+  "More lights up on the tab bar, Home is now Overview, and the add form asks for the amount first, with less-used fields under More details.": "Más se ilumina en la barra de pestañas, Inicio ahora es Resumen y el formulario de añadir pide primero el importe, con los campos menos usados en Más detalles.",
+  "Safer edits": "Ediciones más seguras",
+  "Closing a form with changes asks before discarding, and bulk changes over 25 rows ask you to confirm.": "Cerrar un formulario con cambios pregunta antes de descartarlos, y los cambios masivos de más de 25 filas piden confirmación.",
+  "Accessibility": "Accesibilidad",
+  "Skip link, keyboard-reachable rows and pills, larger touch targets, move buttons on dashboard tiles, and a Pause button on Year in Money that respects reduced motion.": "Enlace para saltar, filas y botones accesibles con teclado, zonas táctiles más grandes, botones para mover los bloques del panel y un botón de pausa en El año en Money que respeta la animación reducida."
 }
