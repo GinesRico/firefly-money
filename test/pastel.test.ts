@@ -14,10 +14,10 @@ const block = (k: string) => { const at = css.indexOf('html[data-theme="' + k + 
 const v = (b: string, name: string) => new RegExp('--' + name + ': (#[0-9a-f]{6})', 'i').exec(b)![1].toLowerCase();
 
 describe('Pastel themes', () => {
-  it('has 21 themes plus Auto and the picker groups every one of them once', () => {
-    expect(THEMES).toHaveLength(22);
+  it('has 22 themes plus Auto and the picker groups every one of them once', () => {
+    expect(THEMES).toHaveLength(23);
     const grouped = THEME_GROUPS.flatMap(g => g[1].map(x => x[0]));
-    expect(new Set(grouped).size).toBe(22);
+    expect(new Set(grouped).size).toBe(23);
     expect([...grouped].sort()).toEqual(THEMES.map(t => t[0]).sort());
     expect(THEME_GROUPS.map(g => g[0])).toEqual(['Calm', 'Pastel', 'Bold', 'Glass']);
   });
@@ -115,7 +115,7 @@ describe('Theme picker', () => {
     const host = document.createElement('div'); host.innerHTML = String(themeButtons()); document.body.append(host);
     expect(host.querySelector('[role=radiogroup]')).not.toBeNull();
     const radios = [...host.querySelectorAll<HTMLElement>('[role=radio]')];
-    expect(radios).toHaveLength(22);
+    expect(radios).toHaveLength(23);
     expect(radios.filter(r => r.tabIndex === 0)).toHaveLength(1);
     expect(radios.filter(r => r.getAttribute('aria-checked') === 'true').map(r => r.getAttribute('aria-label'))).toEqual(['Mint Cream']);
     for (const r of radios) { expect(r.querySelector('.tp-sw')).not.toBeNull(); expect(r.querySelector('.tp-name')!.textContent).not.toBe(''); }
