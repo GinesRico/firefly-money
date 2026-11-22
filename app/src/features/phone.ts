@@ -1,4 +1,4 @@
-import { html, htmlList } from '../core/html';
+import { html, htmlList, raw } from '../core/html';
 import { App, el } from '../core/base';
 import { BUZZ_DELETE, buzz } from '../core/haptics';
 import { NAV_GROUPS, icon, navItem, openDrawer } from '../core/dom';
@@ -8,10 +8,10 @@ function drawTabbar(active: string) {
   const tb = el('tabbar'); tb.hidden = false;
   // Drawn once, then only the current tab changes, so the pill behind it (Frosted glass) can slide across
   if (tb.querySelector('.tab-pill')) {
-    tb.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#/' + active));
+    tb.querySelectorAll('a').forEach(a => { const on = a.getAttribute('href') === '#/' + active; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     return movePill();
   }
-  const t = (r: string, label: string, ic: string) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}">${icon(ic)}<span>${label}</span></a>`;
+  const t = (r: string, label: string, ic: string) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}"${r === active ? raw(' aria-current="page"') : ''}>${icon(ic)}<span>${label}</span></a>`;
   tb.innerHTML = String(html`<i class="tab-pill" aria-hidden="true"></i>${t('', 'Home', 'overview')}${t('transactions', 'Activity', 'transactions')}<button type="button" class="plus" data-onclick="App.quickAdd()" aria-label="Add transaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>${t('budgets', 'Budgets', 'budgets')}<button type="button" data-onclick="App.moreSheet()">${icon('categories')}<span>More</span></button>`);
   movePill();
   tapThrough(tb); tapThrough(el('fab'));

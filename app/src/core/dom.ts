@@ -52,15 +52,16 @@ export function drawNav(active: string) {
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 // A message about something that failed stays until it is dismissed (button, tap or Esc); a status message fades by itself
 const FAILED = /couldn’t|could not|didn’t|can’t|failed|error|went wrong|not accept|timed out|timeout/i;
-export function toast(msg: string) {
+export function toast(msg: string, failed = FAILED.test(msg)) {
   const t = el('toast'); t.textContent = msg; clearTimeout(toastTimer);
-  t.classList.toggle('sticky', FAILED.test(msg));
-  if (FAILED.test(msg)) {
+  t.classList.toggle('sticky', failed);
+  t.setAttribute('role', failed ? 'alert' : 'status');   // a failure is announced at once, a status politely
+  if (failed) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-x'; b.textContent = 'Dismiss';
     b.onclick = () => t.classList.remove('show', 'sticky'); t.appendChild(b);
   }
   t.classList.add('show');
-  if (!FAILED.test(msg)) toastTimer = setTimeout(() => t.classList.remove('show'), Math.min(8000, 2600 + msg.length * 60));   // longer messages stay long enough to read
+  if (!failed) toastTimer = setTimeout(() => t.classList.remove('show'), Math.min(8000, 2600 + msg.length * 60));   // longer messages stay long enough to read
 }
 document.addEventListener('keydown', e => { const t = document.getElementById('toast'); if (e.key === 'Escape' && t && t.classList.contains('sticky')) t.classList.remove('show', 'sticky'); });
 export function confirmBox(title: string, text: string, okLabel = 'Delete') {
@@ -121,11 +122,20 @@ export function openDrawer(title: string, bodyHtml: Html | string, footHtml?: Ht
     return;
   }
   d.innerHTML = String(html`<div class="grab" aria-hidden="true"></div><header>${h ? drawerHeroHtml({ ...h, kicker: title === 'Loading…' ? h.kicker : title }) : html`<h2>${title}</h2>`}<button class="round" type="button" data-onclick="App.closeDrawer()" aria-label="Close">${ICON_X}</button></header><div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`);
-  if (!wasOpen) S.drawerReturn = document.activeElement as HTMLElement | null;
+  if (!wasOpen) { S.drawerReturn = document.activeElement as HTMLElement | null; d.removeAttribute('data-dirty'); }
   d.setAttribute('aria-label', String(title === 'Loading…' && h ? h.name : title));
   d.classList.add('open'); d.setAttribute('aria-hidden', 'false'); d.inert = false; el('app').inert = true; el('scrim').classList.add('open');      // the page behind can't be tabbed into while the drawer is up
-  if (!wasOpen) setTimeout(() => { const f = d.querySelector<HTMLElement>('input:not([type=hidden]):not([type=checkbox]):not([type=date]), select'); if (f && innerWidth > 900) f.focus(); }, 280);
+  if (!wasOpen) setTimeout(() => {
+    const f = d.querySelector<HTMLElement>('input:not([type=hidden]):not([type=checkbox]):not([type=date]), select');
+    if (f && innerWidth > 900) { f.focus(); return; }
+    // On a phone the keyboard stays down, but focus still moves in so a screen reader lands on the sheet, not the inert page behind it
+    const head = d.querySelector<HTMLElement>('header h2, header .dname, header');
+    if (head && d.classList.contains('open')) { head.tabIndex = -1; head.focus({ preventScroll: true }); }
+  }, 280);
 }
+// Typing in any drawer form other than the transaction form marks it, so Esc or a backdrop tap can ask before throwing the edits away
+document.addEventListener('input', e => { const t = e.target as HTMLElement; if (t.closest && t.closest('#drawer form') && !t.closest('#txForm')) el('drawer').setAttribute('data-dirty', '1'); });
+export const drawerDirty = () => el('drawer').getAttribute('data-dirty') === '1';
 export function closeDrawer() {
   const d = el('drawer'), h = S.drawerHero;
   S.form = null; S.drawerHero = null;

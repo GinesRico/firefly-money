@@ -125,7 +125,14 @@ function nextPage(f: Feed, m: HTMLElement): Promise<boolean> {
       f.next++; appendRows(gs, f.opts);
       if (f.next > f.pages || !gs.length) { m.remove(); return false; }
       return true;
-    } catch (e) { m.textContent = 'Couldn’t load more: ' + (e as Error).message; f.next = f.pages + 1; return false; }
+    } catch (e) {
+      // One bad moment on a phone connection shouldn't end the list: say so plainly and offer a retry that picks up at the same page
+      const again = f.next, was = m.innerHTML; f.next = f.pages + 1;
+      m.textContent = 'Couldn’t load more. ';
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'link'; b.textContent = 'Try again';
+      b.onclick = () => { if (S.feed !== f) return; f.next = again; m.innerHTML = was; feedMore().then(ok => { if (ok) bindFeed(); }); };
+      m.appendChild(b); return false;
+    }
     finally { f.busy = null; }
   })();
 }

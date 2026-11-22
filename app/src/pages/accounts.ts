@@ -53,7 +53,7 @@ VIEWS.accounts = async (r, paint) => {
     const t = groupTotal(items, x => x.balance); total = t.text + ' total' + t.note;
   } else if (tab === 'cards') {
     cols = html`<th>Name</th><th class="hide-s">Payment due</th><th class="r">Owed</th>`;
-    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${a.paymentDate ? 'Day ' + new Date(String(a.paymentDate).slice(0, 10) + 'T12:00:00').getDate() + ' of the month' : '—'}</td><td class="amt">${(a.nat || a).balance < 0 ? ownAmt(a, -(a.nat || a).balance, -a.balance) : html`<span class="pos">Paid off</span>`}</td>`;
+    row = a => html`<td class="desc"><span class="acct">${nameAvatar(a.name, 'sm')}<span class="nm">${a.name}</span></span></td><td class="hide-s neutral">${a.paymentDate ? 'Day ' + new Date(String(a.paymentDate).slice(0, 10) + 'T12:00:00').getDate() + ' of the month' : '—'}</td><td class="amt">${(a.nat || a).balance < 0 ? ownAmt(a, -(a.nat || a).balance, -a.balance) : (a.nat || a).balance > 0 ? html`<span class="pos">Credit ${ownAmt(a, (a.nat || a).balance, a.balance)}</span>` : html`<span class="pos">Paid off</span>`}</td>`;
     const t = groupTotal(items, x => Math.max(0, -x.balance)); total = t.text + ' owed in total' + t.note;
   } else if (tab === 'liabilities') {
     cols = html`<th>Name</th><th class="hide-s">Paid off</th><th class="hide-s">Interest</th><th class="r">Remaining</th>`;

@@ -61,7 +61,12 @@ VIEWS.rules = async (r, paint) => {
 async function toggleRule(id: string, on: boolean) {
   const at = S.rules![id];
   await withAuth(async () => { const row = document.querySelector<HTMLElement>('input[data-onchange*="toggleRule(\'' + id + '\'"]'); if (row) row.closest('tr')!.style.opacity = on ? '' : '.55';
-    await api('/rules/' + id, { method: 'PUT', body: { title: at.title, rule_group_id: String(at.rule_group_id), active: on } }); at.active = on; toast(on ? 'Rule turned on' : 'Rule turned off'); });
+    try { await api('/rules/' + id, { method: 'PUT', body: { title: at.title, rule_group_id: String(at.rule_group_id), active: on } }); }
+    catch (e) {      // the switch and the dimming go back to what the server still has, so the row doesn't claim a change that didn't happen
+      if (row) { (row as HTMLInputElement).checked = !on; row.closest('tr')!.style.opacity = on ? '.55' : ''; }
+      throw e;
+    }
+    at.active = on; toast(on ? 'Rule turned on' : 'Rule turned off'); });
 }
 function condRow(kind: string, t: ApiData, i: number) {
   const list = kind === 't' ? TRIGGERS : ACTIONS, has = list.some(x => x[0] === t.type);

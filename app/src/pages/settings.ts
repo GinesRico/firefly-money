@@ -276,7 +276,13 @@ async function addHook(f: HTMLFormElement) {
   if (!/^https?:\/\//.test(body.url)) return toast('The URL must start with http:// or https://');
   await withAuth(async () => { await api('/webhooks', { method: 'POST', body }); toast('Webhook added'); route(); });
 }
-async function toggleHook(id: string, on: boolean) { await withAuth(async () => { await api('/webhooks/' + id, { method: 'PUT', body: { active: on } }); toast(on ? 'Webhook on' : 'Webhook off'); }); }
+async function toggleHook(id: string, on: boolean) {
+  await withAuth(async () => {
+    try { await api('/webhooks/' + id, { method: 'PUT', body: { active: on } }); }
+    catch (e) { const box = document.querySelector<HTMLInputElement>('input[data-onchange*="toggleHook(\'' + id + '\'"]'); if (box) box.checked = !on; throw e; }   // back to what the server still has
+    toast(on ? 'Webhook on' : 'Webhook off');
+  });
+}
 async function deleteHook(id: string) {
   if (!await confirmBox('Delete this webhook?', 'Firefly will stop calling that address.')) return;
   await withAuth(async () => { await api('/webhooks/' + id, { method: 'DELETE' }); toast('Webhook deleted'); route(); });

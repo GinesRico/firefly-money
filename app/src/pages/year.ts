@@ -159,7 +159,7 @@ document.addEventListener('pointerup', e => {
 document.addEventListener('pointercancel', () => { if (down) { down = null; pause(false); } });
 document.addEventListener('keydown', e => {
   if (!story()) return;
-  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); play(at + 1); }
+  if (e.key === 'ArrowRight' || (e.key === ' ' && !(e.target as Element).closest('button, a, input'))) { e.preventDefault(); play(at + 1); }   // Space still presses Close and Share
   if (e.key === 'ArrowLeft') { e.preventDefault(); play(at - 1); }
   if (e.key === 'Escape') yearClose();
 });

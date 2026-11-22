@@ -4,7 +4,7 @@ import { showLogin } from '../core/auth';
 import { type ApiData, App, S, arr, el, fmtDate, fmtDay, isoDate, money, moneyIn, approx, num, sameName, todayIso, type AppApi, type Field } from '../core/base';
 import { LS } from '../core/helpers';
 import { BUZZ_SAVE, buzz } from '../core/haptics';
-import { closeDrawer, confirmBox, formError, heroParts, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
+import { closeDrawer, confirmBox, drawerDirty, formError, heroParts, icon, openDrawer, opt, toast, vt, vtName } from '../core/dom';
 import { type Group, amtInner, avatarHtml, normGroup, payeeOf, signed, signedNative } from '../core/feed';
 import { hoursText, lensOn } from '../core/worklens';
 import { type Account, invalidate, isAsset, isCard, isLiab, lists } from '../core/lists';
@@ -274,6 +274,7 @@ async function saveTxInner(formEl: HTMLFormElement) {
   for (const s of f.splits) {
     if (s.fa && num(s.fa) > 0 && !s.fc) return formError('Pick the currency for the foreign amount.');
     if (!s.description.trim()) return formError('Every part needs a description.');
+    if (num(s.amount) < 0) return formError('Enter the amount without a minus sign. The type above (expense, income or transfer) sets the direction.');
     if (!(num(s.amount) > 0)) return formError('Every part needs an amount above zero.');
   }
   // A number or date far outside what's plausible is usually a typo (an extra digit, the wrong year): ask before saving it
@@ -379,7 +380,7 @@ async function closeDrawerAsk() {
   if (S.form && el('txForm')) {
     collectTx();
     if (JSON.stringify(S.form) !== S.formBase && !await confirmBox('Discard this transaction?', 'What you’ve typed hasn’t been saved.', 'Discard')) return;
-  }
+  } else if (drawerDirty() && !await confirmBox('Discard your changes?', 'What you’ve typed hasn’t been saved.', 'Discard')) return;
   closeDrawer();
 }
 export function draftsPanel() {
