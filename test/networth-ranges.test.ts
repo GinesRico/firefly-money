@@ -21,7 +21,7 @@ describe('net worth range options', () => {
     localStorage.setItem('money.nwMonths', '60'); document.body.innerHTML = '<div id="toast"></div>';
     App.nwSet(''); App.nwSet('0'); App.nwSet('abc'); App.nwSet('51');
     expect(localStorage.getItem('money.nwMonths')).toBe('60');
-    App.nwSet('2.5'); expect(localStorage.getItem('money.nwMonths')).toBe('30');
+    App.nwRedraw = async () => true; App.nwSet('2.5'); expect(localStorage.getItem('money.nwMonths')).toBe('30');
   });
   it('All time starts at the first transaction and keeps nothing when Firefly is down; the options row has its own styles', () => {
     const src = readFileSync('app/src/features/networth.ts', 'utf8'), css = readFileSync('app/assets/money.css', 'utf8');
