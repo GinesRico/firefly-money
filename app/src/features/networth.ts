@@ -1,4 +1,4 @@
-import { html, htmlList } from '../core/html';
+import { html } from '../core/html';
 import { api, getAll, PAGES } from '../core/api';
 import { App, el, fmtD, money0, monthOf, monthRange, S, todayIso } from '../core/base';
 import { toast } from '../core/dom';
