@@ -3553,5 +3553,21 @@
   "Safer edits": "Ediciones más seguras",
   "Closing a form with changes asks before discarding, and bulk changes over 25 rows ask you to confirm.": "Cerrar un formulario con cambios pregunta antes de descartarlos, y los cambios masivos de más de 25 filas piden confirmación.",
   "Accessibility": "Accesibilidad",
-  "Skip link, keyboard-reachable rows and pills, larger touch targets, move buttons on dashboard tiles, and a Pause button on Year in Money that respects reduced motion.": "Enlace para saltar, filas y botones accesibles con teclado, zonas táctiles más grandes, botones para mover los bloques del panel y un botón de pausa en El año en Money que respeta la animación reducida."
+  "Skip link, keyboard-reachable rows and pills, larger touch targets, move buttons on dashboard tiles, and a Pause button on Year in Money that respects reduced motion.": "Enlace para saltar, filas y botones accesibles con teclado, zonas táctiles más grandes, botones para mover los bloques del panel y un botón de pausa en El año en Money que respeta la animación reducida.",
+  "Your location": "Tu ubicación",
+  "Real sunrise and sunset where you are. Kept on this device, rounded to about 10 km.": "Amanecer y atardecer reales donde estás. Se guarda en este dispositivo, redondeada a unos 10 km.",
+  "Weather": "Tiempo",
+  "Live asks Open-Meteo through this server, not from your browser. Previews show an effect now.": "En vivo consulta Open-Meteo a través de este servidor, no desde tu navegador. Las vistas previas muestran un efecto ahora.",
+  "Live (needs your location)": "En vivo (necesita tu ubicación)",
+  "Preview: clear": "Vista previa: despejado",
+  "Preview: cloudy": "Vista previa: nublado",
+  "Preview: fog": "Vista previa: niebla",
+  "Preview: rain": "Vista previa: lluvia",
+  "Preview: snow": "Vista previa: nieve",
+  "Preview: storm": "Vista previa: tormenta",
+  "Use my location": "Usar mi ubicación",
+  "Weather in the sky": "Tiempo en el cielo",
+  "This browser can’t share its location": "Este navegador no puede compartir su ubicación",
+  "Location is off for this site. Allow it in your browser settings.": "La ubicación está desactivada para este sitio. Permítela en los ajustes del navegador.",
+  "Turn on Your location for live weather": "Activa Tu ubicación para el tiempo en vivo"
 }
