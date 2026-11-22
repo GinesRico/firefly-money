@@ -183,6 +183,16 @@ export async function payeeFill(i: number, name: string) {
 }
 
 /* ---------- Undo for deleting transactions ---------- */
+const UNDO_MS = 10000;
+// Hovering or focusing the bar pauses the countdown (someone reaching for Undo, or a keyboard user who Tabbed to it)
+let undoArm: (() => void) | null = null;
+{
+  const box = el('undo');
+  const hold = () => { if (S.undoCommit) { clearTimeout(S.undoT); box.classList.add('held'); } };
+  const release = () => { if (S.undoCommit && undoArm && !box.matches(':hover, :focus-within')) { box.classList.remove('held'); undoArm(); } };
+  box.addEventListener('pointerenter', hold); box.addEventListener('focusin', hold);
+  box.addEventListener('pointerleave', release); box.addEventListener('focusout', () => setTimeout(release, 0));
+}
 function softDeleteTx(ids: string[]) {
   ids.forEach(id => S.pendingDel.add(id));
   const before = rowTops(el('view'));               // the rows below close the gap, gliding up
@@ -193,7 +203,8 @@ function softDeleteTx(ids: string[]) {
   const box = el('undo'); clearTimeout(S.undoT);
   let undone = false;
   const commit = async (leaving = false) => {
-    box.hidden = true;
+    if (box.contains(document.activeElement)) el('view').focus();      // focus must not fall back to the page's start when the bar goes
+    box.hidden = true; box.classList.remove('held');
     if (undone) return;
     let failed = 0;
     await eachLimited(ids, 4, async id => { try { await api('/transactions/' + id, { method: 'DELETE', keepalive: leaving }); } catch (e) { failed++; } S.pendingDel.delete(id); });
@@ -205,10 +216,11 @@ function softDeleteTx(ids: string[]) {
   box.innerHTML = String(html`<span>${ids.length === 1 ? 'Transaction deleted' : ids.length + ' transactions deleted'}</span><button type="button">Undo</button><span class="bar"></span>`);
   box.hidden = false;
   box.querySelector('button')!.onclick = () => {
-    undone = true; clearTimeout(S.undoT); S.undoCommit = null; box.hidden = true;
+    undone = true; clearTimeout(S.undoT); S.undoCommit = null; box.classList.remove('held'); box.hidden = true; el('view').focus();
     ids.forEach(id => S.pendingDel.delete(id)); toast('Restored'); route();
   };
-  S.undoT = setTimeout(() => S.undoCommit && S.undoCommit(), 5000);
+  undoArm = () => { clearTimeout(S.undoT); S.undoT = setTimeout(() => S.undoCommit && S.undoCommit(), UNDO_MS); };
+  undoArm();
 }
 // Closing the tab, or an iPhone putting the app away, must not bring the row back: send the deletes now, with
 // keepalive so the browser finishes them after the page is gone. (pagehide and a hidden page cover what

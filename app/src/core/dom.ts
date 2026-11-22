@@ -52,7 +52,7 @@ export function drawNav(active: string) {
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function toast(msg: string) {
   const t = el('toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), Math.min(8000, 2600 + msg.length * 60));   // longer messages (errors) stay long enough to read
 }
 export function confirmBox(title: string, text: string, okLabel = 'Delete') {
   return new Promise<boolean>(res => {
@@ -174,7 +174,7 @@ const EMPTY_ICONS: Record<string, string> = {
 };
 export function emptyState(kind: keyof typeof EMPTY_ICONS | string, title: string, text: string, actions?: string | Html) {
   const d = EMPTY_ICONS[kind] || EMPTY_ICONS.list;
-  return html`<div class="empty-state"><div class="es-ic" aria-hidden="true">${raw(`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`)}</div><h3>${title}</h3><p>${text}</p>${actions ? html`<div class="es-act">${actions}</div>` : ''}</div>`;
+  return html`<div class="empty-state"><div class="es-ic" aria-hidden="true">${raw(`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`)}</div><h2>${title}</h2><p>${text}</p>${actions ? html`<div class="es-act">${actions}</div>` : ''}</div>`;
 }
 export const opt = (v: string | number, label: string | number, sel: unknown) => html`<option value="${v}"${String(v) === String(sel) ? ' selected' : ''}>${label}</option>`;
 

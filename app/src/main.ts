@@ -15,6 +15,7 @@ import './core/dom';
 import './core/auth';
 import { parseHash, refreshAll } from './core/router';
 import './features/refunds';
+import './features/a11y';
 import './features/fxnote';
 import './features/started';
 import './features/txform';
