@@ -2504,7 +2504,7 @@ html[data-theme="interstellar"][data-wx="fog"] #sky .sk-fog, html[data-theme="in
 html[data-theme="interstellar"] :is(.panel, .daycards tbody.day, .daycards > .center-empty, .kpi, .insight, .extra, .split, .login form, .dash-bar) {
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); -webkit-backdrop-filter: none; backdrop-filter: none; }
 html[data-theme="interstellar"] :is(.drawer, dialog, .calpop, .pickpop, .palette-box, .bulkbar, .ff-pop) { background: rgba(9, 12, 18, .97); border-color: var(--line); border-radius: 14px; }
-html[data-theme="interstellar"] :is(input[type=text], input[type=number], input[type=date], input[type=password], input[type=search], select, textarea, .round, .wctl button, .btn, .seg, .tabs) { background: rgba(190, 204, 224, .07); border-color: rgba(190, 204, 224, .18); }
+html[data-theme="interstellar"] :is(input[type=text], input[type=number], input[type=date], input[type=password], input[type=search], select, textarea, .round, .wctl button, .btn, .seg, .tabs) { background: var(--panel); border-color: rgba(190, 204, 224, .2); }
 html[data-theme="interstellar"] select option { background: #0b0f16; }
 html[data-theme="interstellar"] :is(input, select, textarea):focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
 html[data-theme="interstellar"] :is(.btn.primary, .seg button.on, .tabs a.on, .tabbar .plus, .fab) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
@@ -2518,7 +2518,7 @@ html[data-theme="interstellar"] :is(.tab-pill, .nav a.on) { background: rgba(232
 html[data-theme="interstellar"] :is(.tabbar :is(a, button.more).on, .nav a.on) { color: var(--accent); }
 html[data-theme="interstellar"] .tabbar { background: rgba(9, 12, 18, .94); border: 1px solid var(--line); box-shadow: var(--shadow); }
 html[data-theme="interstellar"] .tabbar :is(a, button.more) { color: var(--muted); }
-html[data-theme="interstellar"] :is(.head h1, .head .sub, .set-h) { text-shadow: 0 1px 10px rgba(0, 0, 0, .55), 0 0 2px rgba(0, 0, 0, .45); }
+html[data-theme="interstellar"] :is(.head, .head *, .set-h) { text-shadow: 0 1px 10px rgba(0, 0, 0, .55), 0 0 2px rgba(0, 0, 0, .45); }
 html[data-theme="interstellar"] .big { color: transparent; background: var(--hero-grad); -webkit-background-clip: text; background-clip: text; }
 @media (max-width: 900px) { html[data-theme="interstellar"] .tbl.feed tr.dayhead div { background: rgba(9, 12, 18, .97); } }
 
