@@ -72,3 +72,43 @@ describe('Skill review: honest numbers and order', () => {
     expect(src('pages/cleanup.ts')).toContain('href="#/settings?s=data">← Data</a>');
   });
 });
+
+describe('Skill review decisions: navigation, forms, bulk, tokens', () => {
+  it('lights the phone More tab and titles its sheet More', () => {
+    const p = src('features/phone.ts');
+    expect(p).toContain('button.more');
+    expect(p).toContain('moreOn');
+    expect(p).toContain('swipe-hint');
+  });
+  it('puts less-used add-form fields under More details, and keeps a phone footer menu', () => {
+    const t = src('features/txform.ts');
+    expect(t).toContain('tx-more');
+    expect(t).toContain('foot-more');
+    expect(t).toContain('closeDrawerAsk');
+  });
+  it('asks before a bulk edit over 25 rows, with copy that translates', () => {
+    const b = src('features/bulk.ts');
+    expect(b).toContain('bk-set');
+    expect(b).toContain('groups.length > 25');
+    expect(b).not.toContain("' on every one of them.'");
+  });
+  it('lets keyboard users activate inline pills and move dashboard tiles', () => {
+    expect(src('core/feed.ts')).toContain('role="button" tabindex="0"');
+    expect(src('features/a11y.ts')).toContain('.inl');
+    expect(src('features/dashboard.ts')).toContain('App.dashMove(');
+  });
+  it('can pause the year story and caps long lists', () => {
+    expect(src('pages/year.ts')).toContain('yearPause');
+    expect(src('pages/overview.ts')).toContain('more');
+    expect(src('pages/accounts.ts')).toContain('Show all ${ranked.length}');
+    expect(src('features/ffstatus.ts')).toContain('ff-details');
+  });
+  it('uses type tokens and a single eyebrow rule', () => {
+    expect(css).toContain('--fs-2xs');
+    expect(css.match(/^\.eyebrow \{/gm)?.length).toBe(1);
+  });
+  it('has Spanish for the new strings', () => {
+    const es = JSON.parse(readFileSync('app/src/locales/es.json', 'utf8')) as Record<string, string>;
+    for (const k of ['More details', 'Discard your changes?', 'Show all {n}', 'Change {n} transactions?', 'Pause', 'Credit']) expect(es[k]).toBeTruthy();
+  });
+});

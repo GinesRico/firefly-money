@@ -31,7 +31,7 @@ async function bulk(kind: string) {
   if (kind === 'budget') { val = el<HTMLSelectElement>('bk-bud').value; if (val === '') return toast('Choose a budget first.'); }
   if (kind === 'tag') { val = el<HTMLInputElement>('bk-tag').value.trim(); if (!val) return toast('Type a tag first.'); }
   if (kind === 'delete') return App.softDeleteTx(groups.map(g => g.id));
-  if (groups.length > 25 && !await confirmBox('Change ' + groups.length + ' transactions?', 'Selected rows below the ones on screen are included. This sets the ' + kind + ' on every one of them.', 'Change')) return;
+  if (groups.length > 25 && !await confirmBox('Change ' + groups.length + ' transactions?', 'Rows you haven’t scrolled to are included. Every selected row gets the same change.', 'Change')) return;
   let done = 0, skipped = 0, failed = 0, authErr = null as AuthError | null;
   renderBulk('Working… 0 of ' + groups.length);
   await eachLimited(groups, 4, async g => {
