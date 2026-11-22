@@ -209,7 +209,7 @@ function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { un
   });
   if (!items.length) return html`<section class="panel attention"><h2>Needs attention</h2><p class="lead">Quick things to tidy up</p><p class="all-clear"><span aria-hidden="true">✓</span> All caught up</p></section>`;
   // The most urgent first (overdue, over budget, unusual, uncategorized), then upcoming and routine ones, so a recap or a draft never pushes a deadline behind "more"
-  const rank = (h: unknown) => { const t = String(h); return /overdue since/.test(t) ? 0 : /is over budget/.test(t) ? 1 : /href="#\/unusual"/.test(t) ? 2 : /href="#\/inbox"/.test(t) ? 3 : /href="#\/bills"/.test(t) ? 4 : /href="#\/recap"/.test(t) ? 7 : /to finish/.test(t) ? 6 : 5; };
+  const rank = (h: unknown) => { const t = String(h), row = (href: string) => t.startsWith('<a class="row" href="#/' + href + '"'); return /<span class="up">overdue since/.test(t) ? 0 : /is over budget<\/span>/.test(t) ? 1 : row('unusual') ? 2 : row('inbox') ? 3 : row('bills') ? 4 : row('recap') ? 7 : /^<a class="row" href="#\/transactions"><span class="name">\d+ drafts? to finish/.test(t) ? 6 : 5; };
   items.sort((a, b) => rank(a) - rank(b));
   // Two rows at most, so the card is the same height from month to month; the rest open from the heading
   const more = items.length - 2;
@@ -339,7 +339,7 @@ function trendsPanel(labels: string[], months: ApiData[][], ranges: Period[]) {
 function budgetsMini(budgets: ApiData[], limits: Record<string, BudgetLimit>, all: boolean, unset = true, cur: Period | null = null) {
   const rows = htmlList(budgets.filter(b => b.attributes.active !== false && (unset || all || limits[String(b.id)])).map(b => {
     const spent = spentSum(b), lim = limits[String(b.id)];
-    const pct = lim && lim.amount ? spent / lim.amount * 100 : 0, cls = !lim ? '' : pct > 100 ? 'over' : pct >= budgetAlert() ? 'warn' : 'good';
+    const pct = lim && lim.amount ? spent / lim.amount * 100 : 0, cls = !lim || !lim.amount ? '' : pct > 100 ? 'over' : pct >= budgetAlert() ? 'warn' : 'good';
     const sub = lim && lim.amount ? pct > 100 ? html`<span class="up">${money0(spent - lim.amount)} over</span>` : html`${money0(lim.amount - spent)} left` : html`${money0(spent)} spent`;
     return html`<a class="bring" href="#/transactions?budget=${b.id}">${ring(pct, cls, '', lim && lim.amount ? '' : '–')}<span class="name">${b.attributes.name}</span><span class="sub-s num">${sub}</span></a>`;
   }));

@@ -24,6 +24,7 @@ describe('Skill review: touch, keyboard and announcements', () => {
     const dom = src('core/dom.ts');
     expect(dom).toContain("export function toast(msg: string, failed = FAILED.test(msg))");
     expect(dom).toContain("setAttribute('role', failed ? 'alert' : 'status')");
+    expect(dom).toContain("setAttribute('aria-live', failed ? 'assertive' : 'polite')");
     expect(src('core/auth.ts')).toContain('toast((e as Error).message, true)');
   });
   it('moves focus into the drawer on a phone', () => {
@@ -33,6 +34,7 @@ describe('Skill review: touch, keyboard and announcements', () => {
   });
   it('asks before Esc or the backdrop throws away an edited form in any drawer', () => {
     expect(src('core/dom.ts')).toContain("closest('#drawer form') && !t.closest('#txForm')");
+    expect(src('core/dom.ts')).toContain("d.removeAttribute('data-dirty');\n  const row");
     expect(src('features/txform.ts')).toContain("drawerDirty() && !await confirmBox('Discard your changes?'");
   });
   it('puts a rule or webhook switch back when the server refuses the change', () => {

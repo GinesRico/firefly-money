@@ -55,7 +55,7 @@ const FAILED = /couldn’t|could not|didn’t|can’t|failed|error|went wrong|no
 export function toast(msg: string, failed = FAILED.test(msg)) {
   const t = el('toast'); t.textContent = msg; clearTimeout(toastTimer);
   t.classList.toggle('sticky', failed);
-  t.setAttribute('role', failed ? 'alert' : 'status');   // a failure is announced at once, a status politely
+  t.setAttribute('role', failed ? 'alert' : 'status'); t.setAttribute('aria-live', failed ? 'assertive' : 'polite');   // a failure is announced at once, a status politely
   if (failed) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-x'; b.textContent = 'Dismiss';
     b.onclick = () => t.classList.remove('show', 'sticky'); t.appendChild(b);
@@ -138,7 +138,7 @@ document.addEventListener('input', e => { const t = e.target as HTMLElement; if 
 export const drawerDirty = () => el('drawer').getAttribute('data-dirty') === '1';
 export function closeDrawer() {
   const d = el('drawer'), h = S.drawerHero;
-  S.form = null; S.drawerHero = null;
+  S.form = null; S.drawerHero = null; d.removeAttribute('data-dirty');
   const row = h && d.classList.contains('open') && VT_OK && document.querySelector<HTMLElement>('#view tr[data-gid="' + h.id + '"] .av');
   const my = S.drawerTok = (S.drawerTok || 0) + 1;
   const shut = () => {
