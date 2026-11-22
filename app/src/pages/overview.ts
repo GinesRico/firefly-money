@@ -188,23 +188,23 @@ function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { un
   const items: Html[] = [];
   const n = uncat && uncat.meta && uncat.meta.pagination ? uncat.meta.pagination.total : 0;
   const [ny, nm] = nowMonth(), lastMonth = monthRange(ny, nm - 1), cur = monthRange(ny, nm);
-  if (!future && !S.all && S.y === ny && S.m === nm && todayIso() < addDays(cur.start, 7)) items.push(html`<a class="row" href="#/recap" data-onclick="event.preventDefault();App.recapLast()"><span class="name">📊 Your ${lastMonth.label} recap is ready</span><span class="neutral">See it →</span></a>`);
+  if (!future && !S.all && S.y === ny && S.m === nm && todayIso() < addDays(cur.start, 7)) items.push(html`<a class="row" href="#/recap" data-onclick="event.preventDefault();App.recapLast()"><span class="name">Your ${lastMonth.label} recap is ready</span><span class="neutral">See it →</span></a>`);
   const nd = drafts().length;
-  if (nd) items.push(html`<a class="row" href="#/transactions"><span class="name">📝 ${nd} draft${nd === 1 ? '' : 's'} to finish</span><span class="neutral">Open →</span></a>`);
-  if (n) items.push(html`<a class="row" href="#/inbox"><span class="name">🏷 ${n} expense${n === 1 ? '' : 's'} without a category</span><span class="neutral">Categorize →</span></a>`);
+  if (nd) items.push(html`<a class="row" href="#/transactions"><span class="name">${nd} draft${nd === 1 ? '' : 's'} to finish</span><span class="neutral">Open →</span></a>`);
+  if (n) items.push(html`<a class="row" href="#/inbox"><span class="name">${n} expense${n === 1 ? '' : 's'} without a category</span><span class="neutral">Categorize →</span></a>`);
   if (unusual && unusual.flags.length) {
     const fl = unusual.flags, one = fl.length === 1 ? fl[0] : null;
-    items.push(one ? html`<a class="row" href="#/unusual" data-onclick="event.preventDefault();App.editTx('${one.charge.id}')"><span class="name">🔍 ${one.charge.payee}: ${one.why}</span><span class="neutral">Look →</span></a>`
-      : html`<a class="row" href="#/unusual"><span class="name">🔍 ${fl.length} unusual charges</span><span class="neutral">Review →</span></a>`);
+    items.push(one ? html`<a class="row" href="#/unusual" data-onclick="event.preventDefault();App.editTx('${one.charge.id}')"><span class="name">${one.charge.payee}: ${one.why}</span><span class="neutral">Look →</span></a>`
+      : html`<a class="row" href="#/unusual"><span class="name">${fl.length} unusual charges</span><span class="neutral">Review →</span></a>`);
   }
   const t = todayIso(), week = isoDate(new Date(Date.now() + 7 * 864e5));
   bills.filter(b => b.attributes.active !== false).forEach(b => {
     const d = billDueDates(b.attributes, { end: week })[0];
-    if (d) items.push(html`<a class="row" href="#/bills"><span class="name">📅 ${b.attributes.name} ${d < t ? html`<span class="up">overdue since ${fmtDay(d)}</span>` : 'due ' + fmtDay(d)}</span><span class="num">${money(billAmount(b.attributes))}</span></a>`);
+    if (d) items.push(html`<a class="row" href="#/bills"><span class="name">${b.attributes.name} ${d < t ? html`<span class="up">overdue since ${fmtDay(d)}</span>` : 'due ' + fmtDay(d)}</span><span class="num">${money(billAmount(b.attributes))}</span></a>`);
   });
   if (!future) budgets.forEach(b => {
     const lim = limits[String(b.id)], spent = spentSum(b);
-    if (lim && lim.amount && spent > lim.amount) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">⚠️ ${b.attributes.name} is over budget</span><span class="num up">${money0(spent - lim.amount)} over</span></a>`);
+    if (lim && lim.amount && spent > lim.amount) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">${b.attributes.name} is over budget</span><span class="num up">${money0(spent - lim.amount)} over</span></a>`);
     else if (lim && lim.amount && spent >= lim.amount * budgetAlert() / 100) items.push(html`<a class="row" href="#/transactions?budget=${b.id}"><span class="name">◔ ${b.attributes.name} is at ${Math.round(spent / lim.amount * 100)}%</span><span class="num">${money0(lim.amount - spent)} left</span></a>`);
   });
   if (!items.length) return html`<section class="panel attention"><h2>Needs attention</h2><p class="lead">Quick things to tidy up</p><p class="all-clear"><span aria-hidden="true">✓</span> All caught up</p></section>`;
