@@ -64,7 +64,7 @@ describe('review follow-ups', () => {
     expect(src('features/insights.ts')).toContain('Math.abs(m.p) >= 5 ? money0(Math.abs(m.d))');
   });
   it('destructive confirms use the danger style', () => {
-    expect(src('core/dom.ts')).toContain("/^(Delete|Remove|Unlink|Discard)$/.test(okLabel) ? 'danger' : 'primary'");
+    expect(src('core/dom.ts')).toContain("btn primary${/^(Delete|Remove|Unlink|Discard)$/.test(okLabel) ? ' danger' : ''}");
   });
   it('required-field errors are inline, announced, and cleared on input', () => {
     const a = src('features/a11y.ts');

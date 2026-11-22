@@ -2654,3 +2654,6 @@ html[data-theme="dark"] { --e1: var(--rim), var(--lift); --e2: 0 1px 0 rgba(0,0,
   .tl-go { padding-block: 12px; margin-block: -12px; }
   .dbars .db { min-height: 44px; }
 }
+
+/* A destructive confirm: still the primary button (same place, same test hooks), in the spend colour */
+#confirm .btn.primary.danger { background: var(--spend); border-color: var(--spend); color: #fff; }
