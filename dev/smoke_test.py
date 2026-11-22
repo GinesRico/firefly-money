@@ -22,6 +22,9 @@ SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else No
 # (a function, not an expression: Playwright evals expressions, which the Content-Security-Policy refuses)
 PAINTED = """() => { const r = parseHash(); return !S.vtRun && S.pageKey && S.pageKey.startsWith(r.name + '/' + r.id + '?')
   && document.querySelector('#view .head .actions, #view .error, #story'); }"""
+# A form is open and has finished loading / the form is closed and the page behind it can be used again
+DRAWER_READY = """() => el('drawer').classList.contains('open') && el('drawer').getAttribute('aria-label') !== 'Loading…'"""
+DRAWER_SHUT = """() => !el('drawer').classList.contains('open') && !el('app').inert"""
 
 
 async def goto(page, route):
@@ -77,11 +80,15 @@ async def check(pw, width, height, mobile):
         buttons = page.locator('#view .head .actions button.btn.primary:visible')   # (New transaction is hidden on phones: the + does it)
         for i in range(await buttons.count()):
             await buttons.nth(i).click()
-            await page.wait_for_timeout(600)
-            if not await page.evaluate("el('drawer').classList.contains('open')"):
-                errors.append(f'#{p}: button {i} did not open a form')
+            # Wait for the state, not a fixed time: a form that loads data opens late on a slow server, and an Escape sent
+            # before it opens would leave it open (and the page behind it inert) for the next button
+            try: await page.wait_for_function(DRAWER_READY, timeout=15000)
+            except Exception: errors.append(f'#{p}: button {i} did not open a form')
             await page.keyboard.press('Escape')
-            await page.wait_for_timeout(500)
+            try: await page.wait_for_function(DRAWER_SHUT, timeout=5000)
+            except Exception:
+                errors.append(f'#{p}: button {i}: the form did not close on Escape')
+                await page.evaluate('App.closeDrawer()')
     # Universal search: from the search button on phones and ⌘K on computers, finds settings and transactions
     await goto(page, '')
     if mobile: await page.click('#searchBtn')
