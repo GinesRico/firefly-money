@@ -79,7 +79,9 @@ function baseItems(): PalItem[] {
   if (S.rules) Object.entries<any>(S.rules).forEach(([id, r]) => items.push({ label: r.title, kind: 'Rule', run: () => { location.hash = '#/rules'; setTimeout(() => App.ruleForm(id), 500); }, low: true }));
   return items;
 }
+let palOpener: HTMLElement | null = null;
 export async function openPalette() {
+  const was = document.activeElement; palOpener = was instanceof HTMLElement && was !== document.body && !was.closest('#palette') ? was : palOpener;
   closeDrawer();
   const q = el<HTMLInputElement>('palQ');
   clearTimeout(palOut); el('palette').classList.remove('out');
@@ -173,7 +175,7 @@ function palFilter(keepIdx?: boolean) {
 }
 function itemHtml(it: PalItem, i: number): Html {
   const right = it.tx ? html`<span class="num ${it.amt! < 0 ? 'neg' : it.amt! > 0 ? 'pos' : 'neutral'}">${it.amt! > 0 ? '+' : ''}${money(it.amt!)}</span>` : html`<span class="k">${it.kind}</span>`;
-  return html`<div class="pal-item${i === palIdx ? ' on' : ''}" role="option" data-i="${i}" data-onmousemove="App.palHover(${i})" data-onclick="App.palRun(${i})"><span class="pal-main"><span class="pal-l">${it.label}</span>${it.sub ? html`<span class="pal-sub">${it.sub}</span>` : ''}</span>${right}</div>`;
+  return html`<div class="pal-item${i === palIdx ? ' on' : ''}" role="option" id="palopt${i}" aria-selected="${i === palIdx ? 'true' : 'false'}" data-i="${i}" data-onmousemove="App.palHover(${i})" data-onclick="App.palRun(${i})"><span class="pal-main"><span class="pal-l">${it.label}</span>${it.sub ? html`<span class="pal-sub">${it.sub}</span>` : ''}</span>${right}</div>`;
 }
 function drawPal() {
   const q = el<HTMLInputElement>('palQ').value.trim();
@@ -188,6 +190,7 @@ function drawPal() {
   });
   el('palList').innerHTML = String(htmlList(parts));
   const on = el('palList').querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+  const qi = el<HTMLInputElement>('palQ'); if (on) qi.setAttribute('aria-activedescendant', on.id); else qi.removeAttribute('aria-activedescendant');   // a screen reader follows the highlighted result
 }
 function palHover(i: number) { if (i !== palIdx) { palIdx = i; drawPal(); } }
 function palKey(e: KeyboardEvent) {
@@ -222,7 +225,7 @@ let palOut: ReturnType<typeof setTimeout> | undefined;
 function closePalette() {
   const p = el('palette'); if (p.hidden) return;
   clearTimeout(txTimer); document.documentElement.classList.remove('pal-open');
-  if (p.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();     // the keyboard goes with it
+  if (p.contains(document.activeElement)) { (document.activeElement as HTMLElement).blur(); if (palOpener && palOpener.isConnected && palOpener.matches('a,button,[tabindex]')) palOpener.focus({ preventScroll: true }); }     // the keyboard goes with it, and focus goes back to what opened the search
   const hide = () => { p.hidden = true; p.classList.remove('out'); };
   if (getComputedStyle(p).animationName === 'none') return hide();
   p.classList.add('out'); clearTimeout(palOut); palOut = setTimeout(hide, 140);

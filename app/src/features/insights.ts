@@ -77,7 +77,7 @@ async function insightCards({ cur: period, future, budgets, limits, cards, trend
     const href = m.id ? '#/transactions?category=' + m.id : '#/transactions';
     if (m.p === Infinity) add('cat:' + m.name, 'up', 'spark', money0(m.amt) + ' on ' + m.name,
       useLast ? 'Nothing spent here ' + lastBy + usualNote(avgOf(m.name), 0) : 'Nothing spent here ' + byLabel + ' in the last 3 months', href, m.score);
-    else add('cat:' + m.name, m.d > 0 ? 'up' : 'down', m.d > 0 ? 'up' : 'down', m.name + ' is ' + Math.round(Math.abs(m.p) * 100) + '% ' + (m.d > 0 ? 'above' : 'below') + ' ' + vsWord,
+    else add('cat:' + m.name, m.d > 0 ? 'up' : 'down', m.d > 0 ? 'up' : 'down', m.name + ' is ' + (Math.abs(m.p) >= 5 ? money0(Math.abs(m.d)) : Math.round(Math.abs(m.p) * 100) + '%') + ' ' + (m.d > 0 ? 'above' : 'below') + ' ' + vsWord,   // dollars, not 2064%, off a tiny base
       money0(m.amt) + ' vs. ' + vsText(m.a) + usualNote(avgOf(m.name), m.a), href, m.score);
   });
 

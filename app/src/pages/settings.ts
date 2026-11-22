@@ -65,6 +65,7 @@ VIEWS.settings = async (r, paint) => {
     ${row('Hide when I leave the app', 'Blur amounts as the app goes to the background, so the app switcher doesn’t show them', html`<input ${SWITCH} aria-label="Hide amounts when the app is in the background"${LS.get('privacyBg', false) ? ' checked' : ''} data-onchange="App.togglePrivacyBg(this.checked)">`)}
     ${row('Compact view', 'Tighter spacing to fit more in', html`<input ${SWITCH} aria-label="Compact view" data-pref="compact"${compact ? ' checked' : ''} data-onchange="App.toggleDensity()">`)}
     ${row('Logos', 'Payees’ and banks’ logos instead of initials', html`<input ${SWITCH} aria-label="Show logos"${logosOn() ? ' checked' : ''} data-onchange="App.toggleLogos(this.checked)">`)}
+    ${row('Single-key shortcuts', 'j, k, p, [, ? and other one-letter keys on the page. Turn off if they get in the way of voice control or a switch.', html`<input ${SWITCH} aria-label="Single-key shortcuts"${LS.get('keys', true) !== false ? ' checked' : ''} data-onchange="App.toggleKeys(this.checked)">`)}
     ${row('Haptics', 'A light tap when you save, delete or flip a switch. iPhone needs iOS 18 or later.', html`<input ${SWITCH} aria-label="Haptics"${hapticsOn() ? ' checked' : ''} data-onchange="App.toggleHaptics(this.checked)">`)}
     ${row('Hours of work', 'Under each purchase, the hours you worked to pay for it', html`<input ${SWITCH} aria-label="Hours of work"${lensOn() ? ' checked' : ''} data-onchange="App.toggleWorkLens(this.checked)">`)}
     ${lensOn() ? html`${row('Hours a week', 'How long you work', html`<input type="number" inputmode="decimal" min="1" max="168" step="0.5" class="set-num" aria-label="Hours a week" value="${workHours()}" data-onchange="App.setWorkHours(this.value)">`)}
@@ -385,6 +386,7 @@ function showKey(btn: HTMLElement | null) {
 function toggleOneOffs(on: boolean) { LS.set('skipOneOffs', !!on); PAGES.clear(); toast(on ? 'One-offs left out of spending' : 'One-offs counted again'); }
 function toggleHideClosed(on: boolean) { LS.set('hideInactive', !!on); CACHE.clear(); clearCache(); PAGES.clear(); toast(on ? 'Closed accounts left out' : 'Closed accounts counted again'); }
 function toggleLogos(on: boolean) { LS.set('logos', !!on); toast(on ? 'Logos on' : 'Logos off'); }
+function toggleKeys(on: boolean) { LS.set('keys', !!on); toast(on ? 'Shortcuts on' : 'Shortcuts off'); }
 function toggleHaptics(on: boolean) { LS.set('haptics', !!on); if (on) buzz(); toast(on ? 'Haptics on' : 'Haptics off'); }
 // The month start day: stay on the current month, and redraw every page with the new ranges
 function setCycleDay(v: string) { LS.set('cycleDay', Math.min(28, Math.max(1, Math.floor(num(v)) || 1))); S.all = false; [S.y, S.m] = nowMonth(); PAGES.clear(); toast('Months now start on the ' + ordinal(cycleDay())); route(); }
@@ -416,6 +418,7 @@ const methods = {
   toggleOneOffs,
   toggleHideClosed,
   toggleHaptics,
+  toggleKeys,
   toggleWorkLens,
   setLocale,
   setLang,

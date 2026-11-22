@@ -440,8 +440,9 @@
     display: flex; gap: 16px; align-items: center; z-index: 41; font-size: 13.5px; line-height: 1.3; box-shadow: var(--shadow);
     width: max-content; max-width: min(520px, calc(100vw - 28px)); box-sizing: border-box; }
   .undo > span:first-child { flex: 1; min-width: 0; }
+  .undo.held .bar { animation-play-state: paused; }
   .undo button { flex: none; background: var(--bg); color: var(--text); border: 0; border-radius: 99px; padding: 8px 16px; font-weight: 600; cursor: pointer; }
-  .undo .bar { position: absolute; left: 18px; right: 18px; bottom: 3px; height: 2px; background: var(--bg); opacity: .4; transform-origin: left; animation: drain 5s linear forwards; border-radius: 2px; }
+  .undo .bar { position: absolute; left: 18px; right: 18px; bottom: 3px; height: 2px; background: var(--bg); opacity: .4; transform-origin: left; animation: drain 10s linear forwards; border-radius: 2px; }
   @keyframes drain { to { transform: scaleX(0); } }
   /* ---------- Chart tooltip ---------- */
   .tip { position: fixed; z-index: 45; pointer-events: none; background: var(--text); color: var(--bg); padding: 8px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.5; box-shadow: var(--shadow); }
@@ -967,6 +968,7 @@
   html[data-theme="glass"] :is(.drawer, dialog, .calpop, .pickpop, .palette-box, .bulkbar, .ff-pop) {
     background: var(--glass), rgba(14, 11, 30, .72); border-color: rgba(255, 255, 255, .16);
     -webkit-backdrop-filter: blur(34px) saturate(180%); backdrop-filter: blur(34px) saturate(180%); }
+  html[data-theme="glass"] .palette-box { background: var(--glass), rgba(14, 11, 30, .94); }   /* the page behind must not show through the results */
   html[data-theme="glass"] .drawer { box-shadow: var(--glass-edge), -20px 0 80px rgba(0, 0, 0, .5); }
   html[data-theme="glass"] .drawer footer { background: transparent; border-top-color: rgba(255, 255, 255, .1); }
   html[data-theme="glass"] .tabbar { background: rgba(14, 11, 30, .55); border-top-color: rgba(255, 255, 255, .12);
@@ -2308,7 +2310,7 @@ html[data-theme="dark"] { --lift: 0 1px 0 rgba(0,0,0,.4), 0 14px 32px -16px rgba
 .empty-state .es-ic { width: 60px; height: 60px; border-radius: 20px; display: grid; place-items: center; color: var(--accent); margin-bottom: 20px;
   background: color-mix(in srgb, var(--accent) 9%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line)); }
 .empty-state .es-ic svg { display: block; width: 26px; height: 26px; }
-.empty-state h3 { margin: 0 0 8px; font-size: 17px; font-weight: 600; letter-spacing: -.015em; }
+.empty-state :is(h2, h3) { margin: 0 0 8px; font-size: 17px; font-weight: 600; letter-spacing: -.015em; }
 .empty-state p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; text-wrap: balance; }
 .empty-state .es-act { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 24px; }
 
@@ -2456,7 +2458,7 @@ html[data-theme="glass"] .ag-c.l3, html[data-theme="glass"] .ag-c.l4 { box-shado
    whole rail shows without scrolling. Mouse rows go down to 26px; a touch screen keeps 40px+ rows and scrolls instead,
    as does a window too short for even the smallest rows. ---------- */
 @media (min-width: 901px) {
-  .side { --row: clamp(24px, calc((100vh - 215px) / 22), 36px); --hh: clamp(12px, 2.6vh, 30px); --hm: clamp(8px, 1.6vh, 21px);
+  .side { --row: clamp(24px, calc((100vh - 275px) / 22), 36px); --hh: clamp(12px, 2.6vh, 30px); --hm: clamp(8px, 1.6vh, 21px);
     padding-top: clamp(8px, 2.2vh, 24px); padding-bottom: clamp(8px, 2.2vh, 24px); gap: clamp(0px, .4vh, 4px); }
   .side .brand { padding-bottom: clamp(0px, .9vh, 14px); }
   .side .side-tg { margin-block: -6px; width: min(30px, var(--row)); height: min(30px, var(--row)); }
@@ -2617,3 +2619,41 @@ html[data-theme="dark"] { --e1: var(--rim), var(--lift); --e2: 0 1px 0 rgba(0,0,
 @media (max-width: 340px) { .bills-tbl th, .bills-tbl td { padding-left: 4px; padding-right: 4px; } .bills-tbl .act .btn { padding-inline: 8px; } .bills-tbl .amt { font-size: 12.5px; } }
 /* Touch targets of at least 44px on phones: page tabs and segmented buttons */
 @media (max-width: 600px) { .tabs a { padding-top: 12px; } .seg:not(.mini) button { min-height: 44px; } }
+
+/* Skip link: off screen until a keyboard user tabs to it; #view takes focus without a ring (it isn't a control) */
+.skip { position: fixed; left: 12px; top: -60px; z-index: 100; padding: 10px 16px; border-radius: 10px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; }
+.skip:focus { top: calc(env(safe-area-inset-top, 0px) + 12px); }
+#view:focus { outline: none; }
+/* Touch: the drawer's close button, and the small checkboxes, reach the finger */
+@media (pointer: coarse) {
+  .drawer header .round { width: 44px; height: 44px; }
+  .tbl input[type=checkbox], .cl-row input[type=checkbox] { width: 20px; height: 20px; }
+}
+
+.field-err { display: block; margin-top: 4px; font-size: 12.5px; font-weight: 500; color: var(--spend); }
+[aria-invalid="true"] { border-color: var(--spend) !important; }
+
+/* Phone: the category and budget pills in a transaction row are 19px tall, too small to hit apart from the row, and a tap on the
+   row's middle landed on them. On touch they aren't targets: a tap opens the transaction (its Category and Budget fields), and
+   the swipe action Categorize stays. Small inline links get a hit area of 44px without moving anything. */
+@media (pointer: coarse) {
+  .tbl.feed .meta :is(.cat-s, .bud-s).inl { pointer-events: none; }
+  .link, a.go-num { padding-block: 13px; margin-block: -13px; }
+}
+/* Phone edit form: Delete sits well away from Duplicate, and the extra actions take less height */
+@media (max-width: 600px) {
+  .drawer footer > .btn.danger { margin-right: 14px; }
+  .drawer footer > :is(.btn.danger, .btn[data-onclick="App.duplicateTx()"], .btn[data-onclick="App.refundTx()"]) { padding: 6px 12px; font-size: 13px; min-height: 36px; }
+}
+
+/* A failure message waits for you: tappable, with a Dismiss button */
+.toast.sticky { pointer-events: auto; border-radius: 18px; display: flex; align-items: center; gap: 14px; }
+.toast-x { flex: none; background: var(--bg); color: var(--text); border: 0; border-radius: 99px; padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+/* Timeline Overview / Recap links and the Transactions day bars reach 44px with an invisible hit area */
+@media (pointer: coarse) {
+  .tl-go { padding-block: 12px; margin-block: -12px; }
+  .dbars .db { min-height: 44px; }
+}
+
+/* A destructive confirm: still the primary button (same place, same test hooks), in the spend colour */
+#confirm .btn.primary.danger { background: var(--spend); border-color: var(--spend); color: #fff; }

@@ -237,15 +237,17 @@ export async function route(opts: { nav?: boolean, quiet?: boolean, instant?: bo
     const onError = !!v.querySelector(':scope > .pg > .error');
     if (opts.quiet && S.pageLive && !onError) { toast('Couldn’t refresh: ' + (e as Error).message); return; }
     if ((e as ApiError).network) {
-      paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${(e as Error).message}<br>Trying again by itself…<br><br><button class="btn small" data-onclick="App.reload()">Try again now</button></div>`);
+      paint(html`<div class="error" role="alert"><strong>Couldn’t load this page.</strong><br>${errText(e)}<br>Trying again by itself…<br><br><button class="btn small" data-onclick="App.reload()">Try again now</button></div>`);
       if (tok === S.tok) retryWhenBack(tok);
       return;
     }
-    paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${(e as Error).message}<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>`);
+    paint(html`<div class="error" role="alert"><strong>Couldn’t load this page.</strong><br>${errText(e)}<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>`);
   } finally { endLoad(); }
 }
 // The server couldn't be reached: try the page again after a short wait (longer each time, up to 30 s),
 // or straight away when the device comes back online or the tab is shown again. Stops once you go elsewhere.
+// A server message is worth showing; a JavaScript error ("Cannot read properties of undefined…") is not
+export const errText = (e: unknown) => e instanceof TypeError || e instanceof ReferenceError || e instanceof RangeError || e instanceof SyntaxError ? 'Something went wrong while showing this page.' : (e as Error)?.message || 'Something went wrong.';
 let netFails = 0, netTimer: ReturnType<typeof setTimeout> | undefined;
 function retryWhenBack(tok: number) {
   const go = () => {

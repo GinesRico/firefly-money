@@ -88,7 +88,7 @@ function sheet(page: string) {
     return html`<select aria-label="${o.label}" data-onchange="App.pageSet('${page}','${o.id}',this.value)">${htmlList(o.choices!.map(([x, l]) => html`<option value="${String(x)}"${x === v ? ' selected' : ''}>${l}</option>`))}</select>`;
   };
   const charts = P.opts.filter(o => !o.card), cards = P.opts.filter(o => o.card);
-  return html`<div class="page-opts">${charts.length ? html`<h3 class="set-h">Charts</h3><div class="panel set-panel">${htmlList(charts.map(o => row(o, ctl(o))))}</div>` : ''}${cards.length ? html`<h3 class="set-h">Cards to show</h3><div class="panel set-panel">${htmlList(cards.map(o => row(o, ctl(o))))}</div>` : ''}<p class="sub-s">Changes show on the page straight away and are saved with your other settings.</p></div>`;
+  return html`<div class="page-opts">${charts.length ? html`<h2 class="set-h">Charts</h2><div class="panel set-panel">${htmlList(charts.map(o => row(o, ctl(o))))}</div>` : ''}${cards.length ? html`<h2 class="set-h">Cards to show</h2><div class="panel set-panel">${htmlList(cards.map(o => row(o, ctl(o))))}</div>` : ''}<p class="sub-s">Changes show on the page straight away and are saved with your other settings.</p></div>`;
 }
 let before: { page: string, v: Record<string, Val> | undefined } | null = null;   // the page's options when the sheet opened, for Cancel
 function pageCustomize(page: string) {

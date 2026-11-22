@@ -16,6 +16,7 @@ type Rec = { a: ApiData, groups: Record<string, Group>, rows: RecRow[], startBal
 // One account against its statement, so everything here is in the account's own currency, never converted
 const recMoney = (v: number) => moneyIn(v, S.rec ? S.rec.a.currency : '');
 VIEWS.reconcile = async (r, paint) => {
+  if (!r.id) { location.replace('#/accounts'); return; }      // no account in the address: back to the list, not an error screen
   await lists();
   const a = normAccount((await api('/accounts/' + r.id)).data);
   const end = r.q.end || todayIso(), start = r.q.start || end.slice(0, 8) + '01';

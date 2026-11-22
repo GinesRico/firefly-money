@@ -50,14 +50,23 @@ export function drawNav(active: string) {
   if (window.App && App.drawTabbar) App.drawTabbar(active);
 }
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+// A message about something that failed stays until it is dismissed (button, tap or Esc); a status message fades by itself
+const FAILED = /couldn’t|could not|didn’t|can’t|failed|error|went wrong|not accept|timed out|timeout/i;
 export function toast(msg: string) {
-  const t = el('toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  const t = el('toast'); t.textContent = msg; clearTimeout(toastTimer);
+  t.classList.toggle('sticky', FAILED.test(msg));
+  if (FAILED.test(msg)) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-x'; b.textContent = 'Dismiss';
+    b.onclick = () => t.classList.remove('show', 'sticky'); t.appendChild(b);
+  }
+  t.classList.add('show');
+  if (!FAILED.test(msg)) toastTimer = setTimeout(() => t.classList.remove('show'), Math.min(8000, 2600 + msg.length * 60));   // longer messages stay long enough to read
 }
+document.addEventListener('keydown', e => { const t = document.getElementById('toast'); if (e.key === 'Escape' && t && t.classList.contains('sticky')) t.classList.remove('show', 'sticky'); });
 export function confirmBox(title: string, text: string, okLabel = 'Delete') {
   return new Promise<boolean>(res => {
     const d = el<HTMLDialogElement>('confirm');
-    d.innerHTML = String(html`<h3>${title}</h3><p>${text}</p><div class="btns"><button class="btn" value="no">Cancel</button><button class="btn primary" value="yes">${okLabel}</button></div>`);
+    d.innerHTML = String(html`<h3>${title}</h3><p>${text}</p><div class="btns"><button class="btn" value="no">Cancel</button><button class="btn primary${/^(Delete|Remove|Unlink|Discard)$/.test(okLabel) ? ' danger' : ''}" value="yes">${okLabel}</button></div>`);
     d.querySelectorAll('button').forEach(b => b.onclick = () => { if (b.value === 'yes') buzz(BUZZ_DELETE); d.close(); res(b.value === 'yes'); });
     d.oncancel = () => res(false);
     d.showModal();
@@ -174,7 +183,7 @@ const EMPTY_ICONS: Record<string, string> = {
 };
 export function emptyState(kind: keyof typeof EMPTY_ICONS | string, title: string, text: string, actions?: string | Html) {
   const d = EMPTY_ICONS[kind] || EMPTY_ICONS.list;
-  return html`<div class="empty-state"><div class="es-ic" aria-hidden="true">${raw(`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`)}</div><h3>${title}</h3><p>${text}</p>${actions ? html`<div class="es-act">${actions}</div>` : ''}</div>`;
+  return html`<div class="empty-state"><div class="es-ic" aria-hidden="true">${raw(`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`)}</div><h2>${title}</h2><p>${text}</p>${actions ? html`<div class="es-act">${actions}</div>` : ''}</div>`;
 }
 export const opt = (v: string | number, label: string | number, sel: unknown) => html`<option value="${v}"${String(v) === String(sel) ? ' selected' : ''}>${label}</option>`;
 
