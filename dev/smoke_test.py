@@ -186,10 +186,12 @@ async def check(pw, width, height, mobile):
                 errors.append(f'#{p} (all time): page showed an error: ' + await page.inner_text('#view .error'))
             elif p != 'account/1' and await page.locator('#view .month span', has_text='All time').count() != 1:
                 errors.append(f'#{p}: the month selector did not stay on All time')
+        await page.wait_for_function(PAINTED, timeout=15000)
         await page.locator('#view .seg').get_by_role('button', name='Month', exact=True).click(); await page.wait_for_function(PAINTED, timeout=15000)
         if await page.evaluate('S.all'):
             errors.append('picking Month on an account did not leave All time')
-        await page.locator('#view .seg').get_by_role('button', name='Month', exact=True).click()   # back to this month
+        await page.wait_for_function(PAINTED, timeout=15000)
+        await page.locator('#view .seg').get_by_role('button', name='Month', exact=True).click()   # back to this month; await page.wait_for_function(PAINTED, timeout=15000)
         # Customize the overview: a calm set of cards to start with, the rest added from Customize, column count, hiding a tile
         await goto(page, '')
         await page.evaluate('App.dashReset()'); await page.wait_for_function(PAINTED, timeout=15000)     # the demo opens arranged like the README's screenshots

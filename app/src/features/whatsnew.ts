@@ -26,6 +26,15 @@ const ICONS: Record<string, Html> = {
 };
 type Notes = { lead: string, items: [string, string, string][] };
 const NOTES: Record<string, Notes> = {
+  '2.6.0': { lead: 'Spanish, any Net worth range, a cleaner look, and easier navigation and forms.', items: [
+    ['globe', 'Spanish translation', 'Pick Spanish in Settings → Appearance → Language. English stays the default. Thanks to GinesRico for the original translation.'],
+    ['lens', 'Any Net worth range', 'Type any number of years, or choose All time, from the options menu on the Net worth card.'],
+    ['sliders', 'A cleaner interface', 'Sentence-case labels, even spacing, lighter text weights, and no emoji or looping pulse.'],
+    ['bento', 'Map re-analyze', 'Re-analyze all is always available on the Map, with a range box for how far back to look.'],
+    ['phone', 'Easier on a phone', 'More lights up on the tab bar, Home is now Overview, and the add form asks for the amount first, with less-used fields under More details.'],
+    ['list', 'Safer edits', 'Closing a form with changes asks before discarding, and bulk changes over 25 rows ask you to confirm.'],
+    ['hover', 'Accessibility', 'Skip link, keyboard-reachable rows and pills, larger touch targets, move buttons on dashboard tiles, and a Pause button on Year in Money that respects reduced motion.'],
+  ] },
   '2.5.0': { lead: 'Prices in any currency add up, your own weekly hours, and a round of fixes from a full audit.', items: [
     ['globe', 'Every currency adds up', 'Amounts in other currencies are converted into your main currency in every total, with the original shown beside them. Accounts can have their own currency.'],
     ['pulse', 'Your hours, your income', 'Set any weekly hours from 1 to 168, and pick which income counts toward your hourly take-home.'],
