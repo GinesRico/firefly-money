@@ -227,7 +227,7 @@ function dashboard(W: [string, unknown][]) {
     const body = map[k]; if (!body || tileOff(L, k)) return '';     // cards that are off wait in Customize's Add cards list
     const g = spot[k], z = sizeOf(L, k), name = DASH_NAMES[k] || k;
     if (grid) return html`<div class="w ${z}" data-w="${k}" data-gx="${g.x}" data-gy="${g.y}" data-gw="${g.w}"${g.float ? html` data-float="1"` : ''} style="grid-column:${g.x + 1} / span ${g.w};grid-row:${g.y + 1} / span ${g.h}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${name}</strong><span class="grow"></span>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${g.w === GRID ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">Hide</button></div>${tileOptsPanel(k)}<span class="rsz" title="Drag to resize" aria-hidden="true"></span>` : ''}${body}</div>`;
-    return html`<div class="w ${z}" data-w="${k}"${span[k] ? html` style="grid-column:span ${span[k]}"` : ''}>${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${name}</strong><span class="grow"></span>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashSize('${k}')" title="Change its size">${sizeLabel(z, units)}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">Hide</button></div>${tileOptsPanel(k)}` : ''}${body}</div>`;
+    return html`<div class="w ${z}" data-w="${k}"${span[k] ? html` style="grid-column:span ${span[k]}"` : ''}>${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${name}</strong><span class="grow"></span>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashMove('${k}', -1)" aria-label="Move ${name} up" title="Move up">↑</button><button type="button" class="wbtn" data-onclick="App.dashMove('${k}', 1)" aria-label="Move ${name} down" title="Move down">↓</button><button type="button" class="wbtn" data-onclick="App.dashSize('${k}')" title="Change its size">Size: ${sizeLabel(z, units)}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">Hide</button></div>${tileOptsPanel(k)}` : ''}${body}</div>`;
   };
   const tiles = order.filter(on).map(k => [sizeOf(L, k), card(k)] as [Size, unknown]).filter(t => t[1]);
   const body = grid ? htmlList(keys.map(card)) : edit || wideScreen ? htmlList(tiles.map(t => t[1])) : phoneCards(tiles);
@@ -318,6 +318,15 @@ function dashHide(k: string) {
     x.shown = add && !DASH_DEFAULT.includes(k) ? [...shown, k] : shown;
   });
   buzz(8); dashRedraw();
+}
+// Move a card one place up or down among the cards that are showing (the keyboard's way to do what dragging does)
+function dashMove(k: string, dir: number) {
+  dashSave(x => {
+    const ord = dashOrder(x, Object.keys(DASH_NAMES)), shown = ord.filter(y => !tileOff(x, y)), i = shown.indexOf(k), j = i + dir;
+    if (i < 0 || j < 0 || j >= shown.length) return;
+    const a = ord.indexOf(k), b = ord.indexOf(shown[j]); [ord[a], ord[b]] = [ord[b], ord[a]]; x.order = ord;
+  });
+  buzz(6); dashRedraw();
 }
 function dashCols(c: string) {
   const grid = el('dash') && el('dash').classList.contains('grid');      // freeform: start over from that many columns
@@ -547,6 +556,7 @@ const methods = {
   dashOpt,
   dashWide,
   dashHide,
+  dashMove,
   dashReset, dashCancel,
   dashCols,
   dashSize,

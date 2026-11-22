@@ -12,11 +12,11 @@ const section = (title: string, lead: string, rows: Html[]) => rows.length ? htm
 VIEWS.unusual = async (r, paint) => {
   let u;
   try { u = await loadUnusual(); } catch (e) {
-    paint(html`${head('Unusual', 'Charges worth a second look', '')}<section class="panel quiet"><p class="lead">Firefly isn’t answering, so nothing is shown.</p></section>`);
+    paint(html`${head('Unusual charges', 'Charges worth a second look', '')}<section class="panel quiet"><p class="lead">Firefly isn’t answering, so nothing is shown.</p></section>`);
     return;
   }
   const none = !u.flags.length && !u.risers.length && !u.fallers.length && !u.fresh.length;
-  paint(html`${head('Unusual', 'Charges worth a second look, and who moved most', '')}${none ? html`<section class="panel"><div class="center-empty" style="padding:50px 20px"><div style="font-size:40px">✓</div><h2 style="font-size:18px;margin:10px 0 4px">Nothing unusual</h2>No repeated, oversized or brand-new large charges in the last 30 days.</div></section>` : html`<div class="cards">
+  paint(html`${head('Unusual charges', 'Charges worth a second look, and who moved most', '')}${none ? html`<section class="panel"><div class="center-empty" style="padding:50px 20px"><div style="font-size:40px">✓</div><h2 style="font-size:18px;margin:10px 0 4px">Nothing unusual</h2>No repeated, oversized or brand-new large charges in the last 30 days.</div></section>` : html`<div class="cards">
 ${section('Unusual charges', 'Last 30 days. Tap one to look at it.', u.flags.map(flagRow))}
 ${section('Rising merchants', 'This month so far against the same days of the last 3 months', u.risers.map(m => moverRow(m, 'up')))}
 ${section('Falling merchants', 'This month so far against the same days of the last 3 months', u.fallers.map(m => moverRow(m, 'down')))}

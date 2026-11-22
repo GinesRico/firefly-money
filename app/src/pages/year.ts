@@ -105,14 +105,23 @@ VIEWS.year = async (r, paint) => {
   cards.push(card(html`${line(0, html`<div class="st-kick">${done ? 'That was' : 'So far'}</div>`)}${line(1, html`<h1 class="st-big">${y}</h1>`)}${line(2, html`<div class="st-btns"><button type="button" class="btn" data-onclick="App.yearShare()">Share</button><button type="button" class="btn" data-onclick="App.yearPlay(0)">Watch again</button><button type="button" class="btn primary" data-onclick="App.yearClose()">Done</button></div>`)}${line(3, nav)}`));
   SHARE = [y + ' in Money' + (done ? '' : ' (so far)'), earned ? 'Earned ' + money0(earned) + ', spent ' + money0(spent) + (earned > 0 ? ', kept ' + Math.round(kept / earned * 100) + '%' : '') : 'Spent ' + money0(spent),
     catRows[0] ? 'Top category: ' + catRows[0].name : '', st.often ? 'Most visited: ' + st.often.name + ' (' + st.often.n + ' times)' : '', st.count ? st.free + ' no-spend days' : ''].filter(Boolean).join('\n');
-  paint(html`<div class="story" id="story" role="dialog" aria-label="${y} in Money"><div class="st-prog">${htmlList(cards.map(() => html`<i><b></b></i>`))}</div><button type="button" class="st-x" aria-label="Close" data-onclick="App.yearClose()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"/></svg></button><div class="st-deck">${htmlList(cards)}</div></div>`);
+  paint(html`<div class="story" id="story" role="dialog" aria-label="${y} in Money"><div class="st-prog">${htmlList(cards.map(() => html`<i><b></b></i>`))}</div><button type="button" class="st-x" aria-label="Close" data-onclick="App.yearClose()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"/></svg></button><button type="button" class="st-x st-pp" aria-label="Pause" aria-pressed="false" data-onclick="App.yearPause(this)"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg></button><div class="st-deck">${htmlList(cards)}</div></div>`);
   play(0);
+  const sy = story(); if (sy) { sy.setAttribute('aria-modal', 'true'); sy.tabIndex = -1; sy.focus({ preventScroll: true }); }     // a screen reader lands in the story
 };
 
 /* ---------- Playing the story ---------- */
 let at = 0, SHARE = '', timer: ReturnType<typeof setTimeout> | undefined, raf = 0;
 const STEP = 6500, still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const story = () => document.getElementById('story');
+const autoplay = (s: HTMLElement) => !still() && !s.classList.contains('manual');
+// The Pause button: stops the cards advancing by themselves (and starts them again), for anyone who reads slowly or can't hold the deck
+function yearPause(b: HTMLElement) {
+  const s = story(); if (!s) return;
+  const on = !s.classList.toggle('manual') ? false : true;
+  pause(on); b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? 'Play' : 'Pause');
+  b.innerHTML = on ? '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 3l8 5-8 5z"/></svg>' : '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg>';
+}
 function play(i: number) {
   const s = story(); if (!s) return;
   const cs = s.querySelectorAll<HTMLElement>('.st-card'), bars = s.querySelectorAll<HTMLElement>('.st-prog i');
@@ -122,7 +131,7 @@ function play(i: number) {
   s.classList.remove('paused');
   countUp(cs[at]);
   clearTimeout(timer);
-  if (at < cs.length - 1) timer = setTimeout(() => play(at + 1), STEP);
+  if (at < cs.length - 1) { if (autoplay(s)) timer = setTimeout(() => play(at + 1), STEP); }     // with reduced motion, or after Pause, the cards wait for you
   else bars[at].className = 'done';
 }
 function countUp(c: HTMLElement) {
@@ -140,7 +149,7 @@ function pause(on: boolean) {
   const s = story(); if (!s) return;
   s.classList.toggle('paused', on);
   if (on) clearTimeout(timer);
-  else { const n = s.querySelectorAll('.st-card').length; if (at < n - 1) timer = setTimeout(() => play(at + 1), STEP / 2); }
+  else { const n = s.querySelectorAll('.st-card').length; if (at < n - 1 && autoplay(s)) timer = setTimeout(() => play(at + 1), STEP / 2); }
 }
 // Tap, swipe and hold, on the deck (not its buttons and links)
 let down: { x: number, y: number, t: number } | null = null;
@@ -176,7 +185,7 @@ async function yearShare() {
 }
 
 // The methods markup handlers call (see events.ts), added to App and to its type
-const methods = { yearClose, yearPlay, yearShare };
+const methods = { yearClose, yearPause, yearPlay, yearShare };
 Object.assign(App, methods);
 type Methods = typeof methods;
 declare module '../core/base' { interface AppApi extends Methods {} }

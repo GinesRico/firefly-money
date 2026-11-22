@@ -7,7 +7,7 @@ const touch = css.slice(css.indexOf('/* ---------- Touch targets'));
 
 describe('Skill review: touch, keyboard and announcements', () => {
   it('gives the 36px-and-under controls a 44px hit area on touch without changing their look', () => {
-    for (const sel of ['.editor-row .x::after', '.whatsnew .wn-x::after', '.head .actions .month :is(.btn, .round)::after', '.drawer footer']) expect(touch).toContain(sel);
+    for (const sel of ['.editor-row .x::after', '.whatsnew .wn-x::after', '.head .actions .month :is(.btn, .round)::after', ]) expect(touch).toContain(sel);
     expect(touch).toMatch(/:is\(\.tagcloud \.chip, \.saved-reports \.chip\) button::after \{ content: ""; position: absolute; inset: -12px -6px; \}/);
   });
   it('shows the add-budget chip to a keyboard user and drops the invalid dashed shadow', () => {

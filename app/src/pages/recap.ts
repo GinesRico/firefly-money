@@ -49,7 +49,7 @@ VIEWS.recap = async (r, paint) => {
   await lists();
   // All time has no single month to recap, so it shows this month
   const cur = S.all ? monthRange(...nowMonth()) : monthRange(S.y, S.m), t = todayIso();
-  if (cur.start > t) return paint(html`${head('Recap', cur.label, monthNav())}<section class="panel"><div class="center-empty">${cur.label} hasn’t started yet. Come back at the end of the month.</div></section>`);
+  if (cur.start > t) return paint(html`${head('Monthly recap', cur.label, monthNav())}<section class="panel"><div class="center-empty">${cur.label} hasn’t started yet. Come back at the end of the month.</div></section>`);
   const soFar = cur.end >= t, end = soFar ? t : cur.end;
   const p = { start: cur.start, end }, k = pageOpt('recap', 'usual') as number, before = { start: monthRange(cur.y, cur.m - k).start, end: monthRange(cur.y, cur.m - 1).end };
   const year = { start: monthRange(cur.y, cur.m - 12).start, end: addDays(cur.start, -1) };

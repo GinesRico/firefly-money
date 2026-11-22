@@ -228,6 +228,11 @@
   .set-more > summary::-webkit-details-marker { display: none; }
   .set-more > summary::after { content: ''; flex: none; width: 7px; height: 7px; margin: 0 4px 0 -8px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); transition: transform var(--t-hover); }
   .set-more[open] > summary::after { transform: rotate(45deg); }
+  .tx-more { margin: 0 0 16px; }
+  .tx-more > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; font-size: 13px; font-weight: 500; color: var(--muted); }
+  .tx-more > summary::-webkit-details-marker { display: none; }
+  .tx-more > summary::before { content: ''; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); transition: transform var(--t-hover, .15s); }
+  .tx-more[open] > summary::before { transform: rotate(45deg); }
   /* Folded sections open and close by sliding to their height, where the browser can animate to a natural height
      (Chrome and Edge); elsewhere they open at once, as before */
   @supports (interpolate-size: allow-keywords) { @media (prefers-reduced-motion: no-preference) {
@@ -337,6 +342,11 @@
   #storeList .bulkbar label { white-space: nowrap; }
   #storeList .bulkbar .btn { margin-left: auto; }
   .bulkbar select, .bulkbar input { padding: 8px 12px; font-size: 13.5px; }
+  .bk-set { flex: 1 1 100%; order: 5; }
+  .bk-set > summary { display: inline-flex; cursor: pointer; list-style: none; min-height: 36px; align-items: center; }
+  .bk-set > summary::-webkit-details-marker { display: none; }
+  .bk-fields { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; align-items: center; }
+  .bk-fields :is(input, select) { width: 100% !important; min-width: 0; }
   .extra { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 20px; margin-top: 16px; }
   .extra h3 { font-size: 14px; margin: 0 0 12px; }
   .rulegroup summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; }
@@ -657,8 +667,8 @@
   /* ---------- Phone tab bar ---------- */
   .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 16; background: var(--panel); border-top: 1px solid var(--line);
     display: none; grid-template-columns: repeat(5, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
-  .tabbar a, .tabbar button { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); text-decoration: none; background: none; border: 0; padding: 6px 0; cursor: pointer; }
-  .tabbar a.on { color: var(--accent); }
+  .tabbar :is(a, button.more), .tabbar button { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); text-decoration: none; background: none; border: 0; padding: 6px 0; cursor: pointer; }
+  .tabbar :is(a, button.more).on { color: var(--accent); }
   .tabbar svg { width: 22px; height: 22px; }
   .fab { display: grid; place-items: center; padding: 0; }
   .fab svg { width: 26px; height: 26px; }
@@ -986,7 +996,7 @@
   html[data-theme="glass"] .btn.primary, html[data-theme="glass"] .fab, html[data-theme="glass"] .tabbar .plus {
     background: linear-gradient(135deg, var(--accent), var(--glow3)); border-color: transparent; color: var(--on-accent); box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .5); }
   html[data-theme="glass"] .nav a.on { background: rgba(255, 255, 255, .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 0 0 1px rgba(255, 255, 255, .1); }
-  html[data-theme="glass"] .nav a.on svg, html[data-theme="glass"] .tabbar a.on svg { filter: drop-shadow(0 0 6px var(--accent)); }
+  html[data-theme="glass"] .nav a.on svg, html[data-theme="glass"] .tabbar :is(a, button.more).on svg { filter: drop-shadow(0 0 6px var(--accent)); }
   html[data-theme="glass"] .fill { box-shadow: 0 0 12px color-mix(in srgb, var(--spend) 70%, transparent); }
   html[data-theme="glass"] .fill.good { box-shadow: 0 0 12px color-mix(in srgb, var(--good) 70%, transparent); }
   html[data-theme="glass"] .track { background: rgba(255, 255, 255, .08); }
@@ -1046,7 +1056,7 @@
   .tabbar { left: 14px; right: 14px; bottom: calc(10px + env(safe-area-inset-bottom)); padding: 6px; border: 1px solid var(--line); border-radius: 999px; align-items: center;
     background: color-mix(in srgb, var(--panel) 84%, transparent); box-shadow: var(--shadow); -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%); }
   .tabbar :is(a, button) { position: relative; z-index: 1; }
-  .tabbar a { border-radius: 999px; padding: 7px 0; margin: 0 3px; }
+  .tabbar :is(a, button.more) { border-radius: 999px; padding: 7px 0; margin: 0 3px; }
   .tabbar .plus { margin: 0 auto; width: 48px; height: 48px; }
   .tab-pill { display: block; position: absolute; left: 0; top: 6px; bottom: 6px; border-radius: 999px; pointer-events: none; background: color-mix(in srgb, var(--accent) 15%, transparent); }
   .tab-pill.off { opacity: 0; }
@@ -1114,8 +1124,8 @@
   /* floating glass tab bar on phones, a white pill on the current tab */
   html[data-theme="frosted"] .tabbar { background: rgba(255, 250, 244, .55); border: 1px solid rgba(255, 255, 255, .7); box-shadow: var(--frost-edge), 0 14px 40px rgba(60, 35, 15, .22);
     -webkit-backdrop-filter: blur(30px) saturate(170%); backdrop-filter: blur(30px) saturate(170%); }
-  html[data-theme="frosted"] .tabbar a { color: #5d5249; }
-  html[data-theme="frosted"] .tabbar a.on { color: var(--text); }
+  html[data-theme="frosted"] .tabbar :is(a, button.more) { color: #5d5249; }
+  html[data-theme="frosted"] .tabbar :is(a, button.more).on { color: var(--text); }
   html[data-theme="frosted"] .tab-pill { background: #fff; box-shadow: 0 3px 12px rgba(70, 40, 20, .16); }
   html[data-theme="frosted"] :is(.tabbar .plus, .fab) { background: var(--ink); color: #fff; box-shadow: 0 6px 18px rgba(23, 19, 15, .3); }
   /* Other scenes (Settings → Appearance → Customize colors → Scene; themevars.ts sets data-scene). Each sets its own
@@ -1177,9 +1187,9 @@
   html[data-theme="frosted"][data-scene="night"] .tbl.feed tr.dayhead div { background: rgba(26, 21, 36, .7); }
   html[data-theme="frosted"][data-scene="night"] .side { background: rgba(26, 21, 36, .5); border-color: rgba(255, 255, 255, .14); }
   html[data-theme="frosted"][data-scene="night"] .tabbar { background: rgba(26, 21, 36, .8); border-color: rgba(255, 255, 255, .14); }
-  html[data-theme="frosted"][data-scene="night"] .tabbar a { color: var(--muted); }
+  html[data-theme="frosted"][data-scene="night"] .tabbar :is(a, button.more) { color: var(--muted); }
   html[data-theme="frosted"][data-scene="night"] :is(.tab-pill, .nav a.on) { background: rgba(255, 255, 255, .16); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2); }
-  html[data-theme="frosted"][data-scene="night"] :is(.tabbar a.on, .nav a.on) { color: var(--text); }
+  html[data-theme="frosted"][data-scene="night"] :is(.tabbar :is(a, button.more).on, .nav a.on) { color: var(--text); }
   html[data-theme="frosted"][data-scene="night"] .track { background: rgba(255, 255, 255, .1); }
   html[data-theme="frosted"][data-scene="night"] .appbar.scrolled { background: rgba(18, 15, 28, .55); }
   /* ---------- Theme: Spatial glass (visionOS-style: dark slate glass, 24px corners, one bright blue accent, over a soft-focus room; all CSS, works offline) ---------- */
@@ -1221,11 +1231,11 @@
   html[data-theme="spatial"] .side { background: rgba(120, 134, 156, .22); border: 1px solid rgba(255, 255, 255, .16); border-radius: 28px; box-shadow: var(--frost-edge), 0 14px 40px rgba(8, 12, 20, .3);
     -webkit-backdrop-filter: blur(30px) saturate(140%); backdrop-filter: blur(30px) saturate(140%); }
   html[data-theme="spatial"] :is(.tab-pill, .nav a.on) { background: rgba(255, 255, 255, .18); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25); }
-  html[data-theme="spatial"] :is(.tabbar a.on, .nav a.on) { color: var(--text); }
+  html[data-theme="spatial"] :is(.tabbar :is(a, button.more).on, .nav a.on) { color: var(--text); }
   /* floating bottom pill nav on phones */
   html[data-theme="spatial"] .tabbar { background: rgba(52, 61, 75, .78); border: 1px solid rgba(255, 255, 255, .2); box-shadow: var(--frost-edge), 0 16px 44px rgba(6, 10, 18, .45);
     -webkit-backdrop-filter: blur(32px) saturate(150%); backdrop-filter: blur(32px) saturate(150%); }
-  html[data-theme="spatial"] .tabbar a { color: var(--muted); }
+  html[data-theme="spatial"] .tabbar :is(a, button.more) { color: var(--muted); }
   /* ---------- Theme: Matte glass (Storm Grey page 60%, Matte Black layered cards 30%, Safety Orange accent 10%; low-gloss, soft blur, stacked depth; all CSS, works offline) ---------- */
   html[data-theme="matte"] { --bg: #292c32; --panel: rgba(14, 15, 17, .72); --line: rgba(255, 255, 255, .08); --text: #eceef1; --muted: #b4bac4; --faint: rgba(255, 255, 255, .05);
     --good: #74d9a6; --spend: #ff9d80; --income: #74d9a6; --warn: #f0c96b; --accent: #ff5f00; --on-accent: #120a05;
@@ -1265,11 +1275,11 @@
   html[data-theme="matte"] .side { background: linear-gradient(160deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, 0) 50%), rgba(14, 15, 17, .62); border: 1px solid rgba(255, 255, 255, .07); border-radius: 22px; box-shadow: var(--glass-lift);
     -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
   html[data-theme="matte"] :is(.tab-pill, .nav a.on) { background: rgba(255, 95, 0, .16); box-shadow: inset 0 0 0 1px rgba(255, 95, 0, .35); }
-  html[data-theme="matte"] :is(.tabbar a.on, .nav a.on) { color: var(--accent); }
+  html[data-theme="matte"] :is(.tabbar :is(a, button.more).on, .nav a.on) { color: var(--accent); }
   html[data-theme="matte"] .tabbar { background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, 0)), rgba(16, 17, 20, .86); border: 1px solid rgba(255, 255, 255, .08); box-shadow: var(--glass-lift);
     -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-  html[data-theme="matte"] .tabbar a { color: var(--muted); }
-  html[data-theme="matte"] .tabbar a.on { color: var(--accent); }
+  html[data-theme="matte"] .tabbar :is(a, button.more) { color: var(--muted); }
+  html[data-theme="matte"] .tabbar :is(a, button.more).on { color: var(--accent); }
   /* Both glass themes: what's behind a card is only soft light (no card overlaps another), so a live blur under every card
      looks the same but makes the browser re-blur each card on every scroll frame, every entrance animation and, in
      Liquid glass, every frame of the moving light. Only floating things keep it (tab bar, sheets, menus).
@@ -1354,7 +1364,7 @@
     .tbl.feed .inl:hover { background: none; box-shadow: none; color: inherit; }
     .list a.row:hover .name { text-decoration: none; }
     .tbl.feed tr.click:active td, .tbl tr.click:active td { background: var(--faint); transition: none; }
-    .btn:active, .round:active, .link:active, .list a.row:active, .insight:active, .hm-cell:active, .tabbar a:active, .pal-item:active, .wctl button:active { opacity: .45; transform: none; transition: none; }
+    .btn:active, .round:active, .link:active, .list a.row:active, .insight:active, .hm-cell:active, .tabbar :is(a, button.more):active, .pal-item:active, .wctl button:active { opacity: .45; transform: none; transition: none; }
     .tbl.feed .inl:active { background: var(--faint); }
   }
   /* Push / pop page transitions (like navigating in an iOS app) */
@@ -1717,6 +1727,7 @@
   .st-x { position: absolute; z-index: 4; top: calc(22px + env(safe-area-inset-top) + var(--edge)); right: var(--st-pad); width: 40px; height: 40px; min-width: 0; min-height: 0; padding: 0; margin: 0;
     display: grid; place-items: center; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--text) 9%, transparent); color: var(--text); line-height: 0; cursor: pointer; }
   .st-x svg { display: block; width: 16px; height: 16px; }
+  .st-pp { right: calc(var(--st-pad) + 50px); }
   .st-deck { position: absolute; inset: 0; }
   .st-card { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px;
     padding: calc(80px + env(safe-area-inset-top) + var(--edge)) var(--st-pad) calc(60px + env(safe-area-inset-bottom));
@@ -2247,14 +2258,12 @@
   .dbars .db::after { inset: -2px -1px; }     /* a day's bar can't be 44px wide: there are up to 31 side by side */
   .part .name a::after { inset: -14px -6px; }
   #view button.link::after, #view .panel-head a.link::after { inset: -12px -6px; }
-  /* Controls that are 36px or less on a narrow phone: the small x buttons, the What's new close, the month and edit buttons, the edit form's extra actions */
-  :is(.tagcloud .chip, .saved-reports .chip) button, .editor-row .x, .whatsnew .wn-x, .head .actions .month :is(.btn, .round), .head .actions > .dash-edit,
-  .drawer footer > :is(.btn.danger, .btn[data-onclick="App.duplicateTx()"], .btn[data-onclick="App.refundTx()"]) { position: relative; }
+  /* Controls that are 36px or less on a narrow phone: the small x buttons, the What's new close, the month and edit buttons */
+  :is(.tagcloud .chip, .saved-reports .chip) button, .editor-row .x, .whatsnew .wn-x, .head .actions .month :is(.btn, .round), .head .actions > .dash-edit { position: relative; }
   :is(.tagcloud .chip, .saved-reports .chip) button::after { content: ""; position: absolute; inset: -12px -6px; }
   .editor-row .x::after { content: ""; position: absolute; inset: -8px; }
   .whatsnew .wn-x::after { content: ""; position: absolute; inset: -6px; }
   .head .actions .month :is(.btn, .round)::after, .head .actions > .dash-edit::after { content: ""; position: absolute; inset: -4px; }
-  .drawer footer > :is(.btn.danger, .btn[data-onclick="App.duplicateTx()"], .btn[data-onclick="App.refundTx()"])::after { content: ""; position: absolute; inset: -4px 0; }
 }
 
   /* ---------- Charts keep their true text and line size in any card (features/chartfit.ts sets --sx and --sy on the svg:
@@ -2417,7 +2426,7 @@ html[data-theme="polar"] .scrim { background: rgba(28, 39, 51, .3); }
 html[data-theme="polar"] .side { background: rgba(232, 241, 248, .7); border: 1px solid rgba(255, 255, 255, .9); border-radius: 24px; box-shadow: 0 0 0 1px rgba(150, 185, 212, .28), 0 12px 32px rgba(60, 100, 140, .12);
   -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 html[data-theme="polar"] :is(.tab-pill, .nav a.on) { background: rgba(228, 0, 43, .1); box-shadow: inset 0 0 0 1px rgba(228, 0, 43, .3); }
-html[data-theme="polar"] :is(.tabbar a.on, .nav a.on) { color: var(--accent); }
+html[data-theme="polar"] :is(.tabbar :is(a, button.more).on, .nav a.on) { color: var(--accent); }
 html[data-theme="polar"] .tabbar { background: rgba(232, 241, 248, .88); border: 1px solid rgba(255, 255, 255, .9); box-shadow: 0 0 0 1px rgba(150, 185, 212, .28), 0 12px 32px rgba(60, 100, 140, .18);
   -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
 html[data-theme="polar"] .opill { background: var(--accent); }
@@ -2648,10 +2657,16 @@ html[data-theme="dark"] { --e1: var(--rim), var(--lift); --e2: 0 1px 0 rgba(0,0,
   .tbl.feed .meta :is(.cat-s, .bud-s).inl { pointer-events: none; }
   .link, a.go-num { padding-block: 13px; margin-block: -13px; }
 }
-/* Phone edit form: Delete sits well away from Duplicate, and the extra actions take less height */
-@media (max-width: 600px) {
-  .drawer footer > .btn.danger { margin-right: 14px; }
-  .drawer footer > :is(.btn.danger, .btn[data-onclick="App.duplicateTx()"], .btn[data-onclick="App.refundTx()"]) { padding: 6px 12px; font-size: 13px; min-height: 36px; }
+.ff-details { margin-top: 14px; text-align: left; }
+.ff-details > summary { cursor: pointer; list-style: none; font-size: 13px; color: var(--muted); text-align: center; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+.ff-details > summary::-webkit-details-marker { display: none; }
+/* Phone form footer: Delete, Duplicate, Refund and Save as draft sit behind one button */
+.foot-more { position: relative; }
+.foot-more > summary { display: inline-flex; align-items: center; justify-content: center; width: 44px; min-height: 44px; padding: 0; list-style: none; cursor: pointer; }
+.foot-more > summary::-webkit-details-marker { display: none; }
+.foot-more > summary svg { width: 20px; height: 20px; }
+.foot-menu { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 3; display: flex; flex-direction: column; gap: 4px; min-width: 190px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.foot-menu .btn { justify-content: flex-start; min-height: 44px; margin: 0; }
 }
 
 /* A failure message waits for you: tappable, with a Dismiss button */
