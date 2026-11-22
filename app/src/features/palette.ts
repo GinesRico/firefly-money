@@ -8,7 +8,6 @@ import { isAsset, isCard, isLiab, lists } from '../core/lists';
 import { THEMES, setTheme } from '../core/login';
 import { normPiggy } from '../pages/piggy';
 import { drafts, draftLabel } from './txform';
-import { t } from '../core/spanish';
 
 /* ---------- Universal search (⌘K, / , the search button on phones) ----------
    One box for pages, settings, actions, accounts, budgets, categories, tags, bills, payees, piggy banks,
@@ -29,6 +28,7 @@ const SETTINGS: [string, string, string][] = [
   ['Month start day (payday)', 'cycle pay period month starts budget period', '#set-months'],
   ['Budget warning', 'alert warn threshold 80% percent budget full', '#set-months'],
   ['Appearance', 'theme dark light color look', '#set-look'],
+  ['Language', 'language idioma spanish español english interface translation', '#set-look'],
   ['Number & date format', 'locale region language format currency decimal comma date week monday sunday euro', '#set-look'],
   ['Customize theme colors', 'theme color colour background accent liquid glass frosted blur tint frost glow light custom scene background wallpaper photo', 'theme-custom'],
   ['Payee and bank logos', 'logos icons images duckduckgo merchant', '#set-look'],
@@ -74,7 +74,7 @@ function baseItems(): PalItem[] {
     { label: 'Hours of work: show what purchases cost in hours', kind: 'Setting', keys: 'settings lens wage hourly time', run: () => App.toggleWorkLens(!LS.get('workLens', false)) },
     { label: 'Compact view', kind: 'Setting', keys: 'settings density compact spacing', run: () => App.toggleDensity() },
     { label: 'Sign out', kind: 'Setting', keys: 'log out', run: () => App.signOut() });
-  THEMES.forEach(([k, label]) => items.push({ label: t('Theme: {theme}', { theme: t(label) }), kind: 'Setting', keys: 'settings appearance dark light color', run: () => setTheme(k) }));
+  THEMES.forEach(([k, label]) => items.push({ label: 'Theme: ' + label, kind: 'Setting', keys: 'settings appearance dark light color', run: () => setTheme(k) }));
   drafts().forEach(d => items.push({ label: draftLabel(d), kind: 'Draft', keys: 'draft unfinished', run: () => App.openDraft(d.id) }));
   if (S.rules) Object.entries<any>(S.rules).forEach(([id, r]) => items.push({ label: r.title, kind: 'Rule', run: () => { location.hash = '#/rules'; setTimeout(() => App.ruleForm(id), 500); }, low: true }));
   return items;
@@ -162,10 +162,10 @@ function palFilter(keepIdx?: boolean) {
     shown = palItems.map(it => ({ it, s: itemScore(it, q) - (it.low && q.length < 3 ? 50 : 0) })).filter(x => x.s > 0)
       .sort((a, b) => b.s - a.s).slice(0, 30).map(x => x.it);
     // A question goes first unless something matched it well
-    if (q.includes(' ') && q.length > 6) shown.splice(palItems.some(it => itemScore(it, q) >= 28) ? Math.min(shown.length, 3) : 0, 0, { label: t('Ask: {question}', { question: typed }), kind: 'Ask', go: '#/ask?q=' + encodeURIComponent(typed) });
+    if (q.includes(' ') && q.length > 6) shown.splice(palItems.some(it => itemScore(it, q) >= 28) ? Math.min(shown.length, 3) : 0, 0, { label: 'Ask: ' + typed, kind: 'Ask', go: '#/ask?q=' + encodeURIComponent(typed) });
     if (!keepIdx) txSearch(typed);
     if (txFor === typed) shown.push(...txHits);
-    shown.push({ label: t('Search all transactions for “{query}”', { query: typed }), kind: 'Search', go: '#/transactions?search=' + encodeURIComponent(typed) });
+    shown.push({ label: 'Search all transactions for “' + typed + '”', kind: 'Search', go: '#/transactions?search=' + encodeURIComponent(typed) });
   }
   palShown = shown;
   const at = prev ? palShown.indexOf(prev) : -1;

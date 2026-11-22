@@ -76,7 +76,7 @@ const translation = (key: string) => {
   return undefined;
 };
 export const t = (key: string, values: Record<string, string | number> = {}) =>
-  (translation(key) ?? key).replace(PLACEHOLDER, (match, name: string) => String(values[name] ?? match));
+  ((langPref() === 'es' ? translation(key) : undefined) ?? key).replace(PLACEHOLDER, (match, name: string) => String(values[name] ?? match));
 
 const ATTRS = ['placeholder', 'title', 'aria-label', 'data-tip'];
 function translate(root: ParentNode) {
@@ -105,14 +105,26 @@ function translateText(node: Node) {
   if (translated && translated !== trimmed) node.nodeValue = value.slice(0, value.indexOf(trimmed)) + translated + value.slice(value.indexOf(trimmed) + trimmed.length);
 }
 
-document.documentElement.lang = 'es';
-translate(document);
-new MutationObserver(records => records.forEach(record => {
-  if (record.type === 'characterData') {
-    translateText(record.target);
-  }
-  record.addedNodes.forEach(node => {
-    if (node instanceof Element) translate(node);
-    else if (node.nodeType === Node.TEXT_NODE) translateText(node);
-  });
-})).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+/* The interface is English unless Spanish is picked in Settings → Appearance → Language (stored as money.lang).
+   Spanish is applied by translating the rendered DOM against the es.json catalog, so English stays the source text. */
+export const LANG_KEY = 'money.lang';
+export const LANGS: [string, string][] = [['en', 'English'], ['es', 'Español']];
+export function langPref(): string {
+  try { const raw = localStorage.getItem(LANG_KEY); return raw && JSON.parse(raw) === 'es' ? 'es' : 'en'; } catch (e) { return 'en'; }
+}
+let observer: MutationObserver | null = null;
+export function startSpanish() {
+  if (observer || langPref() !== 'es') return;
+  document.documentElement.lang = 'es';
+  translate(document);
+  observer = new MutationObserver(records => records.forEach(record => {
+    if (record.type === 'characterData') translateText(record.target);
+    record.addedNodes.forEach(node => {
+      if (node instanceof Element) translate(node);
+      else if (node.nodeType === Node.TEXT_NODE) translateText(node);
+    });
+  }));
+  observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+}
+export function stopSpanish() { observer?.disconnect(); observer = null; document.documentElement.lang = 'en'; }
+startSpanish();

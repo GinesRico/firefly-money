@@ -4,7 +4,6 @@ import { absDiff, type ApiData, App, fmtD, fmtDate, fmtDay, isoDate, leadDays, m
 import { SERIES, normGroup, signed, type Group } from '../core/feed';
 import { addDays, LS, daysBetween } from '../core/helpers';
 import type { Account } from '../core/lists';
-import { t } from '../core/spanish';
 
 /* ---------- Shapes the charts share: smooth lines, donuts and progress rings ---------- */
 // A smooth line through the points. Monotone (as d3's curveMonotoneX), so it never bulges past a peak or dips
@@ -53,9 +52,9 @@ export function shareChart(rows: Share[], middle: Html | string, label: string, 
   const limit = o.limit || 6, total = rows.reduce((s, r) => s + r.v, 0), shown: (Share & { c: string })[] = rows.slice(0, limit).map((r, i) => ({ ...r, c: i < 6 ? SERIES[i] : 'var(--muted)' }));
   const rest = rows.slice(limit);
   if (rest.length === 1) shown.push({ ...rest[0], c: 'var(--muted)' });
-  else if (rest.length) shown.push({ name: o.other || t('Everything else'), v: rest.reduce((s, r) => s + r.v, 0), c: 'var(--muted)', sub: t('{count} more', { count: rest.length }), href: o.rest });
+  else if (rest.length) shown.push({ name: o.other || 'Everything else', v: rest.reduce((s, r) => s + r.v, 0), c: 'var(--muted)', sub: rest.length + ' more', href: o.rest });
   const slices: Part[] = shown.slice(0, 6).map(r => ({ name: r.name, v: r.v, color: r.c, go: r.href })), grey = shown.slice(6).reduce((s, r) => s + r.v, 0);
-  if (grey) slices.push({ name: shown.length > 7 ? t('Everything else') : shown[6].name, v: grey, color: 'var(--muted)', go: shown.length > 7 ? o.rest : shown[6].href });
+  if (grey) slices.push({ name: shown.length > 7 ? 'Everything else' : shown[6].name, v: grey, color: 'var(--muted)', go: shown.length > 7 ? o.rest : shown[6].href });
   const most = Math.max(1, ...shown.map(r => r.v));
   const list = html`<div class="parts">${htmlList(shown.map(r => html`<div class="part"${r.href ? html` data-go="${r.href}"` : ''}><i style="background:${r.c}"></i><span class="name">${r.href ? html`<a href="${r.href}">${r.name}</a>` : r.name}${r.sub ? html`<span class="sub-s">${r.sub}</span>` : ''}</span><span class="track"><span class="fill" style="width:${(r.v / most * 100).toFixed(1)}%;background:${r.c}"></span></span><span class="num">${(r.v / total * 100).toFixed(0)}%</span></div>`))}</div>`;
   return o.ring === false ? list : html`<div class="share">${donut(slices, middle, label, o.go)}${list}</div>`;
@@ -87,7 +86,7 @@ export function twoLines(pts: LinePoint[], names: [string, string], colors: [str
   const area = la + ' L' + x(n - 1).toFixed(1) + ' ' + base + ' L' + x(0).toFixed(1) + ' ' + base + ' Z';
   const grid = htmlList([0, 1, 2, 3, 4].map(k => { const v = max * k / 4, yy = y(v).toFixed(1); return html`<line x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}"/><text x="${pl - 8}" y="${(+yy + 4).toFixed(1)}" text-anchor="end" class="ax-amt">${short$(v)}</text>`; }));
   const every = Math.max(1, Math.ceil(n / 6)), ticks = htmlList(pts.map((p, i) => (i % every || x(n - 1) - x(i) < 50) && i !== n - 1 ? '' : html`<text x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${p.label}</text>`));
-  const hits = htmlList(pts.map((p, i) => html`<rect ${hitBox(x(i), (W - pl - pr) / Math.max(1, n - 1), pl, W - pr)} y="0" height="${base}" fill="transparent" data-tip="${p.label + '\n' + t(names[0]) + ' ' + money0(p.a) + '\n' + t(names[1]) + ' ' + money0(p.b)}"${p.go ? html` data-go="${p.go}"` : ''}/>`));
+  const hits = htmlList(pts.map((p, i) => html`<rect ${hitBox(x(i), (W - pl - pr) / Math.max(1, n - 1), pl, W - pr)} y="0" height="${base}" fill="transparent" data-tip="${p.label + '\n' + names[0] + ' ' + money0(p.a) + '\n' + names[1] + ' ' + money0(p.b)}"${p.go ? html` data-go="${p.go}"` : ''}/>`));
   return html`<svg class="lines" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}"><defs><linearGradient id="lg-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${colors[0]}" stop-opacity=".32"/><stop offset="1" stop-color="${colors[0]}" stop-opacity="0"/></linearGradient></defs><g class="grid">${grid}</g><path class="area" d="${area}" fill="url(#lg-a)" style="color:${colors[0]}"/><path class="draw" pathLength="1" d="${la}" fill="none" stroke="${colors[0]}" stroke-width="2.6" stroke-linecap="round"/><path class="draw late" pathLength="1" d="${lb}" fill="none" stroke="${colors[1]}" stroke-width="2.2" stroke-linecap="round"/>${ticks}${hits}</svg><div class="legend"><span><i class="lg-ln" style="--c:${colors[0]};--w:2.6px"></i>${names[0]}</span><span><i class="lg-ln" style="--c:${colors[1]};--w:2.2px"></i>${names[1]}</span></div>`;
 }
 
@@ -105,7 +104,7 @@ export function paceChart(days: number[], before: number[], dim: number, label: 
   const grid = htmlList([0, 1, 2, 3, 4].map(k => { const v = max * k / 4, yy = y(v).toFixed(1); return html`<line x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}"/><text x="${pl - 8}" y="${(+yy + 4).toFixed(1)}" text-anchor="end" class="ax-amt">${short$(v)}</text>`; }));
   const ticks = htmlList([1, 8, 15, 22, n].filter((d, i, l) => d <= n && l.indexOf(d) === i).map(d => html`<text x="${x(d - 1).toFixed(1)}" y="${H - 6}" text-anchor="${d === 1 ? 'start' : d === n ? 'end' : 'middle'}">${d}</text>`));
   const i = a.length - 1, dot = i >= 0 ? html`<circle class="pace-dot" cx="${x(i).toFixed(1)}" cy="${y(a[i]).toFixed(1)}" r="4.5" fill="var(--accent)"/>` : '';
-  const hits = htmlList([...Array(n)].map((_, d) => html`<rect ${hitBox(x(d), (W - pl - pr) / Math.max(1, n - 1), pl, W - pr)} y="0" height="${base}" fill="transparent" data-tip="${t('Day {day}', { day: d + 1 }) + (d < a.length ? '\n' + t(label[0]) + ' ' + money0(a[d]) : '') + (d < b.length ? '\n' + t(label[1]) + ' ' + money0(b[d]) : '')}"${dayGo && d < a.length ? html` data-go="${dayGo(d + 1)}"` : ''}/>`));
+  const hits = htmlList([...Array(n)].map((_, d) => html`<rect ${hitBox(x(d), (W - pl - pr) / Math.max(1, n - 1), pl, W - pr)} y="0" height="${base}" fill="transparent" data-tip="${'Day ' + (d + 1) + (d < a.length ? '\n' + label[0] + ' ' + money0(a[d]) : '') + (d < b.length ? '\n' + label[1] + ' ' + money0(b[d]) : '')}"${dayGo && d < a.length ? html` data-go="${dayGo(d + 1)}"` : ''}/>`));
   return html`<svg class="lines" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending this month against last month"><defs><linearGradient id="lg-pace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs><g class="grid">${grid}</g>${lb ? html`<path class="draw" pathLength="1" d="${lb}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="1" stroke-linecap="round" opacity=".7"/>` : ''}${area ? html`<path class="area" d="${area}" fill="url(#lg-pace)" style="color:var(--accent)"/>` : ''}${la ? html`<path class="draw late" pathLength="1" d="${la}" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/>` : ''}${dot}${ticks}${hits}</svg><div class="legend"><span><i class="lg-ln" style="--c:var(--accent);--w:2.6px"></i>${label[0]}</span><span><i class="lg-ln" style="--c:var(--muted);--w:2px;--o:.7"></i>${label[1]}</span></div>`;
 }
 
@@ -117,7 +116,7 @@ export function barChart(pts: { label: string, v: number | null, go?: string, pa
   const y = (v: number) => pt + (H - pb - pt) * (hi - v) / rng, zero = y(0), slot = W / n, bw = Math.min(38, slot * .5);
   const bars = htmlList(pts.map((p, i) => {
     const cx = slot * i + slot / 2, v = p.v, top = v == null ? zero : Math.min(y(v), zero), h = v == null ? 0 : Math.max(2, Math.abs(y(v) - zero));
-    return html`<g data-tip="${p.label + ' · ' + (v == null ? t('no income') : fmt(v) + (p.part ? ' ' + t('so far') : ''))}"${p.go ? html` data-go="${p.go}"` : ''}><rect x="${slot * i}" y="0" width="${slot}" height="${H}" fill="transparent"></rect>${v == null ? '' : html`<rect class="bar${v < 0 ? ' neg' : ''}${p.part ? ' part' : ''}" style="--j:${i};transform-origin:50% ${v < 0 ? '0' : '100'}%" x="${(cx - bw / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(8, bw / 3).toFixed(1)}"></rect><text class="bv${p.part ? ' part' : ''}" x="${cx.toFixed(1)}" y="${(v < 0 ? top + h + 13 : top - 6).toFixed(1)}" text-anchor="middle">${fmt(v)}</text>`}<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="middle">${p.label}</text></g>`;
+    return html`<g data-tip="${p.label + ' · ' + (v == null ? 'no income' : fmt(v) + (p.part ? ' so far' : ''))}"${p.go ? html` data-go="${p.go}"` : ''}><rect x="${slot * i}" y="0" width="${slot}" height="${H}" fill="transparent"></rect>${v == null ? '' : html`<rect class="bar${v < 0 ? ' neg' : ''}${p.part ? ' part' : ''}" style="--j:${i};transform-origin:50% ${v < 0 ? '0' : '100'}%" x="${(cx - bw / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(8, bw / 3).toFixed(1)}"></rect><text class="bv${p.part ? ' part' : ''}" x="${cx.toFixed(1)}" y="${(v < 0 ? top + h + 13 : top - 6).toFixed(1)}" text-anchor="middle">${fmt(v)}</text>`}<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="middle">${p.label}</text></g>`;
   }));
   return html`<svg class="barchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}"><line x1="0" x2="${W}" y1="${zero.toFixed(1)}" y2="${zero.toFixed(1)}" stroke="var(--line)"/>${bars}</svg>`;
 }
@@ -132,7 +131,7 @@ export function pairBars(pts: (LinePoint & { tip?: string })[], names: [string, 
   const bars = htmlList(pts.map((p, i) => {
     const cx = pl + slot * i + slot / 2, gap = Math.min(3, bw / 4), bar = (v: number, x: number, c: string, j: number) => html`<rect class="bar" style="--j:${i}" x="${x.toFixed(1)}" y="${y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(v > 0 ? 1.5 : 0, base - y(v)).toFixed(1)}" rx="${Math.min(6, bw / 3).toFixed(1)}" fill="${c}"${j ? raw(' opacity=".85"') : ''}/>`;
     const lab = p.label.length > 10 ? p.label.slice(0, 9) + '…' : p.label;
-    return html`<g data-tip="${(p.tip || p.label) + '\n' + t(names[0]) + ' ' + money0(p.a) + '\n' + t(names[1]) + ' ' + money0(p.b)}"${p.go ? html` data-go="${p.go}"` : ''}><rect x="${(pl + slot * i).toFixed(1)}" y="0" width="${slot.toFixed(1)}" height="${base}" fill="transparent"/>${bar(p.a, cx - bw - gap, colors[0], 0)}${bar(p.b, cx + gap, colors[1], 1)}${i % every ? '' : html`<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="middle">${lab}</text>`}</g>`;
+    return html`<g data-tip="${(p.tip || p.label) + '\n' + names[0] + ' ' + money0(p.a) + '\n' + names[1] + ' ' + money0(p.b)}"${p.go ? html` data-go="${p.go}"` : ''}><rect x="${(pl + slot * i).toFixed(1)}" y="0" width="${slot.toFixed(1)}" height="${base}" fill="transparent"/>${bar(p.a, cx - bw - gap, colors[0], 0)}${bar(p.b, cx + gap, colors[1], 1)}${i % every ? '' : html`<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="middle">${lab}</text>`}</g>`;
   }));
   return html`<svg class="lines pairbars" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}"><g class="grid">${grid}</g><line x1="${pl}" x2="${W - pr}" y1="${base}" y2="${base}" stroke="var(--line)"/>${bars}</svg><div class="legend"><span><i style="background:${colors[0]}"></i>${names[0]}</span><span><i style="background:${colors[1]}"></i>${names[1]}</span></div>`;
 }
@@ -148,7 +147,7 @@ export function budgetMonthsChart(pts: BudgetMonth[], alertPct: number, label: s
   const grid = htmlList([0, 1, 2, 3].map(k => { const v = max * k / 3, yy = y(v).toFixed(1); return html`<line x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}"/><text x="${pl - 6}" y="${(+yy + 4).toFixed(1)}" text-anchor="end" class="ax-amt">${short$(v)}</text>`; }));
   const bars = htmlList(pts.map((p, i) => {
     const cx = pl + slot * i + slot / 2, last = i === n - 1, tone = !p.limit ? 'var(--muted)' : p.spent > p.limit ? 'var(--spend)' : p.spent >= p.limit * alertPct / 100 ? 'var(--warn)' : 'var(--good)';
-    const tip = p.label + '\n' + t('Spent') + ' ' + money0(p.spent) + (p.limit ? '\n' + t('Budget') + ' ' + money0(p.limit) : '\n' + t('No amount set'));
+    const tip = p.label + '\nSpent ' + money0(p.spent) + (p.limit ? '\nBudget ' + money0(p.limit) : '\nNo amount set');
     return html`<g data-tip="${tip}"${p.go ? html` data-go="${p.go}"` : ''}><rect x="${(pl + slot * i).toFixed(1)}" y="0" width="${slot.toFixed(1)}" height="${base}" fill="transparent"/><rect class="bar" style="--j:${i}" x="${(cx - bw / 2).toFixed(1)}" y="${y(p.spent).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(p.spent > 0 ? 1.5 : 0, base - y(p.spent)).toFixed(1)}" rx="${Math.min(5, bw / 3).toFixed(1)}" fill="${tone}"${last ? '' : raw(' opacity=".72"')}/>${p.limit ? html`<line class="lim" x1="${(cx - bw / 2 - 3).toFixed(1)}" x2="${(cx + bw / 2 + 3).toFixed(1)}" y1="${y(p.limit).toFixed(1)}" y2="${y(p.limit).toFixed(1)}"/>` : ''}${i % every && !last ? '' : html`<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="middle"${last ? raw(' class="now"') : ''}>${p.short}</text>`}</g>`;
   }));
   return html`<svg class="lines bhist" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}"><g class="grid">${grid}</g><line x1="${pl}" x2="${W - pr}" y1="${base}" y2="${base}" stroke="var(--line)"/>${bars}</svg>`;
@@ -165,7 +164,7 @@ export function budgetPaceChart(now: number[], usual: number[], limit: number, l
   const ln = line(now), lu = line(usual), i = now.length - 1;
   const grid = htmlList([0, 1, 2, 3].map(k => { const v = max * k / 3, yy = y(v).toFixed(1); return html`<line x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}"/><text x="${pl - 6}" y="${(+yy + 4).toFixed(1)}" text-anchor="end" class="ax-amt">${short$(v)}</text>`; }));
   const ticks = htmlList([1, 8, 15, 22, n].filter((d, k, l) => d <= n && l.indexOf(d) === k).map(d => html`<text x="${x(d - 1).toFixed(1)}" y="${H - 6}" text-anchor="${d === 1 ? 'start' : d === n ? 'end' : 'middle'}">${d}</text>`));
-   const hits = htmlList([...Array(n)].map((_, d) => html`<rect ${hitBox(x(d), (W - pl - pr) / (n - 1), pl, W - pr)} y="0" height="${base}" fill="transparent" data-tip="${t('Day {day}', { day: d + 1 }) + (d < now.length ? '\n' + t(names[0]) + ' ' + money0(now[d]) : '') + (d < usual.length ? '\n' + t(names[1]) + ' ' + money0(usual[d]) : '')}"/>`));
+  const hits = htmlList([...Array(n)].map((_, d) => html`<rect ${hitBox(x(d), (W - pl - pr) / (n - 1), pl, W - pr)} y="0" height="${base}" fill="transparent" data-tip="${'Day ' + (d + 1) + (d < now.length ? '\n' + names[0] + ' ' + money0(now[d]) : '') + (d < usual.length ? '\n' + names[1] + ' ' + money0(usual[d]) : '')}"/>`));
   return html`<svg class="lines bpace" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}"><g class="grid">${grid}</g>${limit ? html`<line class="lim" x1="${pl}" x2="${W - pr}" y1="${y(limit).toFixed(1)}" y2="${y(limit).toFixed(1)}"/>` : ''}${lu ? html`<path d="${lu}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round" opacity=".8"/>` : ''}${ahead && i >= 0 ? html`<line class="ahead" x1="${x(i).toFixed(1)}" y1="${y(now[i]).toFixed(1)}" x2="${x(n - 1).toFixed(1)}" y2="${y(ahead).toFixed(1)}"/>` : ''}${ln ? html`<path d="${ln}" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/>` : ''}${i >= 0 ? html`<circle cx="${x(i).toFixed(1)}" cy="${y(now[i]).toFixed(1)}" r="4.5" fill="var(--accent)"/>` : ''}${ticks}${hits}</svg>`;
 }
 
@@ -175,7 +174,7 @@ export function changeBars(rows: Change[], limit = 8) {
   const moved = rows.map(r => ({ ...r, d: r.now - r.prev })).filter(r => Math.abs(r.d) >= 1).sort((a, b) => Math.abs(b.d) - Math.abs(a.d)).slice(0, limit);
   if (!moved.length) return '';
   const most = Math.max(...moved.map(r => Math.abs(r.d)));
-  return html`<div class="chg">${htmlList(moved.map(r => html`<div class="chg-row" data-tip="${r.name + '\n' + t('Now') + ' ' + money0(r.now) + '\n' + t('Before') + ' ' + money0(r.prev)}"${r.href ? html` data-go="${r.href}"` : ''}><span class="name">${r.href ? html`<a href="${r.href}">${r.name}</a>` : r.name}</span><span class="chg-bar"><i class="${r.d > 0 ? 'chg-up' : 'chg-dn'}" style="width:${(Math.abs(r.d) / most * 50).toFixed(1)}%"></i></span><span class="num ${r.d > 0 ? 'up' : 'down'}">${r.d > 0 ? '+' : '−'}${money0(Math.abs(r.d))}</span></div>`))}</div><div class="legend"><span><i style="background:var(--good)"></i>${t('Less than before')}</span><span><i style="background:var(--spend)"></i>${t('More than before')}</span></div>`;
+  return html`<div class="chg">${htmlList(moved.map(r => html`<div class="chg-row" data-tip="${r.name + '\nNow ' + money0(r.now) + '\nBefore ' + money0(r.prev)}"${r.href ? html` data-go="${r.href}"` : ''}><span class="name">${r.href ? html`<a href="${r.href}">${r.name}</a>` : r.name}</span><span class="chg-bar"><i class="${r.d > 0 ? 'chg-up' : 'chg-dn'}" style="width:${(Math.abs(r.d) / most * 50).toFixed(1)}%"></i></span><span class="num ${r.d > 0 ? 'up' : 'down'}">${r.d > 0 ? '+' : '−'}${money0(Math.abs(r.d))}</span></div>`))}</div><div class="legend"><span><i style="background:var(--good)"></i>Less than before</span><span><i style="background:var(--spend)"></i>More than before</span></div>`;
 }
 
 /* ---------- Little bars in a row: one category's months, the last one (now) in the accent; tips name each month ---------- */
@@ -244,12 +243,12 @@ export function activityPanel(buys: { date: string, amount: number }[], start: s
   const days = activityDays(buys, start, end, todayIso(), tile ? 2000 : AG_WEEKS);
   if (!days.length || !buys.length) return tile ? html`<section class="panel chart ag-card" aria-label="Activity"><p class="ag-none">No spending in this range.</p></section>` : '';
   const lead = leadDays(new Date(days[0].iso + 'T12:00:00'));    // blank cells before the first day, so each row is one weekday
-  const today = todayIso();
+  const t = todayIso();
   let cells: Html | string = '';
   for (let i = 0; i < lead; i++) cells = html`${cells}<span class="ag-c pad"></span>`;
   days.forEach(d => {
-    const tip = fmtD(d.iso, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) + (d.v ? ' · ' + money(d.v) + ' · ' + t(d.n === 1 ? '{count} purchase' : '{count} purchases', { count: d.n }) : ' · ' + t('nothing spent'));
-    cells = html`${cells}<span class="ag-c l${d.level}${d.iso === today ? ' today' : ''}" data-tip="${tip}"${d.v ? html` data-go="${txHref({ type: 'withdrawal' }, { start: d.iso, end: d.iso })}"` : ''}></span>`;
+    const tip = fmtD(d.iso, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) + (d.v ? ' · ' + money(d.v) + ' · ' + d.n + ' purchase' + (d.n === 1 ? '' : 's') : ' · nothing spent');
+    cells = html`${cells}<span class="ag-c l${d.level}${d.iso === t ? ' today' : ''}" data-tip="${tip}"${d.v ? html` data-go="${txHref({ type: 'withdrawal' }, { start: d.iso, end: d.iso })}"` : ''}></span>`;
   });
   // A month label over the column where each month's first week begins
   const cols = Math.ceil((lead + days.length) / 7);
@@ -273,10 +272,9 @@ export function activityPanel(buys: { date: string, amount: number }[], start: s
   days.forEach(d => { const m = d.iso.slice(0, 7), x = byMonth.get(m) || { v: 0, n: 0, d: 0 }; x.v += d.v; x.n += d.n; if (d.v) x.d++; byMonth.set(m, x); });
   const active = days.filter(d => d.v).length, top = days.reduce<AgDay | null>((b, d) => !b || d.v > b.v ? d : b, null);
   const priv = !!LS.get('privacy', false);
-  const summary = t('{active} of {total} days with spending{top}', { active, total: days.length,
-    top: top && top.v ? t('; the biggest was {date}{amount}', { date: fmtDate(top.iso), amount: priv ? '' : t(' at {amount}', { amount: money0(top.v) }) }) : '' });
+  const summary = active + ' of ' + days.length + ' days with spending' + (top && top.v ? '; the biggest was ' + fmtDate(top.iso) + (priv ? '' : ' at ' + money0(top.v)) : '');
   const rows = htmlList([...byMonth].map(([m, x]) => html`<tr><td><a href="${txHref({ type: 'withdrawal' }, { start: m + '-01', end: days.filter(d => d.iso.startsWith(m)).pop()!.iso })}">${fmtD(m + '-01', { month: 'long', year: 'numeric' })}</a></td><td class="num">${x.d}</td><td class="num">${x.n}</td><td class="num">${money0(x.v)}</td></tr>`));
-  return html`<section class="panel chart ag-card" aria-label="Activity"><div class="ag-scroll"><div class="ag-wrap" style="--agm:${activityCell(cols)}px"><div class="ag-months" aria-hidden="true">${months}</div><div class="ag-grid" role="img" aria-label="${t('Spending each day, stronger colour means more spent: {summary}', { summary })}">${cells}</div></div></div><div class="sr-only"><p>${summary}</p><table class="tbl"><caption>Spending by month</caption><thead><tr><th scope="col">Month</th><th scope="col">Days</th><th scope="col">Purchases</th><th scope="col">Spent</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  return html`<section class="panel chart ag-card" aria-label="Activity"><div class="ag-scroll"><div class="ag-wrap" style="--agm:${activityCell(cols)}px"><div class="ag-months" aria-hidden="true">${months}</div><div class="ag-grid" role="img" aria-label="Spending each day, stronger colour means more spent: ${summary}">${cells}</div></div></div><div class="sr-only"><p>${summary}</p><table class="tbl"><caption>Spending by month</caption><thead><tr><th scope="col">Month</th><th scope="col">Days</th><th scope="col">Purchases</th><th scope="col">Spent</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }
 
 /* ---------- Daily spending heatmap ---------- */
@@ -284,22 +282,21 @@ function heatmapPanel(cur: Period, groups: Group[]) {
   const by: Record<string, number> = {}, cnt: Record<string, number> = {};
   groups.forEach(g => { const d = String(g.date).slice(0, 10); by[d] = (by[d] || 0) + g.total; if (g.total > 0) cnt[d] = (cnt[d] || 0) + 1; });     // a refund (negative) comes off the day, it isn't a purchase
   for (const d of Object.keys(by)) if (by[d] <= 0) delete by[d];
-  const dim = daysBetween(cur.start, cur.end) + 1, lead = leadDays(new Date(cur.start + 'T12:00:00')), today = todayIso();      // the month's own days: it can start on any day
+  const dim = daysBetween(cur.start, cur.end) + 1, lead = leadDays(new Date(cur.start + 'T12:00:00')), t = todayIso();      // the month's own days: it can start on any day
   const max = Math.max(1, ...Object.values(by)), days = Object.keys(by).length;
   let cells: Html | string = '';
   for (let i = 0; i < lead; i++) cells = html`${cells}<span class="hm-cell pad"></span>`;
   for (let i = 0; i < dim; i++) {
-    const iso = addDays(cur.start, i), d = +iso.slice(8, 10), v = by[iso] || 0, fut = iso > today;
+    const iso = addDays(cur.start, i), d = +iso.slice(8, 10), v = by[iso] || 0, fut = iso > t;
     const pct = v ? Math.round(18 + 82 * Math.sqrt(v / max)) : 0;
     const priv = !!LS.get('privacy', false);
-    const tip = fmtDay(iso) + (v ? ' · ' + (priv ? t('hidden') : money(v)) + ' · ' + t(cnt[iso] === 1 ? '{count} purchase' : '{count} purchases', { count: cnt[iso] }) : fut ? '' : ' · ' + t('nothing spent'));
-    cells = html`${cells}<button type="button" class="hm-cell${fut ? ' fut' : ''}${iso === today ? ' today' : ''}"${v ? html` style="--p:${pct}%"` : ''} data-tip="${tip}"${v ? html` data-go="${txHref({ type: 'withdrawal' }, { start: iso, end: iso })}"` : ' disabled'}><span>${d}</span></button>`;
+    cells = html`${cells}<button type="button" class="hm-cell${fut ? ' fut' : ''}${iso === t ? ' today' : ''}"${v ? html` style="--p:${pct}%"` : ''} data-tip="${fmtDay(iso) + (v ? ' · ' + (priv ? 'hidden' : money(v)) + ' · ' + cnt[iso] + ' purchase' + (cnt[iso] === 1 ? '' : 's') : fut ? '' : ' · nothing spent')}"${v ? html` data-go="${txHref({ type: 'withdrawal' }, { start: iso, end: iso })}"` : ' disabled'}><span>${d}</span></button>`;
   }
   // Every month gets six week rows, so the calendar (and the card) is the same height whichever month it shows
   for (let i = lead + dim; i < 42; i++) cells = html`${cells}<span class="hm-cell pad"></span>`;
   const top = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
-  const passed = today >= cur.start && today <= cur.end ? daysBetween(cur.start, today) + 1 : today < cur.start ? 0 : dim, free = Math.max(0, passed - days);
-  return html`<section class="panel"><h2>Daily spending</h2><p class="lead">${t('Stronger colour means more spent · tap a day to see it')}</p><div class="hm"><div class="hm-dow">${htmlList(weekOrder(['D', 'L', 'M', 'X', 'J', 'V', 'S']).map(x => html`<span>${x}</span>`))}</div><div class="hm-grid">${cells}</div></div><div class="hm-foot"><span>${top ? html`${t('Biggest day:')} <strong class="num">${money0(top[1])}</strong> ${t('on {date}', { date: fmtDay(top[0]) })}` : t('No spending yet')}</span><span>${t('{count} no-spend days', { count: free })}</span></div></section>`;
+  const passed = t >= cur.start && t <= cur.end ? daysBetween(cur.start, t) + 1 : t < cur.start ? 0 : dim, free = Math.max(0, passed - days);
+  return html`<section class="panel"><h2>Daily spending</h2><p class="lead">Stronger colour means more spent · tap a day to see it</p><div class="hm"><div class="hm-dow">${htmlList(weekOrder(['S', 'M', 'T', 'W', 'T', 'F', 'S']).map(x => html`<span>${x}</span>`))}</div><div class="hm-grid">${cells}</div></div><div class="hm-foot"><span>${top ? html`Biggest day: <strong class="num">${money0(top[1])}</strong> on ${fmtDay(top[0])}` : 'No spending yet'}</span><span>${free} no-spend day${free === 1 ? '' : 's'}</span></div></section>`;
 }
 
 /* ---------- Money flow (income → spending categories + kept) ---------- */
@@ -312,9 +309,9 @@ type Flow = { left: FlowNode[], right: FlowNode[], inc: number, spend: number };
 function sankeyPanel(sources: ApiData[], income: number, cats: { name: string, amt: number, id?: string }[], cur: Period) {
   let left: FlowNode[] = sources.map(x => ({ name: x.name, v: absDiff(x), id: x.id ? String(x.id) : undefined })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
   if (!left.length && income > 0) left = [{ name: 'Income', v: income }];
-  if (left.length > 4) { const rest = left.slice(3); left = left.slice(0, 3); left.push({ name: t('{count} other sources', { count: rest.length }), v: rest.reduce((s, x) => s + x.v, 0) }); }
+  if (left.length > 4) { const rest = left.slice(3); left = left.slice(0, 3); left.push({ name: rest.length + ' other sources', v: rest.reduce((s, x) => s + x.v, 0) }); }
   let right: FlowNode[] = cats.map(c => ({ name: c.name, v: c.amt, id: c.id })).sort((a, b) => b.v - a.v);
-  if (right.length > 7) { const rest = right.slice(6); right = right.slice(0, 6); right.push({ name: t('{count} other categories', { count: rest.length }), v: rest.reduce((s, x) => s + x.v, 0) }); }
+  if (right.length > 7) { const rest = right.slice(6); right = right.slice(0, 6); right.push({ name: rest.length + ' other categories', v: rest.reduce((s, x) => s + x.v, 0) }); }
   const inc = left.reduce((s, x) => s + x.v, 0), spend = right.reduce((s, x) => s + x.v, 0);
   if (!inc && !spend) return '';
   left.forEach(x => { x.kind = 'in'; });
@@ -322,9 +319,7 @@ function sankeyPanel(sources: ApiData[], income: number, cats: { name: string, a
   if (spend > inc) left.push({ name: 'From savings', v: spend - inc, kind: 'save' });
   if (inc > spend) right.push({ name: 'Kept', v: inc - spend, kind: 'kept' });
   const d: Flow = { left, right, inc, spend };
-  const interaction = matchMedia?.('(hover: none)').matches ? t('tap a band to see its transactions') : t('hover a band for details');
-  const lead = cur.all ? t('Where all your income went · {interaction}', { interaction }) : t('Where {period}’s income went · {interaction}', { period: cur.label, interaction });
-  return html`<section class="panel chart sankey" data-sk="${JSON.stringify(d)}"><h2>Money flow</h2><p class="lead">${lead}</p><div class="sk-box">${skFirst(d)}</div>${skTable(d)}</section>`;
+  return html`<section class="panel chart sankey" data-sk="${JSON.stringify(d)}"><h2>Money flow</h2><p class="lead">Where ${cur.all ? 'all your' : cur.label + '’s'} income went · ${matchMedia?.('(hover: none)').matches ? 'tap a band to see its transactions' : 'hover a band for details'}</p><div class="sk-box">${skFirst(d)}</div>${skTable(d)}</section>`;
 }
 // The same figures as a table, for keyboard and screen-reader users (and anyone who prefers numbers): a native <details>
 function skTable(d: Flow) {

@@ -3148,7 +3148,7 @@
   "What you kept each month · {amount} a month on average": "Lo que conservaste cada mes · una media de {amount} al mes",
   "Based on how this method did on your last {count} months": "Según el resultado de este método en los últimos {count} meses",
   "likely {low}–{high}": "probablemente entre {low} y {high}",
-  "Only {count} past month{plural} to go on": "Solo hay {count} mes{plural} anterior{plural} como referencia",
+  "Only {count} past month{plural} to go on": "Solo hay {count} mes(es) anterior(es) como referencia",
   "early guess": "estimación inicial",
   "{amount} spent so far": "Has gastado {amount} hasta ahora",
   " · heading for about {amount}": " · previsión aproximada: {amount}",
@@ -3245,5 +3245,6 @@
   "Change category": "Cambiar categoría",
   "Change budget": "Cambiar presupuesto",
   "{count} other categories": "{count} categorías más",
-  "{count} other sources": "{count} fuentes más"
+  "{count} other sources": "{count} fuentes más",
+  "Interface language. Amounts and dates follow the format below.": "Idioma de la interfaz. Los importes y las fechas siguen el formato de abajo."
 }
