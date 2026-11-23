@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { tileOn, tileOpt } from '../app/src/features/dashboard';
 
 const save = (v: unknown) => localStorage.setItem('money.dash', JSON.stringify(v));
@@ -21,5 +22,18 @@ describe('which Overview cards are on', () => {
     expect(tileOn('pace')).toBe(true);
     expect(tileOn('bills')).toBe(false);
     expect(tileOn('payees')).toBe(false);
+  });
+});
+
+describe('Add cards offers every card that is off', () => {
+  it('marks habits and the scorecard "off" (not empty) so Customize lists them', () => {
+    const src = readFileSync('app/src/pages/overview.ts', 'utf8');
+    expect(src).toMatch(/\['scorecard', !scorecardShown\(\) \? \(!tileOn\('scorecard'\) && scorecardOn\(\) \? 'off' : ''\)/);
+    expect(src).toMatch(/\['habits', !habitsShown\(\) \? \(!tileOn\('habits'\) && habitsOn\(\) \? 'off' : ''\)/);
+  });
+  it('the scorecard is off by default but can be added', () => {
+    expect(tileOn('scorecard')).toBe(false);
+    save({ v: 3, order: [], hidden: [], shown: ['scorecard'] });
+    expect(tileOn('scorecard')).toBe(true);
   });
 });

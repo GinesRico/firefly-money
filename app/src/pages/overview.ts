@@ -140,8 +140,8 @@ VIEWS[''] = async (r, paint) => {
       ['pace', monthOnly ? idle('pace') : wait('pace') ?? pacePanel(cur, prev, arr(dayTx).map(normGroup), arr(prevTx).map(normGroup))],
       ['savings', html`<section class="panel chart">${savingsRate(trend)}</section>`],
       ['subs', !tileOn('subs') ? 'off' : wait('subs') ?? subAuditTile(subAudit && !Array.isArray(subAudit) ? subAudit : null)],
-      ['habits', !habitsShown() ? '' : wait('habits') ?? habitsTile(habTx, arr(bills), arr(budgets), limits, future, nw, piggies, t0)],
-      ['scorecard', !scorecardShown() ? '' : wait('scorecard') ?? scorecardTile(scoreData as Score | null)],
+      ['habits', !habitsShown() ? (!tileOn('habits') && habitsOn() ? 'off' : '') : wait('habits') ?? habitsTile(habTx, arr(bills), arr(budgets), limits, future, nw, piggies, t0)],
+      ['scorecard', !scorecardShown() ? (!tileOn('scorecard') && scorecardOn() ? 'off' : '') : wait('scorecard') ?? scorecardTile(scoreData as Score | null)],
       ['trends', wait('trends') ?? trendsPanel(months.map(mo => mo.short), monthCats || [], months)],
     ];
     W.forEach(w => { if (w[1] && !tileOn(w[0])) w[1] = 'off'; });     // off: not drawn, only offered under Add cards
