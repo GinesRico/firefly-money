@@ -35,7 +35,7 @@ export function shareSvg(score: Score): string {
     text(SHARE_W - M - 151, y + 63, 28, 600, '#ffffff', g.rating, 'middle');
     y += 124;
   }
-  y += 14;
+  y += 44;
   const line = (label: string, name: string) => { text(M, y, 30, 500, '#6b6b6b', label); y += 48; text(M, y, 44, 700, '#1c1c1c', name); y += 70; };
   if (score.improved) line('Biggest improvement', score.improved.name);
   if (score.best) line('Best habit', score.best.name);
