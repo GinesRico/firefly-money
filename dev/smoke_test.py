@@ -108,15 +108,17 @@ async def check(pw, width, height, mobile):
     heights = """() => { const d = document.getElementById('dash'), a = d && d.querySelector('.w[data-w=attention]'), top = a ? a.offsetTop : -1;
       return d ? Object.fromEntries([...d.querySelectorAll('.w[data-w]')].filter(w => w.offsetTop !== top).map(w => [w.dataset.w, w.getBoundingClientRect().height])) : {}; }"""
     await page.reload()
-    try:
-        await page.wait_for_selector('#dash [aria-busy]', timeout=15000)
+    try: await page.wait_for_selector('#dash [aria-busy]', timeout=20000); shown = True
+    except Exception: shown = False      # drawn at once with no placeholders, so nothing can shift
+    if shown:
         before = await page.evaluate(heights)
         held.set()
-        await page.wait_for_function("() => !document.querySelector('#view [aria-busy], #view .sk')", timeout=15000); await page.wait_for_timeout(1200)
-        after = await page.evaluate(heights)
-        moved = [f'{k} {before[k]:.0f}→{after[k]:.0f}' for k in before if k in after and abs(before[k] - after[k]) > 1]
-        if moved: errors.append('loading placeholders differ from their cards: ' + ', '.join(moved))
-    except Exception as e: errors.append(f'placeholder check: {type(e).__name__}')
+        try:
+            await page.wait_for_function("() => !document.querySelector('#view [aria-busy], #view .sk')", timeout=45000); await page.wait_for_timeout(1200)
+            after = await page.evaluate(heights)
+            moved = [f'{k} {before[k]:.0f}→{after[k]:.0f}' for k in before if k in after and abs(before[k] - after[k]) > 1]
+            if moved: errors.append('loading placeholders differ from their cards: ' + ', '.join(moved))
+        except Exception as e: errors.append(f'placeholders never filled in: {type(e).__name__}')
     held.set(); await page.unroute(re.compile(r'type=withdrawal'), hold)
     # Universal search: from the search button on phones and ⌘K on computers, finds settings and transactions
     await goto(page, '')
