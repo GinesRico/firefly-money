@@ -157,16 +157,17 @@ VIEWS[''] = async (r, paint) => {
     if (all || r.at || !paint.live || vy !== ny || vm !== nm || !tileOn('attention')) return;
     quiet(() => tok0 === S.tok).then(ok => ok ? loadUnusual() : null).then(u => {
       if (!u || tok0 !== S.tok || !u.flags.length) return;
-      unusual = u; fillIn(build(lastSlow));
+      unusual = u; fillIn(build(lastSlow)); setTimeout(rememberHeights, 600);
     }).catch(() => {});
   };
-  if (quick || !paint.live) { paint(build(quick || await slowP)); watch(); return; }
+  if (quick || !paint.live) { paint(build(quick || await slowP)); watch(); setTimeout(rememberHeights, 600); return; }
   const first = build(null), tok = S.tok;
   paint(first);
   const full = build(await slowP);
   if (tok !== S.tok) return;
   if (S.pageHtml !== first || !fillIn(full)) paint(full);
   watch();
+  setTimeout(rememberHeights, 600);
 };
 // Replace only the placeholders and the cards that changed, so the numbers already on screen don't redraw.
 function fillIn(markup: Html) {
@@ -203,9 +204,24 @@ function habitsTile(buys: Buy[] | null | undefined, bills: ApiData[], budgets: A
 function quietPanel(k: string, why: string) {
   return html`<section class="panel quiet"><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">${why}</p></section>`;
 }
+// A card's placeholder is as tall as the card was the last time it loaded here (heights only, never any data), so nothing
+// shifts when the numbers arrive. The first time at a new width it falls back to a typical height.
+const SK_FALLBACK: Record<string, number> = { insights: 120, safe: 70, loans: 90, heatmap: 230, habits: 260, scorecard: 150, scSavings: 150, scConsistency: 150, scBills: 150, scCushion: 150, scTidiness: 150, scDebt: 150, activity: 155, flow: 240, payees: 200, networth: 230, pace: 230, trends: 220 };
+const skKey = (k: string) => [k, (el('view') || {}).clientWidth || innerWidth, document.documentElement.getAttribute('data-theme') || '', document.documentElement.lang].join('|');
+const skHeights = (): Record<string, number> => { try { return JSON.parse(localStorage.getItem('money.skh') || '{}') || {}; } catch (e) { return {}; } };
+export function rememberHeights() {
+  const d = document.getElementById('dash');
+  if (!d || S.dashEdit || d.querySelector('.sk, [aria-busy]')) return;      // only once every card has arrived
+  const h = skHeights();
+  d.querySelectorAll<HTMLElement>(':scope .w[data-w]').forEach(w => { const r = w.getBoundingClientRect().height; if (r > 0) h[skKey(w.dataset.w!)] = Math.round(r * 10) / 10; });
+  const keys = Object.keys(h); if (keys.length > 300) keys.slice(0, keys.length - 300).forEach(x => delete h[x]);
+  try { localStorage.setItem('money.skh', JSON.stringify(h)); } catch (e) { /* storage blocked */ }
+}
+// The odd-charges row arrives after the page, so the card keeps the room it had last time rather than growing when it lands
+const keepHeight = (k: string) => { const h = skHeights()[skKey(k)]; return h ? html` style="min-height:${h}px"` : ''; };
 function skeletonPanel(k: string) {
-  const h = ({ insights: 120, safe: 70, loans: 90, heatmap: 230, habits: 260, scorecard: 150, scSavings: 150, scConsistency: 150, scBills: 150, scCushion: 150, scTidiness: 150, scDebt: 150, activity: 155, flow: 240, payees: 200, networth: 230, pace: 230, trends: 220 } as Record<string, number>)[k] || 120;
-  return html`<section class="panel" aria-busy="true"><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">&nbsp;</p><div class="sk" style="height:${h}px"></div></section>`;
+  const known = skHeights()[skKey(k)];
+  return html`<section class="panel sk-panel" aria-busy="true"${known ? html` style="height:${known}px;min-height:0;flex:1 0 ${known}px"` : ''}><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">&nbsp;</p><div class="sk"${known ? '' : html` style="height:${SK_FALLBACK[k] || 120}px"`}></div></section>`;
 }
 function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { uncat: ApiData, uncatQ: string, bills: ApiData[], budgets: ApiData[], limits: Record<string, BudgetLimit>, future: boolean, unusual?: Unusual | null }) {
   const items: Html[] = [];
@@ -236,15 +252,15 @@ function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { un
   items.sort((a, b) => rank(a) - rank(b));
   // Two rows at most, so the card is the same height from month to month; the rest open from the heading
   const more = items.length - 2;
-  return html`<section class="panel attention"><div class="panel-head"><h2>Needs attention</h2>${more > 0 ? html`<button type="button" class="link" data-onclick="App.attMore(this)">${more} more</button>` : ''}</div><p class="lead">Quick things to tidy up</p><div class="list">${htmlList(items.slice(0, 2))}${more > 0 ? html`<div class="att-more" hidden>${htmlList(items.slice(2))}</div>` : ''}</div></section>`;
+  return html`<section class="panel attention"${keepHeight('attention')}><div class="panel-head"><h2>Needs attention</h2>${more > 0 ? html`<button type="button" class="link" data-onclick="App.attMore(this)">${more} more</button>` : ''}</div><p class="lead">Quick things to tidy up</p><div class="list">${htmlList(items.slice(0, 2))}${more > 0 ? html`<div class="att-more" hidden>${htmlList(items.slice(2))}</div>` : ''}</div></section>`;
 }
 // The bento's number tiles: net worth with its trend, what was spent against last month, what came in and was kept
 // until: the end of a past month being looked at, so the change and the line stop there like the big number does
 function networthTile(netWorth: number, pts: NetWorthPoint[] | null | undefined, until = '') {
   if (pts && until) pts = pts.filter(p => p.date <= until);
   const d = pts && pts.length > 1 ? netWorth - pts[0].net : null;
-  const line = pts === undefined ? html`<div class="sk" style="height:56px"></div>` : pts && pts.length > 1 ? nwLine(pts, d! >= 0 ? 'var(--good)' : 'var(--spend)') : '';
-  return html`<section class="panel stat nw"><div class="panel-head"><a class="eyebrow nw-tl" href="#/timeline" title="Open the timeline">Net worth<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>${nwGear()}</div>${nwOptsForm()}<div class="big num go-num${netWorth < 0 ? ' negative' : ''}" data-count="${netWorth}" data-go="#/accounts" title="See your accounts">${money0(netWorth)}</div><div class="sub-s">${d === null ? html`&nbsp;` : html`<span class="${d >= 0 ? 'down' : 'up'}">${d >= 0 ? '▲' : '▼'} ${money0(Math.abs(d))}</span> over ${nwWords()}`}</div>${line}</section>`;
+  const line = pts === undefined ? html`<div class="sk"></div>` : pts && pts.length > 1 ? nwLine(pts, d! >= 0 ? 'var(--good)' : 'var(--spend)') : '';
+  return html`<section class="panel stat nw"${pts === undefined ? keepHeight('networth') : ''}><div class="panel-head"><a class="eyebrow nw-tl" href="#/timeline" title="Open the timeline">Net worth<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>${nwGear()}</div>${nwOptsForm()}<div class="big num go-num${netWorth < 0 ? ' negative' : ''}" data-count="${netWorth}" data-go="#/accounts" title="See your accounts">${money0(netWorth)}</div><div class="sub-s">${d === null ? html`&nbsp;` : html`<span class="${d >= 0 ? 'down' : 'up'}">${d >= 0 ? '▲' : '▼'} ${money0(Math.abs(d))}</span> over ${nwWords()}`}</div>${line}</section>`;
 }
 // Last month from its start up to the same day of the month as today (the same number of days in, for a custom month start)
 export function samePoint(cur: { start: string }, prev: { start: string, end: string }, today: string) {

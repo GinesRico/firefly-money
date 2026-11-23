@@ -96,6 +96,26 @@ async def check(pw, width, height, mobile):
             const s = d.querySelector('svg').getBoundingClientRect(), r = document.createRange(); r.selectNodeContents(m); const t = r.getBoundingClientRect();
             return Math.max(Math.abs(t.left + t.width / 2 - s.left - s.width / 2), Math.abs(t.top + t.height / 2 - s.top - s.height / 2)); }).reduce((a, b) => Math.max(a, b), 0)""")
         if off > 1: errors.append(f'#{route}: the text in a donut or ring is {off:.1f}px off its centre')
+    # Loading placeholders are as tall as the cards they stand in for: hold the slow data back, note every card's height, let it
+    # arrive, and compare (the Overview was just visited, so the heights are remembered)
+    await goto(page, ''); await page.wait_for_timeout(1500)
+    held = asyncio.Event()
+    async def hold(route):
+        await held.wait(); await route.continue_()
+    await page.route(re.compile(r'type=withdrawal'), hold)
+    heights = """() => { const d = document.getElementById('dash'), a = d && d.querySelector('.w[data-w=attention]'), top = a ? a.offsetTop : -1;
+      return d ? Object.fromEntries([...d.querySelectorAll('.w[data-w]')].filter(w => w.offsetTop !== top).map(w => [w.dataset.w, w.getBoundingClientRect().height])) : {}; }"""
+    await page.reload()
+    try:
+        await page.wait_for_selector('#dash [aria-busy]', timeout=15000)
+        before = await page.evaluate(heights)
+        held.set()
+        await page.wait_for_function("() => !document.querySelector('#view [aria-busy], #view .sk')", timeout=15000); await page.wait_for_timeout(1200)
+        after = await page.evaluate(heights)
+        moved = [f'{k} {before[k]:.0f}→{after[k]:.0f}' for k in before if k in after and abs(before[k] - after[k]) > 1]
+        if moved: errors.append('loading placeholders differ from their cards: ' + ', '.join(moved))
+    except Exception as e: errors.append(f'placeholder check: {type(e).__name__}')
+    held.set(); await page.unroute(re.compile(r'type=withdrawal'), hold)
     # Universal search: from the search button on phones and ⌘K on computers, finds settings and transactions
     await goto(page, '')
     if mobile: await page.click('#searchBtn')
