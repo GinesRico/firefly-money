@@ -5,7 +5,7 @@ import { closeDrawer, toast, vt } from './dom';
 import { lists } from './lists';
 import { hashWith, route } from './router';
 import { applyCustom } from './themevars';
-import { THEMES, themeButtons } from './themepick';
+import { THEMES, themeButtons, rememberAccent } from './themepick';
 import { blankSplit, collectTx, newTx, renderTxForm } from '../features/txform';
 
 /* ================= Login / boot ================= */
@@ -30,6 +30,7 @@ function drawThemes() {
 }
 export function setTheme(k: string) {
   if (k === currentTheme()) return;
+  rememberAccent(currentTheme()); rememberAccent(k);
   const apply = () => {
     if (k === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', k);
     applyCustom(k);
