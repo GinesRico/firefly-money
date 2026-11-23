@@ -171,7 +171,7 @@ describe('share picture', () => {
 
 describe('placement', () => {
   const s = scorecard(base());
-  it('has a page of its own and a separate Overview card, both switchable in Settings', () => {
+  it('has a page of its own and a separate Overview card, both switchable in Settings; the card is added from Customize', () => {
     expect(scorecardOn()).toBe(true);
     expect(scorecardPageOn()).toBe(true);
     localStorage.setItem('money.scorecard', 'false'); localStorage.setItem('money.scorecardPage', 'false');
@@ -181,7 +181,8 @@ describe('placement', () => {
     expect(settings).toMatch(/data-onchange="App.toggleScorecardPage\(this.checked\)"/);
     expect(dom).toContain("['scorecard', 'Money scorecard', 'scorecard']");
     expect(dom).toContain("r === 'scorecard'");
-    expect(dash).toMatch(/DASH_DEFAULT = \[[^\]]*'scorecard'/);
+    expect(dash).not.toMatch(/DASH_DEFAULT = \[[^\]]*'scorecard'/);                    // offered under Add cards, not forced on
+    expect(dash).toContain("scorecard: 'Your money personality and six plain-word ratings'");
     expect(dash).toMatch(/habits: 'Habits', scorecard: 'Money scorecard'/);            // its own tile, not part of Habits
   });
   it('draws nothing from an old copy when Firefly is down', () => {
