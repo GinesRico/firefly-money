@@ -1,13 +1,12 @@
-// The demo's Overview, top to bottom (six units across on a big screen): Activity (all history) and the insight banners;
-// Net worth (5Y), Earned, Spent, Needs attention (wide), Safe to spend; Money personality, then the six ratings; Coming up, Cash and Credit cards; Daily spending,
-// Budgets, Loans, Top payees; Money flow, Where it went, Income sources; Savings goals, Spending pace, Savings rate;
-// the Money personality (wide) and the six rating cards in a row; then Cash flow and Recent transactions full width. Real installs keep the app's own defaults.
+// The demo's Overview, top to bottom (six units across on a big screen), as in the reference screen recording: Activity (all history) and the insight banners;
+// Money personality, Net worth, Earned, Spent, Heads up (Safe to spend) and Needs attention in one row; Budgets full width; Cash, Credit cards, Coming up;
+// Where it went, Top payees, Income sources; Category trends, Loans, Savings goals; Spending pace, Money flow, Cash flow; Recent transactions full width;
+// then Daily spending, Subscriptions and Savings rate. No rating cards. Real installs keep the app's own defaults.
 export const DEMO_DASH = {
   v: 3, units: 6,
-  order: ['activity', 'insights', 'networth', 'earned', 'spent', 'attention', 'safe', 'scorecard', 'scSavings', 'scConsistency', 'scBills', 'scCushion', 'scTidiness', 'scDebt', 'bills', 'cash', 'cards', 'heatmap', 'budgets', 'loans', 'payees',
-    'flow', 'spending', 'income', 'goals', 'pace', 'savings', 'cashflow', 'recent'],
-  shown: ['scorecard', 'scSavings', 'scConsistency', 'scBills', 'scCushion', 'scTidiness', 'scDebt', 'cash', 'cards', 'heatmap', 'loans', 'payees', 'flow', 'income', 'goals', 'pace', 'savings', 'recent'], hidden: [] as string[],
-  size: { activity: 'l', insights: 'l', networth: 's', earned: 's', spent: 's', attention: 'm', safe: 's', scorecard: 'l', scSavings: 's', scConsistency: 's', scBills: 's', scCushion: 's', scTidiness: 's', scDebt: 's', bills: 'm', cash: 'm', cards: 'm', heatmap: 'm', budgets: 's', loans: 's',
-    payees: 'm', flow: 'm', spending: 'm', income: 'm', goals: 'm', pace: 'm', savings: 'm', cashflow: 'l', recent: 'l' },
+  order: ['activity', 'insights', 'scorecard', 'networth', 'earned', 'spent', 'safe', 'attention', 'budgets', 'cash', 'cards', 'bills', 'spending', 'payees', 'income', 'trends', 'loans', 'goals', 'pace', 'flow', 'cashflow', 'recent', 'heatmap', 'subs', 'savings'],
+  shown: ['scorecard', 'cash', 'cards', 'heatmap', 'loans', 'payees', 'flow', 'income', 'goals', 'pace', 'savings', 'recent', 'trends', 'subs'], hidden: [] as string[],
+  size: { activity: 'l', insights: 'l', scorecard: 's', networth: 's', earned: 's', spent: 's', safe: 's', attention: 's', budgets: 'l', cash: 'm', cards: 'm', bills: 'm', spending: 'm', payees: 'm', income: 'm', trends: 'm', loans: 'm', goals: 'm',
+    pace: 'm', flow: 'm', cashflow: 'm', recent: 'l', heatmap: 's', subs: 's', savings: 'm' },
   opts: { activity: { range: 'all' } },
 };
