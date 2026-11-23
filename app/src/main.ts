@@ -51,6 +51,7 @@ import './pages/recurring';
 import './pages/reports';
 import './pages/recap';
 import './pages/year';
+import './pages/scorecard';
 import './pages/timeline';
 import './pages/map';
 import './pages/places';
