@@ -154,6 +154,28 @@ function scenePicker(c: Custom) {
   const photo = LS.get(PHOTO_KEY, '');
   return html`<div class="themes scenes">${btns}${photo ? html`<button type="button" title="Your photo" aria-label="Your photo" class="${cur === 'photo' ? 'on' : ''}" style="background:center/cover url('${photo}')" data-onclick="App.themeScene('photo')"></button>` : ''}<label class="btn small">${photo ? 'New photo…' : 'Your photo…'}<input type="file" accept="image/*" hidden data-onchange="App.themePhoto(this)"></label></div>`;
 }
+// Interstellar: where the sun is (your place), and the weather in the sky. Both stay on this device.
+const SKY_WX: [string, string][] = [['off', 'Off'], ['live', 'Live (needs your location)'], ['clear', 'Preview: clear'], ['cloudy', 'Preview: cloudy'], ['fog', 'Preview: fog'], ['rain', 'Preview: rain'], ['snow', 'Preview: snow'], ['storm', 'Preview: storm']];
+function skyRows() {
+  const loc = LS.get('skyLoc', null), wx = LS.get('skyWx', 'off');
+  return html`
+    ${row('Your location', 'Real sunrise and sunset where you are. Kept on this device, rounded to about 10 km.', html`<input ${SWITCH} aria-label="Use my location"${loc ? ' checked' : ''} data-onchange="App.skyLocation(this.checked)">`)}
+    ${row('Weather', 'Live asks Open-Meteo through this server, not from your browser. Previews show an effect now.', html`<select aria-label="Weather in the sky" data-onchange="App.skyWeather(this.value)">${htmlList(SKY_WX.map(([v, n]) => opt(v, n, wx)))}</select>`)}`;
+}
+const skyChanged = () => window.dispatchEvent(new Event('skyprefs'));
+function skyLocation(on: boolean) {
+  if (!on) { LS.set('skyLoc', null); skyChanged(); drawThemeCustom(); return; }
+  if (!navigator.geolocation) { toast('This browser can’t share its location'); drawThemeCustom(); return; }
+  navigator.geolocation.getCurrentPosition(p => {
+    LS.set('skyLoc', { lat: Math.round(p.coords.latitude * 10) / 10, lon: Math.round(p.coords.longitude * 10) / 10 });
+    skyChanged(); drawThemeCustom(); buzz(8);
+  }, () => { toast('Location is off for this site. Allow it in your browser settings.'); drawThemeCustom(); }, { maximumAge: 36e5, timeout: 15000 });
+}
+function skyWeather(v: string) {
+  if (!SKY_WX.some(x => x[0] === v)) return;
+  if (v === 'live' && !LS.get('skyLoc', null)) toast('Turn on Your location for live weather');
+  LS.set('skyWx', v); skyChanged();
+}
 function customizer() {
   const t = curTheme();
   if (t === 'auto') return html`<p class="sub-s" style="margin:4px 0 0">Calm switches between light and dark with your system, so it can’t take your own colors. Pick Calm light, Calm dark or another theme to customize it.</p>`;
@@ -163,6 +185,7 @@ function customizer() {
     ${row('Background', html`Behind everything<span class="up tc-warn"${lowContrast() ? '' : ' hidden'}>. Text may be hard to read on this color.</span>`,
       html`<input type="color" aria-label="Background color" value="${shown('--bg')}" data-oninput="App.themeVar('bg', this.value)">`)}
     ${row('Accent', 'Buttons, switches and highlights', html`<input type="color" aria-label="Accent color" value="${shown('--accent')}" data-oninput="App.themeVar('accent', this.value)">`)}
+    ${t === 'interstellar' ? skyRows() : ''}
     ${t === 'frosted' ? row('Scene', 'What’s behind the glass', scenePicker(c)) : ''}
     ${t === 'glass' || t === 'frosted' || t === 'spatial' || t === 'matte' || t === 'polar' ? html`
     ${row(t === 'glass' ? 'Light' : 'Room', t === 'glass' ? 'The three colors glowing behind the glass' : 'The three colors of the room behind the glass', html`<input type="color" aria-label="First light color" value="${shown('--glow1')}" data-oninput="App.themeVar('glow1', this.value)"><input type="color" aria-label="Second light color" value="${shown('--glow2')}" data-oninput="App.themeVar('glow2', this.value)"><input type="color" aria-label="Third light color" value="${shown('--glow3')}" data-oninput="App.themeVar('glow3', this.value)">`)}
@@ -453,6 +476,8 @@ const methods = {
   resetThemeCustom,
   themeScene,
   themePhoto,
+  skyLocation,
+  skyWeather,
   drawThemeCustom,
 };
 Object.assign(App, methods);

@@ -2453,35 +2453,74 @@ html[data-theme="polar"] .opill { background: var(--accent); }
 html[data-theme="polar"] :is(.panel, .daycards tbody.day, .daycards > .center-empty, .kpi, .insight, .extra, .split, .dash-bar) { -webkit-backdrop-filter: none; backdrop-filter: none; }
 html[data-theme="sakura"] .panel,html[data-theme="mint"] .panel,html[data-theme="lavender"] .panel,html[data-theme="peach"] .panel,html[data-theme="sky"] .panel,html[data-theme="butter"] .panel { box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 6%, transparent), 0 8px 24px color-mix(in srgb, var(--accent) 6%, transparent); }
 
-/* ---------- Theme: Interstellar (black page, warm amber accent, muted blue-grey; a sky behind everything that follows the clock: sun and moon on their arcs, dawn and dusk, stars at night). The colours come from src/core/sky.ts as --sky-* / --sun-* / --moon-* once a minute; nothing animates, so reduced motion changes nothing. The sun is a dark disc with an amber rim, so text over it still reads. ---------- */
-html[data-theme="interstellar"] { --bg: #05070b; --panel: rgba(9, 12, 18, .9); --line: rgba(190, 204, 224, .14); --text: #efe8da; --muted: #c2c9d3; --faint: rgba(190, 204, 224, .07);
+/* ---------- Theme: Interstellar (black page, warm amber accent, muted blue-grey; a live scene behind everything: sun and moon on their arcs by your time and place, twinkling stars, drifting clouds, birds by day, and real or previewed weather). src/core/sky.ts sets the --sky-* / --sun-* / --moon-* / --cloud-* variables once a minute and builds #sky; CSS draws it. Cards are see-through dark glass, so the scene shows around and through them. Reduced motion turns every animation off (the global rule) and leaves the scene still. ---------- */
+html[data-theme="interstellar"] { --bg: #05070b; --panel: rgba(8, 12, 20, .7); --line: rgba(190, 204, 224, .14); --text: #efe8da; --muted: #d0d7e0; --faint: rgba(190, 204, 224, .07);
   --good: #8fd1a9; --spend: #f0a07c; --income: #9ab8d8; --warn: #e8bd6a; --good-t: #8fd1a9; --spend-t: #f0a07c; --warn-t: #e8bd6a;
   --accent: #e8a23c; --on-accent: #1a1105; --ag: #e8a23c; --hero-grad: linear-gradient(90deg, #f3c777, #e8a23c); --shadow: 0 18px 44px rgba(0, 0, 0, .55); --radius: 14px; color-scheme: dark;
-  --sky-top: #04060a; --sky-mid: #080c14; --sky-bot: #0e131c; --sun-x: 94; --sun-y: 74; --sun-o: 0; --sun-c: #e8a23c; --moon-x: 50; --moon-y: 20; --moon-o: 1; --star-o: 1;
+  --sky-top: #04060a; --sky-mid: #080c14; --sky-bot: #0e131c; --sun-x: 94; --sun-y: 36; --sun-o: 0; --sun-c: #ffe9a8; --moon-x: 50; --moon-y: 11; --moon-o: 1; --star-o: 1; --bird-o: 0; --cloud-o: .16; --cloud-c: #55627a;
   background: var(--sky-bot); }
 html[data-theme="interstellar"] body { background: transparent; }
-html[data-theme="interstellar"] body::after { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+html[data-theme="interstellar"] #sky { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; contain: strict;
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-mid) 55%, var(--sky-bot)); }
+html[data-theme="interstellar"] #sky > * { position: absolute; display: block; }
+html[data-theme="interstellar"] #sky :is(.sk-sun, .sk-moon) { left: 0; top: 0; border-radius: 50%; transition: transform 60s linear, opacity 5s linear; will-change: transform; }
+html[data-theme="interstellar"] .sk-sun { width: 78px; height: 78px; opacity: var(--sun-o); transform: translate(calc(var(--sun-x) * 1vw - 50%), calc(var(--sun-y) * 1vh - 50%));
+  background: radial-gradient(circle, #fffbe8 0, #fff1b8 38%, var(--sun-c) 72%, color-mix(in srgb, var(--sun-c) 60%, #ff6a00) 100%);
+  box-shadow: 0 0 36px 14px color-mix(in srgb, var(--sun-c) 70%, transparent), 0 0 120px 60px color-mix(in srgb, var(--sun-c) 30%, transparent), 0 0 260px 120px color-mix(in srgb, var(--sun-c) 12%, transparent); }
+html[data-theme="interstellar"] .sk-moon { width: 58px; height: 58px; opacity: var(--moon-o); transform: translate(calc(var(--moon-x) * 1vw - 50%), calc(var(--moon-y) * 1vh - 50%));
+  background: radial-gradient(circle at 36% 34%, #fbfdff 0, #e3e9f2 45%, #aeb9ca 100%);
+  box-shadow: inset -9px -6px 14px rgba(40, 52, 76, .55), 0 0 22px 6px rgba(190, 210, 240, .35), 0 0 90px 30px rgba(150, 175, 215, .16); }
+html[data-theme="interstellar"] .sk-moon::before { content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle 7px at 62% 30%, rgba(110, 125, 150, .45), transparent), radial-gradient(circle 5px at 34% 62%, rgba(110, 125, 150, .4), transparent), radial-gradient(circle 4px at 66% 68%, rgba(110, 125, 150, .35), transparent); }
+html[data-theme="interstellar"] .sk-stars { inset: 0 0 30% 0; opacity: var(--star-o); animation: sk-twinkle 4.5s ease-in-out infinite alternate;
   background:
-    radial-gradient(circle 20px at calc(var(--moon-x) * 1%) calc(var(--moon-y) * 1%), color-mix(in srgb, #3f4b5d calc(var(--moon-o) * 100%), transparent) 0 17px, color-mix(in srgb, #8d9db3 calc(var(--moon-o) * 70%), transparent) 18px 19px, transparent 20px),
-    radial-gradient(circle 150px at calc(var(--moon-x) * 1%) calc(var(--moon-y) * 1%), color-mix(in srgb, #8d9db3 calc(var(--moon-o) * 9%), transparent), transparent),
-    radial-gradient(circle 32px at calc(var(--sun-x) * 1%) calc(var(--sun-y) * 1%), color-mix(in srgb, #0b0906 calc(var(--sun-o) * 100%), transparent) 0 26px, color-mix(in srgb, var(--sun-c) calc(var(--sun-o) * 80%), transparent) 27px 30px, transparent 31px),
-    radial-gradient(circle 240px at calc(var(--sun-x) * 1%) calc(var(--sun-y) * 1%), color-mix(in srgb, var(--sun-c) calc(var(--sun-o) * 8%), transparent), transparent),
-    radial-gradient(1.2px 1.2px at 8% 14%, color-mix(in srgb, #fff calc(var(--star-o) * 70%), transparent), transparent),
-    radial-gradient(1px 1px at 17% 52%, color-mix(in srgb, #fff calc(var(--star-o) * 55%), transparent), transparent),
-    radial-gradient(1.2px 1.2px at 26% 27%, color-mix(in srgb, #fff calc(var(--star-o) * 65%), transparent), transparent),
-    radial-gradient(1px 1px at 35% 8%, color-mix(in srgb, #fff calc(var(--star-o) * 60%), transparent), transparent),
-    radial-gradient(1.2px 1.2px at 44% 44%, color-mix(in srgb, #fff calc(var(--star-o) * 50%), transparent), transparent),
-    radial-gradient(1px 1px at 58% 18%, color-mix(in srgb, #fff calc(var(--star-o) * 65%), transparent), transparent),
-    radial-gradient(1.2px 1.2px at 66% 60%, color-mix(in srgb, #fff calc(var(--star-o) * 50%), transparent), transparent),
-    radial-gradient(1px 1px at 74% 33%, color-mix(in srgb, #fff calc(var(--star-o) * 60%), transparent), transparent),
-    radial-gradient(1.2px 1.2px at 83% 10%, color-mix(in srgb, #fff calc(var(--star-o) * 70%), transparent), transparent),
-    radial-gradient(1px 1px at 91% 48%, color-mix(in srgb, #fff calc(var(--star-o) * 55%), transparent), transparent),
-    radial-gradient(1px 1px at 96% 24%, color-mix(in srgb, #fff calc(var(--star-o) * 60%), transparent), transparent),
-    linear-gradient(180deg, var(--sky-top), var(--sky-mid) 55%, var(--sky-bot)); }
+    radial-gradient(1.6px 1.6px at 8% 14%, #fff, transparent), radial-gradient(1.2px 1.2px at 17% 52%, #fff, transparent), radial-gradient(1.6px 1.6px at 26% 27%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 35% 8%, #fff, transparent), radial-gradient(1.6px 1.6px at 44% 44%, #fff, transparent), radial-gradient(1.2px 1.2px at 58% 18%, #fff, transparent),
+    radial-gradient(1.6px 1.6px at 66% 60%, #fff, transparent), radial-gradient(1.2px 1.2px at 74% 33%, #fff, transparent), radial-gradient(1.6px 1.6px at 83% 10%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 91% 48%, #fff, transparent), radial-gradient(1.6px 1.6px at 96% 24%, #fff, transparent), radial-gradient(1.2px 1.2px at 3% 38%, #fff, transparent); }
+html[data-theme="interstellar"] .sk-stars.b { animation-duration: 3.2s; animation-direction: alternate-reverse;
+  background:
+    radial-gradient(1px 1px at 12% 30%, #cfe0ff, transparent), radial-gradient(1px 1px at 22% 6%, #fff, transparent), radial-gradient(1.4px 1.4px at 31% 62%, #ffe9c8, transparent),
+    radial-gradient(1px 1px at 40% 24%, #fff, transparent), radial-gradient(1.4px 1.4px at 52% 56%, #cfe0ff, transparent), radial-gradient(1px 1px at 62% 8%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 70% 46%, #ffe9c8, transparent), radial-gradient(1px 1px at 79% 22%, #fff, transparent), radial-gradient(1.4px 1.4px at 87% 64%, #cfe0ff, transparent), radial-gradient(1px 1px at 94% 38%, #fff, transparent); }
+@keyframes sk-twinkle { from { opacity: calc(var(--star-o) * .45); } to { opacity: var(--star-o); } }
+html[data-theme="interstellar"] .sk-shoot { top: 12%; left: 70%; width: 120px; height: 2px; opacity: 0; transform: rotate(28deg);
+  background: linear-gradient(90deg, transparent, #fff); animation: sk-shoot 19s linear infinite 4s; }
+@keyframes sk-shoot { 0%, 94% { opacity: 0; transform: translate(0, 0) rotate(28deg); } 95% { opacity: var(--star-o); } 100% { opacity: 0; transform: translate(-340px, 190px) rotate(28deg); } }
+html[data-theme="interstellar"] .sk-cloud { left: -40vw; height: 80px; opacity: var(--cloud-o); animation: sk-drift 200s linear infinite;
+  background: radial-gradient(ellipse 34% 52% at 24% 62%, var(--cloud-c), transparent 72%), radial-gradient(ellipse 30% 70% at 50% 46%, var(--cloud-c), transparent 72%), radial-gradient(ellipse 36% 50% at 76% 62%, var(--cloud-c), transparent 72%); }
+html[data-theme="interstellar"] .sk-cloud.c1 { top: 12%; width: 380px; animation-delay: -30s; }
+html[data-theme="interstellar"] .sk-cloud.c2 { top: 26%; width: 300px; height: 64px; animation-duration: 260s; animation-delay: -150s; }
+html[data-theme="interstellar"] .sk-cloud.c3 { top: 40%; width: 440px; height: 92px; animation-duration: 320s; animation-delay: -90s; }
+html[data-theme="interstellar"] .sk-cloud.c4 { top: 6%; width: 260px; height: 56px; animation-duration: 240s; animation-delay: -210s; }
+@keyframes sk-drift { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 100vw + 440px)); } }
+html[data-theme="interstellar"] .sk-bird { left: -60px; width: 26px; height: 11px; fill: none; stroke: #0a1424; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: var(--bird-o); animation: sk-fly 46s linear infinite; }
+html[data-theme="interstellar"] .sk-bird path { transform-origin: 50% 80%; animation: sk-flap .7s ease-in-out infinite alternate; }
+html[data-theme="interstellar"] .sk-bird.b1 { top: 16%; animation-delay: -6s; } html[data-theme="interstellar"] .sk-bird.b2 { top: 19%; width: 20px; animation-duration: 52s; animation-delay: -9s; }
+html[data-theme="interstellar"] .sk-bird.b3 { top: 31%; width: 30px; animation-duration: 40s; animation-delay: -22s; } html[data-theme="interstellar"] .sk-bird.b4 { top: 24%; width: 18px; animation-duration: 58s; animation-delay: -34s; }
+html[data-theme="interstellar"] .sk-bird.b5 { top: 38%; width: 22px; animation-duration: 49s; animation-delay: -14s; }
+html[data-theme="interstellar"] .sk-bird.b2 path { animation-delay: -.2s; } html[data-theme="interstellar"] .sk-bird.b4 path { animation-delay: -.4s; }
+@keyframes sk-fly { 0% { transform: translate(0, 0); } 25% { transform: translate(28vw, -14px); } 50% { transform: translate(56vw, 6px); } 75% { transform: translate(84vw, -10px); } 100% { transform: translate(calc(100vw + 120px), 0); } }
+@keyframes sk-flap { from { transform: scaleY(1); } to { transform: scaleY(.45); } }
+/* weather: only what's showing is drawn */
+html[data-theme="interstellar"] #sky :is(.sk-fog, .sk-rain, .sk-snow, .sk-flash) { inset: 0; display: none; }
+html[data-theme="interstellar"] .sk-fog { background: linear-gradient(180deg, rgba(170, 182, 198, 0), rgba(170, 182, 198, .3) 45%, rgba(170, 182, 198, .42)); animation: sk-fog 24s ease-in-out infinite alternate; }
+@keyframes sk-fog { from { transform: translateX(-2%); } to { transform: translateX(2%); } }
+html[data-theme="interstellar"] #sky :is(.sk-rain, .sk-snow) { inset: -200px 0 0 0; }
+html[data-theme="interstellar"] .sk-rain { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cg stroke='%23cfe0f5' stroke-opacity='.5' stroke-width='1.3' stroke-linecap='round'%3E%3Cpath d='M12 8l-3 22M52 70l-3 22M96 24l-3 22M132 98l-3 22M30 118l-3 22M80 132l-3 22M146 36l-3 22'/%3E%3C/g%3E%3C/svg%3E"); animation: sk-fall .55s linear infinite; }
+html[data-theme="interstellar"] .sk-rain.b { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cg stroke='%23cfe0f5' stroke-opacity='.32' stroke-width='1.3' stroke-linecap='round'%3E%3Cpath d='M30 40l-2 14M70 110l-2 14M118 60l-2 14M140 140l-2 14M8 100l-2 14'/%3E%3C/g%3E%3C/svg%3E"); animation-duration: .8s; }
+html[data-theme="interstellar"] .sk-snow { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='%23ffffff' fill-opacity='.85'%3E%3Ccircle cx='20' cy='30' r='2'/%3E%3Ccircle cx='70' cy='90' r='1.6'/%3E%3Ccircle cx='120' cy='20' r='2.4'/%3E%3Ccircle cx='170' cy='70' r='1.8'/%3E%3Ccircle cx='40' cy='150' r='2.2'/%3E%3Ccircle cx='100' cy='170' r='1.6'/%3E%3Ccircle cx='160' cy='140' r='2'/%3E%3C/g%3E%3C/svg%3E"); animation: sk-fall-s 9s linear infinite; }
+html[data-theme="interstellar"] .sk-snow.b { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='%23ffffff' fill-opacity='.6'%3E%3Ccircle cx='55' cy='55' r='3'/%3E%3Ccircle cx='70' cy='90' r='1.6'/%3E%3Ccircle cx='150' cy='120' r='3.4'/%3E%3Ccircle cx='170' cy='70' r='1.8'/%3E%3Ccircle cx='10' cy='110' r='3'/%3E%3Ccircle cx='100' cy='170' r='1.6'/%3E%3Ccircle cx='160' cy='140' r='2'/%3E%3C/g%3E%3C/svg%3E"); animation-duration: 14s; }
+@keyframes sk-fall { to { transform: translate(-20px, 160px); } }
+@keyframes sk-fall-s { to { transform: translate(-30px, 200px); } }
+html[data-theme="interstellar"] .sk-flash { background: #dfe8ff; animation: sk-flash 11s linear infinite; }
+@keyframes sk-flash { 0%, 91%, 95%, 100% { opacity: 0; } 92% { opacity: .22; } 93% { opacity: .05; } 94% { opacity: .16; } }
+html[data-theme="interstellar"][data-wx="fog"] #sky .sk-fog, html[data-theme="interstellar"]:is([data-wx="rain"], [data-wx="storm"]) #sky .sk-rain, html[data-theme="interstellar"][data-wx="snow"] #sky .sk-snow, html[data-theme="interstellar"][data-wx="storm"] #sky .sk-flash { display: block; }
+@media print { html[data-theme="interstellar"] #sky { display: none; } }
 html[data-theme="interstellar"] :is(.panel, .daycards tbody.day, .daycards > .center-empty, .kpi, .insight, .extra, .split, .login form, .dash-bar) {
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); -webkit-backdrop-filter: none; backdrop-filter: none; }
 html[data-theme="interstellar"] :is(.drawer, dialog, .calpop, .pickpop, .palette-box, .bulkbar, .ff-pop) { background: rgba(9, 12, 18, .97); border-color: var(--line); border-radius: 14px; }
-html[data-theme="interstellar"] :is(input[type=text], input[type=number], input[type=date], input[type=password], input[type=search], select, textarea, .round, .wctl button, .btn, .seg, .tabs) { background: rgba(190, 204, 224, .07); border-color: rgba(190, 204, 224, .18); }
+html[data-theme="interstellar"] :is(input[type=text], input[type=number], input[type=date], input[type=password], input[type=search], select, textarea, .round, .wctl button, .btn, .seg, .tabs) { background: var(--panel); border-color: rgba(190, 204, 224, .2); }
 html[data-theme="interstellar"] select option { background: #0b0f16; }
 html[data-theme="interstellar"] :is(input, select, textarea):focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
 html[data-theme="interstellar"] :is(.btn.primary, .seg button.on, .tabs a.on, .tabbar .plus, .fab) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
@@ -2495,6 +2534,7 @@ html[data-theme="interstellar"] :is(.tab-pill, .nav a.on) { background: rgba(232
 html[data-theme="interstellar"] :is(.tabbar :is(a, button.more).on, .nav a.on) { color: var(--accent); }
 html[data-theme="interstellar"] .tabbar { background: rgba(9, 12, 18, .94); border: 1px solid var(--line); box-shadow: var(--shadow); }
 html[data-theme="interstellar"] .tabbar :is(a, button.more) { color: var(--muted); }
+html[data-theme="interstellar"] :is(.head, .head *, .set-h) { text-shadow: 0 1px 10px rgba(0, 0, 0, .55), 0 0 2px rgba(0, 0, 0, .45); }
 html[data-theme="interstellar"] .big { color: transparent; background: var(--hero-grad); -webkit-background-clip: text; background-clip: text; }
 @media (max-width: 900px) { html[data-theme="interstellar"] .tbl.feed tr.dayhead div { background: rgba(9, 12, 18, .97); } }
 
