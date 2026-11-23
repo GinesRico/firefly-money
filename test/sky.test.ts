@@ -132,3 +132,42 @@ describe('Interstellar sky: text stays readable (WCAG AA, 4.5:1) at every time o
     expect(/\.sk-flash \{[^}]*animation: sk-flash (\d+)s/.exec(css)![1]).toBe('11');
   });
 });
+
+describe('Interstellar sky: choosing a place', () => {
+  const ts = readFileSync('app/src/core/sky.ts', 'utf8'), settings = readFileSync('app/src/pages/settings.ts', 'utf8'), conf = readFileSync('app/default.conf.template', 'utf8');
+  it('follows the time zone when no place is chosen', async () => {
+    const { zonePlace } = await import('../app/src/core/sky');
+    const [lat, lon] = zonePlace(new Date(2026, 5, 21));
+    expect(lat).toBe(38); expect(Math.abs(lon)).toBeLessThanOrEqual(180);
+    const [r, s] = sunToday(lat, lon, new Date(2026, 5, 21)); expect(r).toBeLessThan(s);
+    expect(ts).toMatch(/zp = loc \|\| zonePlace\(n\)/);
+  });
+  it('searches through this server, not another site, and stores the choice on the device only', () => {
+    expect(settings).toContain("fetch('/geo?q='"); expect(settings).not.toMatch(/https?:\/\/[a-z-]*open-meteo/);
+    expect(settings).toContain("LS.set('skyLoc', { lat: f.lat, lon: f.lon, name: f.name })");
+    expect(settings).toContain('data-onclick="App.skyPick(this.dataset.i)"'); expect(settings).toContain('data-onclick="App.skyLocation()"'); expect(settings).toContain('data-onclick="App.skyClear()"');
+    const at = conf.indexOf('location = /geo {'), block = conf.slice(at, conf.indexOf('\n    }', at));
+    expect(at).toBeGreaterThan(-1);
+    for (const x of ['limit_except GET { deny all; }', 'limit_req zone=relay', 'proxy_set_header Cookie ""', 'proxy_set_header Authorization ""', 'geocoding-api.open-meteo.com']) expect(block).toContain(x);
+    expect(block).toMatch(/\$arg_q !~/);
+  });
+  it('shows no weather when live weather cannot be had (nothing stale)', () => { expect(ts).toContain('live = typeof code === \'number\' ? wxOf(code) : null'); expect(ts).toContain('catch (e) { live = null; }'); });
+});
+
+describe('Interstellar sky: weather scene', () => {
+  const sceneHtml = readFileSync('app/src/core/sky.ts', 'utf8');
+  it('layers clouds, rain and snow for depth, and darkens clouds in bad weather', () => {
+    for (const c of ['sk-over', 'sk-cloud c', 'sk-rain far', 'sk-rain near', 'sk-snow far', 'sk-snow near', 'sk-mist', 'sk-bolt b1', 'sk-bolt b2']) expect(sceneHtml).toContain(c);
+    expect(sceneHtml).toContain('[1, 2, 3, 4, 5, 6, 7].map')
+    expect(skyAt(12 * 60, { wx: 'storm' }).cloud.c).not.toBe(skyAt(12 * 60).cloud.c);
+    const lumOf = (w?: 'storm' | 'rain' | 'cloudy') => lum(skyAt(12 * 60, { wx: w }).cloud.c);
+    expect(lumOf('storm')).toBeLessThan(lumOf('rain')); expect(lumOf('rain')).toBeLessThan(lumOf('cloudy')); expect(lumOf('cloudy')).toBeLessThan(lumOf());
+    for (const k of ['.sk-rain.far', '.sk-rain.near', '.sk-snow.far', '.sk-snow.near', '.sk-bolt.b1', '.sk-mist', '.sk-over']) expect(css, k).toContain(k);
+  });
+  it('keeps motion on the compositor (transform and opacity only) and cheap on a phone', () => {
+    const frames = [...css.matchAll(/@keyframes (sk-[\w-]+) \{(.*)\}/g)].filter(m => /interstellar|sk-/.test(m[1]));
+    expect(frames.length).toBeGreaterThan(8);
+    for (const [, n, body] of frames) expect(body.replace(/transform:[^;]*;|opacity:[^;]*;|[\d.%, ]+\{|\}|\s|from|to/g, ''), n).toBe('');
+    expect(css).not.toMatch(/html\[data-theme="interstellar"\][^{]*\.sk-[^{]*\{[^}]*(?<!-)filter:/);
+  });
+});

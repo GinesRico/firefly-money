@@ -157,26 +157,53 @@ function scenePicker(c: Custom) {
   const photo = LS.get(PHOTO_KEY, '');
   return html`<div class="themes scenes">${btns}${photo ? html`<button type="button" title="Your photo" aria-label="Your photo" class="${cur === 'photo' ? 'on' : ''}" style="background:center/cover url('${photo}')" data-onclick="App.themeScene('photo')"></button>` : ''}<label class="btn small">${photo ? 'New photo…' : 'Your photo…'}<input type="file" accept="image/*" hidden data-onchange="App.themePhoto(this)"></label></div>`;
 }
-// Interstellar: where the sun is (your place), and the weather in the sky. Both stay on this device.
-const SKY_WX: [string, string][] = [['off', 'Off'], ['live', 'Live (needs your location)'], ['clear', 'Preview: clear'], ['cloudy', 'Preview: cloudy'], ['fog', 'Preview: fog'], ['rain', 'Preview: rain'], ['snow', 'Preview: snow'], ['storm', 'Preview: storm']];
+// Interstellar: the place the sun and the weather follow, and the weather in the sky. Both stay on this device.
+const SKY_WX: [string, string][] = [['off', 'Off'], ['live', 'Live (needs a place)'], ['clear', 'Preview: clear'], ['cloudy', 'Preview: cloudy'], ['fog', 'Preview: fog'], ['rain', 'Preview: rain'], ['snow', 'Preview: snow'], ['storm', 'Preview: storm']];
+type SkyPlace = { name: string, lat: number, lon: number };
+let skyFound: SkyPlace[] = [], skyTimer = 0, skySeq = 0;
 function skyRows() {
   const loc = LS.get('skyLoc', null), wx = LS.get('skyWx', 'off');
   return html`
-    ${row('Your location', 'Real sunrise and sunset where you are. Kept on this device, rounded to about 10 km.', html`<input ${SWITCH} aria-label="Use my location"${loc ? ' checked' : ''} data-onchange="App.skyLocation(this.checked)">`)}
+    ${row('Place', loc ? html`<strong>${loc.name || 'Your location'}</strong><br>The sun and live weather follow it. Kept on this device.` : 'Search for a city or postcode. Without one, the sky follows your time zone. Kept on this device.',
+      loc ? html`<button class="btn small" type="button" data-onclick="App.skyClear()">Remove</button>` : '')}
+    ${row('Find a place', '', html`<input type="search" aria-label="Search for a city or postcode" placeholder="City or postcode" autocomplete="off" maxlength="60" data-oninput="App.skySearch(this.value)">`)}
+    <div id="sky-res" class="sky-res" role="status"></div>
+    ${row('Use my location', 'Optional. Your browser asks first. Rounded to about 10 km.', html`<button class="btn small" type="button" data-onclick="App.skyLocation()">Use my location</button>`)}
     ${row('Weather', 'Live asks Open-Meteo through this server, not from your browser. Previews show an effect now.', html`<select aria-label="Weather in the sky" data-onchange="App.skyWeather(this.value)">${htmlList(SKY_WX.map(([v, n]) => opt(v, n, wx)))}</select>`)}`;
 }
 const skyChanged = () => window.dispatchEvent(new Event('skyprefs'));
-function skyLocation(on: boolean) {
-  if (!on) { LS.set('skyLoc', null); skyChanged(); drawThemeCustom(); return; }
-  if (!navigator.geolocation) { toast('This browser can’t share its location'); drawThemeCustom(); return; }
+const skyMsg = (t: string) => html`<p class="sub-s" style="margin:8px 0">${t}</p>`;
+const skyRes = (h: unknown) => { const e = document.getElementById('sky-res'); if (e) e.innerHTML = String(h); };
+function skySearch(q: string) {
+  clearTimeout(skyTimer); q = q.trim(); const seq = ++skySeq;
+  if (q.length < 2) { skyFound = []; skyRes(''); return; }
+  skyTimer = window.setTimeout(async () => {
+    skyRes(skyMsg('Searching…'));
+    try {
+      const r = await fetch('/geo?q=' + encodeURIComponent(q) + '&l=' + (LS.get('lang', '') === 'es' ? 'es' : 'en'), { credentials: 'same-origin' });
+      const j = r.ok ? await r.json() as { results?: { name: string, admin1?: string, country?: string, latitude: number, longitude: number }[] } : null;
+      if (seq !== skySeq) return;
+      if (!j) { skyFound = []; skyRes(skyMsg('Place search isn’t available right now.')); return; }
+      skyFound = (j.results || []).map(x => ({ name: [x.name, x.admin1, x.country].filter((v, i, a) => v && a.indexOf(v) === i).join(', '), lat: Math.round(x.latitude * 10) / 10, lon: Math.round(x.longitude * 10) / 10 }));
+      skyRes(skyFound.length ? htmlList(skyFound.map((f, i) => html`<button class="sky-pick" type="button" data-i="${i}" data-onclick="App.skyPick(this.dataset.i)">${f.name}</button>`)) : skyMsg('No places found.'));
+    } catch (e) { if (seq === skySeq) { skyFound = []; skyRes(skyMsg('Place search isn’t available right now.')); } }
+  }, 350);
+}
+function skyPick(i: string) {
+  const f = skyFound[+i]; if (!f) return;
+  LS.set('skyLoc', { lat: f.lat, lon: f.lon, name: f.name }); skyFound = []; skyChanged(); drawThemeCustom(); buzz(8);
+}
+function skyClear() { LS.set('skyLoc', null); skyChanged(); drawThemeCustom(); }
+function skyLocation() {
+  if (!navigator.geolocation) { toast('This browser can’t share its location'); return; }
   navigator.geolocation.getCurrentPosition(p => {
-    LS.set('skyLoc', { lat: Math.round(p.coords.latitude * 10) / 10, lon: Math.round(p.coords.longitude * 10) / 10 });
+    LS.set('skyLoc', { lat: Math.round(p.coords.latitude * 10) / 10, lon: Math.round(p.coords.longitude * 10) / 10, name: '' });
     skyChanged(); drawThemeCustom(); buzz(8);
-  }, () => { toast('Location is off for this site. Allow it in your browser settings.'); drawThemeCustom(); }, { maximumAge: 36e5, timeout: 15000 });
+  }, () => toast('Location is off for this site. Allow it in your browser settings.'), { maximumAge: 36e5, timeout: 15000 });
 }
 function skyWeather(v: string) {
   if (!SKY_WX.some(x => x[0] === v)) return;
-  if (v === 'live' && !LS.get('skyLoc', null)) toast('Turn on Your location for live weather');
+  if (v === 'live' && !LS.get('skyLoc', null)) toast('Choose a place for live weather');
   LS.set('skyWx', v); skyChanged();
 }
 function customizer() {
@@ -480,6 +507,9 @@ const methods = {
   themeScene,
   themePhoto,
   skyLocation,
+  skySearch,
+  skyPick,
+  skyClear,
   skyWeather,
   drawThemeCustom,
 };
