@@ -61,5 +61,6 @@ const PREVIEWS: Record<string, () => Html> = {
   habits: () => svg(html`${head()}${htmlList([0, 1, 2].map(i => html`<circle cx="20" cy="${40 + i * 22}" r="7" fill="${i < 2 ? 'var(--good)' : 'none'}" stroke="${i < 2 ? 'var(--good)' : faint}" stroke-width="1.5"/>${text(36, 38 + i * 22, 90 - i * 14)}`))}`),
   scorecard: () => svg(html`${head()}${htmlList([0, 1, 2, 3].map(i => html`${text(16, 38 + i * 20, 70)}<rect x="${112 + (i % 2) * 6}" y="${31 + i * 20}" width="${34 - (i % 2) * 6}" height="10" rx="5" fill="${i < 2 ? 'var(--good)' : 'var(--accent)'}" opacity=".8"/>`))}`),
   safe: () => stat('color-mix(in srgb, var(--good) 70%, transparent)'),
+  ...Object.fromEntries(['scSavings', 'scConsistency', 'scBills', 'scCushion', 'scTidiness', 'scDebt'].map(k => [k, () => stat('color-mix(in srgb, var(--good) 70%, transparent)', html`<rect x="112" y="${50}" width="44" height="18" rx="9" fill="var(--good)" opacity=".8"/>`)])),
 };
 export const tilePreview = (k: string) => PREVIEWS[k] ? PREVIEWS[k]() : '';

@@ -1,10 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DEMO_DASH } from '../app/src/demo/layout';
 
 describe('demo Overview layout', () => {
   const width = { s: 1, m: 2, l: 6 } as Record<string, number>;
   it('lists each card once, in the screenshot order', () => {
-    expect(DEMO_DASH.order).toEqual(['activity', 'insights', 'networth', 'earned', 'spent', 'attention', 'safe', 'bills', 'cash', 'cards', 'heatmap', 'budgets', 'loans', 'payees',
+    expect(DEMO_DASH.order).toEqual(['activity', 'insights', 'networth', 'earned', 'spent', 'attention', 'safe', 'scorecard', 'scSavings', 'scConsistency', 'scBills', 'scCushion', 'scTidiness', 'scDebt', 'bills', 'cash', 'cards', 'heatmap', 'budgets', 'loans', 'payees',
       'flow', 'spending', 'income', 'goals', 'pace', 'savings', 'cashflow', 'recent']);
     expect(new Set(DEMO_DASH.order).size).toBe(DEMO_DASH.order.length);
   });
@@ -16,7 +17,7 @@ describe('demo Overview layout', () => {
       used += w;
     }
     rows.push(used);
-    expect(rows).toEqual([6, 6, 6, 6, 6, 6, 6, 6, 6]);
+    expect(rows).toEqual([6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]);
   });
   it('groups the rows as in the screenshot', () => {
     const groups: string[][] = []; let row: string[] = [], used = 0;
@@ -26,12 +27,22 @@ describe('demo Overview layout', () => {
       row.push(k); used += w;
     }
     groups.push(row);
-    expect(groups.map(g => g.join(' '))).toEqual(['activity', 'insights', 'networth earned spent attention safe', 'bills cash cards', 'heatmap budgets loans payees',
+    expect(groups.map(g => g.join(' '))).toEqual(['activity', 'insights', 'networth earned spent attention safe', 'scorecard', 'scSavings scConsistency scBills scCushion scTidiness scDebt', 'bills cash cards', 'heatmap budgets loans payees',
       'flow spending income', 'goals pace savings', 'cashflow', 'recent']);
   });
   it('shows the non-default cards and hides none', () => {
-    expect(DEMO_DASH.shown).toEqual(expect.arrayContaining(['cash', 'cards', 'heatmap', 'loans', 'payees', 'flow', 'income', 'goals', 'pace', 'savings', 'recent']));
+    expect(DEMO_DASH.shown).toEqual(expect.arrayContaining(['scorecard', 'scSavings', 'scConsistency', 'scBills', 'scCushion', 'scTidiness', 'scDebt', 'cash', 'cards', 'heatmap', 'loans', 'payees', 'flow', 'income', 'goals', 'pace', 'savings', 'recent']));
     expect(DEMO_DASH.hidden).toEqual([]);
     expect(DEMO_DASH.opts.activity.range).toBe('all');
+  });
+});
+
+describe('demo defaults', () => {
+  it('opens in Interstellar over New York City with a clear sky, without asking for a location', () => {
+    const src = readFileSync('app/src/demo/demo.ts', 'utf8');
+    expect(src).toContain("setItem('moneyTheme', 'interstellar')");
+    expect(src).toMatch(/money\.skyLoc', JSON\.stringify\(\{ lat: 40\.7, lon: -74, name: 'New York/);
+    expect(src).toContain("setItem('money.skyWx', 'clear')");
+    expect(src).not.toContain('geolocation');
   });
 });
