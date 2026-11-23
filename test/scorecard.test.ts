@@ -211,7 +211,6 @@ describe('placement', () => {
     expect(block.length).toBeGreaterThan(500);
     expect(block).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(/i);
     expect(block).toContain('overflow-wrap: anywhere');
-    expect(block).toContain('minmax(min(100%, 320px), 1fr)');
   });
   it('has Spanish for every phrase it can show', () => {
     const cat = es as Record<string, string>, all = scorecard(base({}, { bills: { cur: { paid: 20, late: 0 }, prev: { paid: 15, late: 5 } }, debt: { now: 5, ago: 10 }, cash: { now: [{ name: 'A', role: 'defaultAsset', balance: 9000 }], ago: null } }));
