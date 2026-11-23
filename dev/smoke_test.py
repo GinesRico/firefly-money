@@ -210,6 +210,9 @@ async def check(pw, width, height, mobile):
         for name in ['Top payees', 'Income sources', 'Savings goals', 'Recent transactions', 'Spending pace', 'Savings rate', 'Category trends']:
             await page.locator('.add-card', has_text=name).click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_selector('#dashCols')
         await page.wait_for_selector('#dash [data-w="payees"] .part', timeout=15000)
+        if not await page.locator('.add-card', has_text='Money scorecard').count(): errors.append('the Money scorecard is not offered under Add cards')
+        await page.locator('.add-card', has_text='Money scorecard').click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_selector('#dashCols')
+        if not await page.locator('#dash [data-w="scorecard"]').count(): errors.append('adding the Money scorecard from Customize did not show it')
         for k in ['payees', 'income', 'goals', 'recent', 'pace', 'savings', 'trends']:
             if not await page.locator(f'#dash [data-w="{k}"]').count(): errors.append(f'adding the {k!r} card from Customize did not show it')
         if await page.locator('.add-card', has_text='Top payees').count(): errors.append('an added card is still offered under Add cards')
