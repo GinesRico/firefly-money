@@ -6,6 +6,13 @@ const css = readFileSync('app/assets/money.css', 'utf8');
 const src = (f: string) => readFileSync('app/src/' + f, 'utf8');
 
 describe('keyboard and screen reader basics', () => {
+  it('a chart table never goes inside a donut or ring (it would push the centre text off the ring)', () => {
+    const a = src('features/a11y.ts');
+    expect(a).toContain("svg.closest('.share, .donut, .ring')");
+    expect(a).toContain("at.insertAdjacentElement('afterend', d)");
+    expect(a).not.toContain("svg.insertAdjacentElement('afterend', d)");
+    expect(css).toMatch(/\.donut, \.ring \{ position: relative; display: grid; place-items: center; \}/);
+  });
   it('has a skip link to the page, and the page can take focus', () => {
     expect(index).toContain('<a href="#view" class="skip">Skip to content</a>');
     expect(index).toContain('<main id="view" tabindex="-1">');

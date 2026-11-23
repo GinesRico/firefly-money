@@ -89,6 +89,13 @@ async def check(pw, width, height, mobile):
             except Exception:
                 errors.append(f'#{p}: button {i}: the form did not close on Escape')
                 await page.evaluate('App.closeDrawer()')
+    # Every donut and ring: the text in the middle sits at the centre of the ring (a table or anything else inside the chart's box pushes it off)
+    for route in ('', 'categories', 'reports'):
+        await goto(page, route); await page.wait_for_timeout(1200)    # the chart tables are added after a short pause
+        off = await page.evaluate("""[...document.querySelectorAll('#view .donut, #view .ring')].map(d => { const m = d.querySelector('.mid'); if (!m) return 0;
+            const s = d.querySelector('svg').getBoundingClientRect(), r = document.createRange(); r.selectNodeContents(m); const t = r.getBoundingClientRect();
+            return Math.max(Math.abs(t.left + t.width / 2 - s.left - s.width / 2), Math.abs(t.top + t.height / 2 - s.top - s.height / 2)); }).reduce((a, b) => Math.max(a, b), 0)""")
+        if off > 1: errors.append(f'#{route}: the text in a donut or ring is {off:.1f}px off its centre')
     # Universal search: from the search button on phones and ⌘K on computers, finds settings and transactions
     await goto(page, '')
     if mobile: await page.click('#searchBtn')
