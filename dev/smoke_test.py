@@ -101,7 +101,9 @@ async def check(pw, width, height, mobile):
     await goto(page, ''); await page.wait_for_timeout(1500)
     held = asyncio.Event()
     async def hold(route):
-        await held.wait(); await route.continue_()
+        await held.wait()
+        try: await route.continue_()
+        except Exception: pass      # the page moved on while this was held
     await page.route(re.compile(r'type=withdrawal'), hold)
     heights = """() => { const d = document.getElementById('dash'), a = d && d.querySelector('.w[data-w=attention]'), top = a ? a.offsetTop : -1;
       return d ? Object.fromEntries([...d.querySelectorAll('.w[data-w]')].filter(w => w.offsetTop !== top).map(w => [w.dataset.w, w.getBoundingClientRect().height])) : {}; }"""
