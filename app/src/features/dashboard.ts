@@ -28,7 +28,7 @@ const DASH_ABOUT: Record<string, string> = { safe: 'What you can spend until pay
   spent: 'What you spent, against last month', earned: 'What came in and how much you kept', insights: 'What changed this month', subs: 'What your subscriptions cost, price rises and quiet ones', habits: 'Streaks, this week’s challenges and a short to-do', scorecard: 'Your money personality and six plain-word ratings' };
 // A new Overview starts with these, in this order; the rest are one tap away under Customize → Add cards
 // (rows of tiles about as tall as each other: the numbers, then the two short cards, then the charts with the lists)
-const DASH_DEFAULT = ['networth', 'spent', 'earned', 'safe', 'attention', 'spending', 'budgets', 'bills', 'insights', 'cashflow', 'activity', 'habits', 'scorecard'];
+const DASH_DEFAULT = ['networth', 'spent', 'earned', 'safe', 'attention', 'spending', 'budgets', 'bills', 'insights', 'cashflow', 'activity', 'habits'];
 // Each card's bento size: s is a quarter of a wide screen (a sixth of a big one, half a phone), m twice that, l the full width
 type Size = 's' | 'm' | 'l';
 const DASH_SIZE: Record<string, Size> = { spent: 's', earned: 's', budgets: 's', bills: 's', subs: 's', insights: 'l', cashflow: 'l', heatmap: 'l', activity: 'l', flow: 'l', recent: 'l' };
