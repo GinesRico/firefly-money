@@ -7,7 +7,7 @@ import { LS } from '../core/helpers';
 import { isAsset, isCard, isLiab, lists, normAccount } from '../core/lists';
 import { VIEWS } from '../core/router';
 import { billDays, billsFrom } from './bills';
-import { type BillCount, type Grade, type Score, type ScoreIn, type Tx, TREND_WORD, lastMonths, monthEnd, scorecard } from '../features/scorecard';
+import { type BillCount, type Grade, type GradeKey, type Score, type ScoreIn, type Tx, TREND_WORD, lastMonths, monthEnd, scorecard } from '../features/scorecard';
 import { scoreForShare } from '../features/scoreshare';
 import '../features/scoreshare';
 import type { Acct } from '../features/moneyhealth';
@@ -51,13 +51,31 @@ const TREND_MARK = { up: '↑', same: '→', down: '↓' };
 const pill = (g: Grade) => html`<span class="sc-r r${g.rank}">${g.rating}</span>`;
 const trendMark = (g: Grade) => g.trend ? html`<span class="sc-tr" title="${TREND_WORD[g.trend]} against the 6 months before"><span aria-hidden="true">${TREND_MARK[g.trend]}</span> ${TREND_WORD[g.trend]}</span>` : '';
 
-// The Overview card: the personality and the ratings at a glance, with a way in to the whole page
+// The Overview cards. The personality card (with Share) is 'scorecard'; each rating is its own small card, added under Customize > Add cards
+export const SC_TILES: Record<string, GradeKey> = { scSavings: 'savings', scConsistency: 'consistency', scBills: 'bills', scCushion: 'cushion', scTidiness: 'tidiness', scDebt: 'debt' };
+export const SC_KEYS = ['scorecard', ...Object.keys(SC_TILES)];
+const SC_NAME: Record<GradeKey, string> = { savings: 'Savings rate', consistency: 'Consistency', bills: 'Bills on time', cushion: 'Cushion', tidiness: 'Tidiness', debt: 'Debt' };
+const SC_EMPTY: Record<GradeKey, string> = { savings: 'Needs a few months of income and spending.', consistency: 'Needs a few months with spending.', bills: 'Needs a few bills to look at.', cushion: 'Needs an account with a balance.', tidiness: 'Needs a few more purchases.', debt: 'Nothing owed, so nothing to rate.' };
+const quiet = (name: string, why: string) => html`<section class="panel quiet"><h2>${name}</h2><p class="lead">${why}</p></section>`;
+
+// One rating on its own card
+export function scoreTile(key: GradeKey, s: Score | null | undefined): Html {
+  const name = SC_NAME[key];
+  if (!s) return quiet(name, 'Firefly isn’t answering, so nothing is shown.');
+  if (s.fresh) return quiet(name, 'Needs about 3 months of history');
+  const g = s.grades.find(x => x.key === key);
+  if (!g) return quiet(name, SC_EMPTY[key]);
+  return html`<section class="panel scorecard sc-one" id="sc-${key}"><div class="panel-head"><div><h2>${g.name}</h2></div>${pill(g)}</div>
+<p class="sc-why">${g.reason}</p>${g.trend ? html`<p class="sc-why">${trendMark(g)}</p>` : ''}<a class="sc-go" href="${g.href}">${g.action}<span aria-hidden="true"> →</span></a></section>`;
+}
+
+// The personality card: who you are with money, a way to share it and a way in to the whole page
 export function scorecardTile(s: Score | null | undefined): Html {
-  if (!s) return html`<section class="panel quiet"><h2>Money scorecard</h2><p class="lead">Firefly isn’t answering, so nothing is shown.</p></section>`;
-  if (s.fresh) return html`<section class="panel scorecard" id="scorecard"><h2>Money scorecard</h2><p class="lead">Needs about 3 months of history</p><p class="sub-s sc-note">Your ratings appear here once there is a little more to look at.</p></section>`;
-  return html`<section class="panel scorecard" id="scorecard"><div class="panel-head"><div><h2>Money scorecard</h2><p class="lead">${s.person.label}</p></div></div>
-<ul class="sc-mini">${htmlList(s.grades.map(g => html`<li><a href="#/scorecard"><span class="sc-name">${g.name}</span>${trendMark(g)}${pill(g)}</a></li>`))}</ul>
-<a class="sc-more" href="#/scorecard">See the details and share</a></section>`;
+  if (!s) return html`<section class="panel quiet"><h2>Money personality</h2><p class="lead">Firefly isn’t answering, so nothing is shown.</p></section>`;
+  if (s.fresh) return html`<section class="panel scorecard" id="scorecard"><h2>Money personality</h2><p class="lead">Needs about 3 months of history</p><p class="sub-s sc-note">Your personality appears here once there is a little more to look at.</p></section>`;
+  scoreForShare(s);
+  return html`<section class="panel scorecard" id="scorecard"><div class="panel-head"><div><h2>Money personality</h2><p class="lead">${s.person.label}</p></div></div>
+<p class="sc-why">${s.person.line}</p><div class="sc-acts"><button type="button" class="btn small primary" data-onclick="App.scorePreview()">Share</button><a class="sc-more" href="#/scorecard">See the details</a></div></section>`;
 }
 
 function topLine(label: string, g: Grade | null, empty: string) {

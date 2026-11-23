@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { type Behaviour, type ScoreIn, type Tx, lastMonths, pickPersonality, rateOf, scorecard, trendOf } from '../app/src/features/scorecard';
 import { shareSvg } from '../app/src/features/scoreshare';
-import { scorecardOn, scorecardPage, scorecardPageOn, scorecardTile } from '../app/src/pages/scorecard';
+import { SC_TILES, scoreTile, scorecardOn, scorecardPage, scorecardPageOn, scorecardTile } from '../app/src/pages/scorecard';
 import es from '../app/src/locales/es.json';
 
 const css = readFileSync('app/assets/money.css', 'utf8');
@@ -182,11 +182,12 @@ describe('placement', () => {
     expect(dom).toContain("['scorecard', 'Money scorecard', 'scorecard']");
     expect(dom).toContain("r === 'scorecard'");
     expect(dash).not.toMatch(/DASH_DEFAULT = \[[^\]]*'scorecard'/);                    // offered under Add cards, not forced on
-    expect(dash).toContain("scorecard: 'Your money personality and six plain-word ratings'");
-    expect(dash).toMatch(/habits: 'Habits', scorecard: 'Money scorecard'/);            // its own tile, not part of Habits
+    expect(dash).toContain("scorecard: 'Your money personality, with a way to share it'");
+    expect(dash).toMatch(/habits: 'Habits', scorecard: 'Money personality', scSavings: 'Savings rating'/);   // its own tiles, not part of Habits
   });
   it('draws nothing from an old copy when Firefly is down', () => {
     expect(overview).toContain("scorecardShown() ? loadScore() : none");
+    for (const k of Object.keys(SC_TILES)) expect(String(scoreTile(SC_TILES[k], null))).toContain('Firefly isn’t answering, so nothing is shown.');
     expect(String(scorecardTile(null))).toContain('Firefly isn’t answering, so nothing is shown.');
     expect(String(scorecardTile(null))).not.toContain('sc-mini');
     const src = readFileSync('app/src/pages/scorecard.ts', 'utf8');
@@ -203,8 +204,19 @@ describe('placement', () => {
     const page = String(scorecardPage(s)), tile = String(scorecardTile(s));
     expect(page).toContain('Your money personality');
     expect(page).toContain('Your ratings');
-    for (const g of s.grades) { expect(page).toContain(g.reason); expect(page).toContain('href="' + g.href + '"'); expect(tile).toContain(g.name); }
+    for (const g of s.grades) { expect(page).toContain(g.reason); expect(page).toContain('href="' + g.href + '"'); }
     expect(tile).toContain('href="#/scorecard"');
+    expect(tile).toContain('App.scorePreview()');
+    expect(tile).not.toContain('sc-mini');
+    for (const [k, key] of Object.entries(SC_TILES)) {                              // each rating is a card of its own, with its way to improve it
+      const g = s.grades.find(x => x.key === key), card = String(scoreTile(key, s));
+      expect(dash, k).toContain(k + ": '");
+      if (!g) continue;
+      expect(card, k).toContain(g.name); expect(card).toContain(g.reason); expect(card).toContain(g.rating); expect(card).toContain('href="' + g.href + '"');
+      expect(card).not.toContain(s.grades.find(x => x.key !== key)!.reason);
+    }
+    expect(String(scoreTile('debt', scorecard(base())))).toContain('Nothing owed, so nothing to rate.');
+    expect(String(scoreTile('savings', scorecard({ ...base(), out: [], inc: [] })))).toContain('Needs about 3 months of history');
     expect(page + tile).not.toMatch(/\p{Extended_Pictographic}|\b[A-F][+-]?\b grade/u);
   });
   it('lays out at every width and theme with tokens only', () => {

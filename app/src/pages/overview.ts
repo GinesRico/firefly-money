@@ -11,7 +11,7 @@ import { FX } from '../core/fx';
 import { VIEWS, quiet } from '../core/router';
 import { type Unusual, loadUnusual } from '../features/unusual';
 import { gettingStarted } from '../features/started';
-import { loadScore, scorecardOn, scorecardTile } from './scorecard';
+import { SC_KEYS, SC_TILES, loadScore, scorecardOn, scorecardTile, scoreTile } from './scorecard';
 import type { Score } from '../features/scorecard';
 import { type Buy, HABIT_DAYS, habitStats, habitsHiddenToday, habitsOn, habitsPanel } from '../features/habits';
 import { DASH_NAMES, tileOn, tileOpt } from '../features/dashboard';
@@ -141,7 +141,8 @@ VIEWS[''] = async (r, paint) => {
       ['savings', html`<section class="panel chart">${savingsRate(trend)}</section>`],
       ['subs', !tileOn('subs') ? 'off' : wait('subs') ?? subAuditTile(subAudit && !Array.isArray(subAudit) ? subAudit : null)],
       ['habits', !habitsShown() ? (!tileOn('habits') && habitsOn() ? 'off' : '') : wait('habits') ?? habitsTile(habTx, arr(bills), arr(budgets), limits, future, nw, piggies, t0)],
-      ['scorecard', !scorecardShown() ? (!tileOn('scorecard') && scorecardOn() ? 'off' : '') : wait('scorecard') ?? scorecardTile(scoreData as Score | null)],
+      ['scorecard', scoreCard('scorecard', slow, () => scorecardTile(scoreData as Score | null))],
+      ...Object.entries(SC_TILES).map(([k, g]): [string, unknown] => [k, scoreCard(k, slow, () => scoreTile(g, scoreData as Score | null))]),
       ['trends', wait('trends') ?? trendsPanel(months.map(mo => mo.short), monthCats || [], months)],
     ];
     W.forEach(w => { if (w[1] && !tileOn(w[0])) w[1] = 'off'; });     // off: not drawn, only offered under Add cards
@@ -186,7 +187,9 @@ function activityTile(tx: ApiData[] | null, range: string, today: string) {
   const r = activityRange(range, today, first);
   return activityPanel(buys, r.start, r.end, { range });
 }
-const scorecardShown = () => tileOn('scorecard') && scorecardOn();
+const scorecardShown = () => SC_KEYS.some(tileOn) && scorecardOn();
+// A score card: nothing when the scorecard is switched off in Settings, 'off' (offered under Add cards) when not added, else its loading placeholder or the card
+const scoreCard = (k: string, slow: unknown, card: () => Html) => !scorecardOn() ? '' : !tileOn(k) ? 'off' : slow ? card() : skeletonPanel(k);
 const habitsShown = () => tileOn('habits') && habitsOn() && !habitsHiddenToday();
 function habitsTile(buys: Buy[] | null | undefined, bills: ApiData[], budgets: ApiData[], limits: Record<string, BudgetLimit>, future: boolean, nw: NetWorthPoint[] | null | undefined, goals: Piggy[] | null | undefined, today: string) {
   if (!buys) return quietPanel('habits', 'Firefly isn’t answering, so nothing is shown.');
@@ -201,7 +204,7 @@ function quietPanel(k: string, why: string) {
   return html`<section class="panel quiet"><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">${why}</p></section>`;
 }
 function skeletonPanel(k: string) {
-  const h = ({ insights: 120, safe: 70, loans: 90, heatmap: 230, habits: 260, scorecard: 300, activity: 155, flow: 240, payees: 200, networth: 230, pace: 230, trends: 220 } as Record<string, number>)[k] || 120;
+  const h = ({ insights: 120, safe: 70, loans: 90, heatmap: 230, habits: 260, scorecard: 150, scSavings: 150, scConsistency: 150, scBills: 150, scCushion: 150, scTidiness: 150, scDebt: 150, activity: 155, flow: 240, payees: 200, networth: 230, pace: 230, trends: 220 } as Record<string, number>)[k] || 120;
   return html`<section class="panel" aria-busy="true"><h2>${DASH_NAMES[k] || ''}</h2><p class="lead">&nbsp;</p><div class="sk" style="height:${h}px"></div></section>`;
 }
 function attentionPanel({ uncat, bills, budgets, limits, future, unusual }: { uncat: ApiData, uncatQ: string, bills: ApiData[], budgets: ApiData[], limits: Record<string, BudgetLimit>, future: boolean, unusual?: Unusual | null }) {
