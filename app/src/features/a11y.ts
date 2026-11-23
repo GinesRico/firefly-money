@@ -91,4 +91,5 @@ function chartTables() {
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 let ctQueued = false;
 const view0 = document.getElementById('view');
-if (view0) new MutationObserver(() => { if (!ctQueued) { ctQueued = true; setTimeout(() => { ctQueued = false; chartTables(); }, 250); } }).observe(view0, { childList: true, subtree: true });
+// Added in the same frame as the chart (a microtask, before the browser paints), so the card doesn't grow once it is on screen
+if (view0) new MutationObserver(() => { if (!ctQueued) { ctQueued = true; queueMicrotask(() => { ctQueued = false; chartTables(); }); } }).observe(view0, { childList: true, subtree: true });

@@ -24,3 +24,11 @@ describe('loading placeholders are true to size', () => {
     expect(css).toContain('.cards.bento .panel.stat.nw .sk { flex: 1 1 0; height: auto; min-height: clamp(64px, 20cqi, 150px); }');
   });
 });
+
+describe('chart tables do not resize a card after it is drawn', () => {
+  it('adds "Show as table" in the same frame as the chart, not after a pause', () => {
+    const a11y = readFileSync('app/src/features/a11y.ts', 'utf8');
+    expect(a11y).toContain('queueMicrotask(() => { ctQueued = false; chartTables(); })');
+    expect(a11y).not.toContain('}, 250)');
+  });
+});
