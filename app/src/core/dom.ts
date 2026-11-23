@@ -23,6 +23,7 @@ const ICONS: Record<string, Html> = {
   settings: html`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>`,
   piggy: html`<path d="M5 11a7 6 0 0 1 13-2h2v4l-2 1-1 4h-3v-2h-4v2H7l-1-4a5 5 0 0 1-1-3z"/><circle cx="15" cy="11" r=".6"/>`,
   search: html`<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>`,
+  scorecard: html`<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 16v-3M12 16V8M16 16v-5"/>`,
   year: html`<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M12 11.5l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z"/>`,
   timeline: html`<path d="M12 2v20"/><circle cx="12" cy="6" r="2.2"/><circle cx="12" cy="14" r="2.2"/><path d="M14.5 6H20M4 14h5.5M14.5 14H18"/>`,
   spark: html`<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>`,
@@ -34,11 +35,13 @@ export const icon = (k: string) => html`<svg viewBox="0 0 24 24" fill="none" str
 export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'forecast'], ['transactions', 'Transactions', 'transactions'], ['review', 'To do', 'review'],
   ['accounts', 'Accounts', 'accounts'], ['loans', 'Loan planner', 'loans'],
   ['budgets', 'Budgets', 'budgets'], ['categories', 'Categories & tags', 'categories'], ['bills', 'Bills', 'bills'], ['recurring', 'Recurring', 'recurring'],
-  ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['recap', 'Monthly recap', 'recap'], ['year', 'Year in Money', 'year'], ['timeline', 'Timeline', 'timeline'], ['ask', 'Ask a question', 'spark'], ['unusual', 'Unusual charges', 'eye'], ['map', 'Spending map', 'map'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];
+  ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['recap', 'Monthly recap', 'recap'], ['year', 'Year in Money', 'year'], ['scorecard', 'Money scorecard', 'scorecard'], ['timeline', 'Timeline', 'timeline'], ['ask', 'Ask a question', 'spark'], ['unusual', 'Unusual charges', 'eye'], ['map', 'Spending map', 'map'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];
 // How the sidebar and the phone's More menu group the pages (Settings sits at the bottom of the sidebar)
 export const NAV_GROUPS: [string, string[]][] = [['', ['', 'transactions', 'review']],
-  ['Plan', ['budgets', 'bills', 'recurring', 'piggy', 'forecast', 'loans']], ['Insights', ['reports', 'timeline', 'recap', 'year', 'unusual', 'ask', 'map']],
+  ['Plan', ['budgets', 'bills', 'recurring', 'piggy', 'forecast', 'loans']], ['Insights', ['reports', 'timeline', 'recap', 'year', 'scorecard', 'unusual', 'ask', 'map']],
   ['Manage', ['accounts', 'categories', 'rules']]];
+// The scorecard page can be switched off in Settings; it then leaves the menus (the address still works)
+export const navGroups = (): [string, string[]][] => { let off = false; try { off = localStorage.getItem('money.scorecardPage') === 'false'; } catch (e) { /* storage blocked */ } return NAV_GROUPS.map(([t, rs]) => [t, rs.filter(r => !(off && r === 'scorecard'))]); };
 export const navItem = (r: string) => NAV.find(n => n[0] === r)!;
 // To do: Review (new transactions to look over) and Categorize (ones without a category), as two tabs of one page
 export const todoTabs = (on: string) => html`<div class="tabs"><a href="#/review" class="${on === 'review' ? 'on' : ''}">Review new</a><a href="#/inbox" class="${on === 'inbox' ? 'on' : ''}">Categorize</a><a href="#/places" class="${on === 'places' ? 'on' : ''}">Places</a></div>`;
@@ -46,7 +49,7 @@ export function drawNav(active: string) {
   const cur = NAV.find(n => n[0] === active);
   document.title = cur && cur[0] ? cur[1] + ' · Money' : 'Money';      // one title per page, for the tab, history and bookmarks
   const a = (r: string) => { const [, label, ic] = navItem(r); return html`<a href="#/${r}" class="${r === active ? 'on' : ''}" title="${label}" data-onmouseenter="App.prefetch('${r}')">${icon(ic)}<span>${label}</span></a>`; };
-  el('nav').innerHTML = String(htmlList(NAV_GROUPS.map(([title, rs]) => html`${title ? html`<div class="nav-h">${title}</div>` : ''}${htmlList(rs.map(a))}`)));
+  el('nav').innerHTML = String(htmlList(navGroups().map(([title, rs]) => html`${title ? html`<div class="nav-h">${title}</div>` : ''}${htmlList(rs.map(a))}`)));
   el('navFoot').innerHTML = String(a('settings'));
   if (window.App && App.drawTabbar) App.drawTabbar(active);
 }

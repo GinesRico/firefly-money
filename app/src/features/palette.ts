@@ -20,7 +20,7 @@ const PAGE_KEYS: Record<string, string> = {
   '': 'home dashboard summary net worth', forecast: 'future cash flow safe to spend what if scenarios', transactions: 'activity spending history expenses income transfers',
   places: 'stores pin map locations suggestions to do', inbox: 'uncategorized categorize sort', review: 'new imported check', unusual: 'anomalies duplicate double charged odd spike merchants payees trends rising falling new', accounts: 'banks balances checking savings credit cards', loans: 'debt payoff mortgage interest',
   budgets: 'limits spending plan', categories: 'tags labels', bills: 'subscriptions due calendar', recurring: 'repeating scheduled automatic',
-  piggy: 'savings goals', rules: 'automation auto categorize', recap: 'month summary', year: 'wrapped year review annual story recap', timeline: 'history past months net worth over time story milestones scroll back', ask: 'question how much', map: 'places locations',
+  piggy: 'savings goals', rules: 'automation auto categorize', recap: 'month summary', scorecard: 'grades ratings personality habits score share report card', year: 'wrapped year review annual story recap', timeline: 'history past months net worth over time story milestones scroll back', ask: 'question how much', map: 'places locations',
   reports: 'charts compare year csv sankey', settings: 'preferences options',
 };
 // Settings: [label, extra words, where on the Settings page: a group (#set-…) or a folded section (data-k), which opens]

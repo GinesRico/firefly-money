@@ -2371,6 +2371,54 @@ html:not(#_) .head .actions .month .round { width: var(--ctl); }
 .st-list li.done .st-t strong { color: var(--muted); font-weight: 500; text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 50%, transparent); }
 .st-list li .btn { flex: none; }
 
+/* Habits card: streaks, this week's challenges and a short to-do */
+.habits .panel-head { align-items: flex-start; }
+.habits .panel-head .round { flex: none; }
+.habits .hb-stats { margin-top: 8px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.habits .hb-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 0 40px; }
+.habits .hb-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; margin: 20px 0 4px; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+.habits .hb-h .sub-s { font-weight: 400; }
+.habits .hb-list li { padding: 0; gap: 0; }
+.habits .hb-list li > a, .habits .hb-list li { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.habits .hb-list li > a { flex: 1; min-width: 0; padding: 8px 0; color: inherit; text-decoration: none; }
+.habits .hb-list li:not(:has(> a)) { padding: 8px 0; }
+.habits .hb-t { flex: 1; min-width: 0; font-size: var(--fs-md); overflow-wrap: anywhere; }
+.habits .hb-list li.done .hb-t { color: var(--muted); }
+.habits .hb-list .st-ck { width: 22px; height: 22px; }
+.habits .hb-note { margin: 16px 0 0; }
+
+/* Money scorecard: the personality, six ratings and the picture to share */
+.sc-r { display: inline-flex; align-items: center; flex: none; padding: 3px 12px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; color: var(--text); background: color-mix(in srgb, var(--muted) 18%, transparent); }
+.sc-r.r3 { background: color-mix(in srgb, var(--good) 22%, transparent); }
+.sc-r.r2 { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.sc-r.r1 { background: color-mix(in srgb, var(--warn) 24%, transparent); }
+.sc-r.r0 { background: color-mix(in srgb, var(--spend) 22%, transparent); }
+.sc-tr { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+.sc-name { flex: 1; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+.sc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: var(--gap, 16px); align-items: start; }
+.sc-person .eyebrow { margin: 0 0 4px; }
+.sc-traits { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
+.sc-traits li { display: grid; gap: 2px; min-width: 0; }
+.sc-tn { font-size: var(--fs-xs); color: var(--muted); }
+.sc-te { font-size: var(--fs-md); overflow-wrap: anywhere; }
+.sc-nudge { margin: 16px 0 0; font-size: var(--fs-md); overflow-wrap: anywhere; }
+.sc-tops .bi-stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.sc-tops dd a { color: inherit; text-decoration: none; }
+.sc-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.sc-list li { padding: 14px 0; border-top: 1px solid var(--line); }
+.sc-list li:first-child { border-top: 0; }
+.sc-row { display: flex; align-items: center; gap: 12px; min-height: 32px; }
+.sc-why { margin: 4px 0 0; font-size: var(--fs-md); overflow-wrap: anywhere; }
+.sc-why .sc-tr { margin-left: 6px; }
+.sc-detail { margin: 2px 0 0; }
+.sc-go { display: inline-block; margin-top: 6px; padding: 6px 0; font-size: var(--fs-sm); color: var(--accent); text-decoration: none; }
+.sc-note { margin: 12px 0 0; }
+.scorecard .sc-mini { list-style: none; margin: 12px 0 0; padding: 0; }
+.scorecard .sc-mini a { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 4px 0; color: inherit; text-decoration: none; }
+.scorecard .sc-more { display: inline-block; margin-top: 8px; padding: 8px 0; font-size: var(--fs-sm); color: var(--accent); text-decoration: none; }
+.sc-prev { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
+.sc-prev svg { display: block; width: 100%; height: auto; }
+
 /* The "Looks like a bill" rows: on a phone the name and its detail wrap over the full width and the buttons sit under them, instead of cutting both short */
 @media (max-width: 600px) {
   #subsBox .list .row { flex-wrap: wrap; row-gap: 12px; }

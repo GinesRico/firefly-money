@@ -58,6 +58,8 @@ const PREVIEWS: Record<string, () => Html> = {
   heatmap: calendar, flow, insights: () => cards(3),
   spent: () => stat('color-mix(in srgb, var(--text) 50%, transparent)', html`${htmlList([20, 24, 30, 22, 20, 40].map((h, i) => html`<rect x="${120 + i * 12}" y="${100 - h}" width="9" height="${h}" rx="2" fill="${i === 5 ? 'var(--accent)' : faint}"/>`))}`),
   earned: () => stat('color-mix(in srgb, var(--text) 50%, transparent)', ring(160, 72, 22, 45, 'var(--good)')),
+  habits: () => svg(html`${head()}${htmlList([0, 1, 2].map(i => html`<circle cx="20" cy="${40 + i * 22}" r="7" fill="${i < 2 ? 'var(--good)' : 'none'}" stroke="${i < 2 ? 'var(--good)' : faint}" stroke-width="1.5"/>${text(36, 38 + i * 22, 90 - i * 14)}`))}`),
+  scorecard: () => svg(html`${head()}${htmlList([0, 1, 2, 3].map(i => html`${text(16, 38 + i * 20, 70)}<rect x="${112 + (i % 2) * 6}" y="${31 + i * 20}" width="${34 - (i % 2) * 6}" height="10" rx="5" fill="${i < 2 ? 'var(--good)' : 'var(--accent)'}" opacity=".8"/>`))}`),
   safe: () => stat('color-mix(in srgb, var(--good) 70%, transparent)'),
 };
 export const tilePreview = (k: string) => PREVIEWS[k] ? PREVIEWS[k]() : '';

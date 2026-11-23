@@ -11,7 +11,7 @@ import { labelHtml, monthLabel, morph, morphOk, sameLayout, slideLabel, snapshot
 /* ================= Router ================= */
 // The placeholder shows the shape of the page that's coming (KPI row, chart, list rows, table), so nothing jumps when it arrives
 const SKELETONS: Record<string, string> = {
-  '': 'dash', reports: 'dash', recap: 'dash', year: 'dash', timeline: 'dash', forecast: 'dash',
+  '': 'dash', reports: 'dash', recap: 'dash', year: 'dash', scorecard: 'dash', timeline: 'dash', forecast: 'dash',
   transactions: 'feed', account: 'feed', review: 'feed', unusual: 'cards', inbox: 'feed', places: 'feed', map: 'chart',
   budgets: 'table', categories: 'table', bills: 'table', accounts: 'table', rules: 'table', recurring: 'table', loans: 'table', piggy: 'cards',
 };
