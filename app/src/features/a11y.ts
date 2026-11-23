@@ -73,7 +73,9 @@ document.addEventListener('input', clearBad); document.addEventListener('change'
 // numbers too. Charts with more than 60 points (the activity grid) keep their summary label instead.
 function chartTables() {
   document.querySelectorAll<SVGSVGElement>('#view svg[role="img"][aria-label]').forEach(svg => {
-    if (svg.nextElementSibling?.classList.contains('chart-data') || svg.closest('.sk-table, .tile-preview, .mini')) return;
+    // A donut or ring is a grid centred on its own box, so the table goes after the whole chart (and its list), never inside it: a row in there pushes the ring up and its centre text down.
+    const at: Element = svg.closest('.share, .donut, .ring') || svg;
+    if (at.nextElementSibling?.classList.contains('chart-data') || svg.closest('.sk-table, .tile-preview, .mini')) return;
     const tips = [...svg.querySelectorAll<SVGElement>('[data-tip]')].map(n => n.getAttribute('data-tip') || '').filter(Boolean);
     if (tips.length < 2 || tips.length > 60) return;
     const rows = tips.map(t => {
@@ -83,7 +85,7 @@ function chartTables() {
     });
     const d = document.createElement('details'); d.className = 'sk-table chart-data';
     d.innerHTML = '<summary>Show as table</summary><table class="tbl"><thead><tr><th scope="col">Point</th><th scope="col">Value</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
-    svg.insertAdjacentElement('afterend', d);
+    at.insertAdjacentElement('afterend', d);
   });
 }
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);

@@ -171,7 +171,7 @@ describe('share picture', () => {
 
 describe('placement', () => {
   const s = scorecard(base());
-  it('has a page of its own and a separate Overview card, both switchable in Settings', () => {
+  it('has a page of its own and a separate Overview card, both switchable in Settings; the card is added from Customize', () => {
     expect(scorecardOn()).toBe(true);
     expect(scorecardPageOn()).toBe(true);
     localStorage.setItem('money.scorecard', 'false'); localStorage.setItem('money.scorecardPage', 'false');
@@ -181,7 +181,8 @@ describe('placement', () => {
     expect(settings).toMatch(/data-onchange="App.toggleScorecardPage\(this.checked\)"/);
     expect(dom).toContain("['scorecard', 'Money scorecard', 'scorecard']");
     expect(dom).toContain("r === 'scorecard'");
-    expect(dash).toMatch(/DASH_DEFAULT = \[[^\]]*'scorecard'/);
+    expect(dash).not.toMatch(/DASH_DEFAULT = \[[^\]]*'scorecard'/);                    // offered under Add cards, not forced on
+    expect(dash).toContain("scorecard: 'Your money personality and six plain-word ratings'");
     expect(dash).toMatch(/habits: 'Habits', scorecard: 'Money scorecard'/);            // its own tile, not part of Habits
   });
   it('draws nothing from an old copy when Firefly is down', () => {
@@ -211,7 +212,6 @@ describe('placement', () => {
     expect(block.length).toBeGreaterThan(500);
     expect(block).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(/i);
     expect(block).toContain('overflow-wrap: anywhere');
-    expect(block).toContain('minmax(min(100%, 320px), 1fr)');
   });
   it('has Spanish for every phrase it can show', () => {
     const cat = es as Record<string, string>, all = scorecard(base({}, { bills: { cur: { paid: 20, late: 0 }, prev: { paid: 15, late: 5 } }, debt: { now: 5, ago: 10 }, cash: { now: [{ name: 'A', role: 'defaultAsset', balance: 9000 }], ago: null } }));

@@ -28,6 +28,7 @@ type Notes = { lead: string, items: [string, string, string][] };
 const NOTES: Record<string, Notes> = {
   '2.6.0': { lead: 'Spanish, any Net worth range, a cleaner look, and easier navigation and forms.', items: [
     ['globe', 'Spanish translation', 'Pick Spanish in Settings → Appearance → Language. English stays the default. Thanks to GinesRico for the original translation.'],
+    ['sliders', 'Modes and accents', 'Themes are now a mode (Auto, Light, Dark or a glass look) plus an accent. The pastel and bold themes became accents under Light and Dark, and your saved theme carries over.'],
     ['lens', 'Any Net worth range', 'Type any number of years, or choose All time, from the options menu on the Net worth card.'],
     ['sliders', 'A cleaner interface', 'Sentence-case labels, even spacing, lighter text weights, and no emoji or looping pulse.'],
     ['bento', 'Map re-analyze', 'Re-analyze all is always available on the Map, with a range box for how far back to look.'],

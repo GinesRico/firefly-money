@@ -69,8 +69,8 @@ export function scorecardPage(s: Score): Html {
 <ul class="sc-traits">${htmlList(p.traits.map(t => html`<li><span class="sc-tn">${t.name}</span><span class="sc-te">${t.text}</span></li>`))}</ul>
 <p class="sc-nudge">${p.nudge} <a href="${p.href}">Take a look</a></p></section>`;
   if (s.fresh) return html`${person}<section class="panel"><div class="center-empty">Your ratings appear after about 3 months of history. Until then, categorize what you buy and let it build.</div></section>`;
-  return html`<div class="sc-grid">${person}
-<section class="panel sc-tops"><dl class="bi-stats">${topLine('Biggest improvement', s.improved, 'Nothing has moved up yet')}${topLine('Best habit', s.best, 'Still building')}</dl></section></div>
+  return html`<section class="panel sc-tops"><dl class="bi-stats">${topLine('Biggest improvement', s.improved, 'Nothing has moved up yet')}${topLine('Best habit', s.best, 'Still building')}</dl></section>
+${person}
 <section class="panel"><h2>Your ratings</h2><p class="lead">The last 6 months, with the change against the 6 before</p>
 <ul class="sc-list">${htmlList(s.grades.map(g => html`<li><div class="sc-row"><span class="sc-name">${g.name}</span>${pill(g)}</div>
 <p class="sc-why">${g.reason} ${trendMark(g)}</p>${g.detail ? html`<p class="sub-s sc-detail">${g.detail}</p>` : ''}<a class="sc-go" href="${g.href}">${g.action}<span aria-hidden="true"> →</span></a></li>`))}</ul></section>

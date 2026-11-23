@@ -39,9 +39,9 @@ export function wxOf(code: number): Wx {
   return code >= 95 ? 'storm' : code >= 85 && code <= 86 ? 'snow' : code >= 71 && code <= 77 ? 'snow' : code >= 80 || (code >= 51 && code <= 67) ? 'rain' : code === 45 || code === 48 ? 'fog' : code === 2 || code === 3 ? 'cloudy' : 'clear';
 }
 // How each weather changes the sky: grey-over amount, how much of the sun, stars and birds show, and the least cloud
-const WXF: Record<Wx, { grey: number, sun: number, stars: number, birds: number, cloud: number }> = {
-  clear: { grey: 0, sun: 1, stars: 1, birds: 1, cloud: 0 }, cloudy: { grey: .15, sun: .75, stars: .6, birds: 1, cloud: .5 }, fog: { grey: .3, sun: .45, stars: .25, birds: 0, cloud: .45 },
-  rain: { grey: .35, sun: .3, stars: .2, birds: 0, cloud: .7 }, snow: { grey: .25, sun: .4, stars: .3, birds: 0, cloud: .6 }, storm: { grey: .5, sun: .2, stars: .1, birds: 0, cloud: .8 },
+const WXF: Record<Wx, { grey: number, sun: number, stars: number, birds: number, cloud: number, dark: number }> = {
+  clear: { grey: 0, sun: 1, stars: 1, birds: 1, cloud: 0, dark: 0 }, cloudy: { grey: .15, sun: .75, stars: .6, birds: 1, cloud: .5, dark: .12 }, fog: { grey: .3, sun: .45, stars: .25, birds: 0, cloud: .45, dark: .1 },
+  rain: { grey: .35, sun: .3, stars: .2, birds: 0, cloud: .7, dark: .5 }, snow: { grey: .25, sun: .4, stars: .3, birds: 0, cloud: .6, dark: .15 }, storm: { grey: .5, sun: .2, stars: .1, birds: 0, cloud: .8, dark: .72 },
 };
 export type Sky = { phase: 'dawn' | 'day' | 'dusk' | 'night', top: string, mid: string, bot: string, sun: { x: number, y: number, o: number, c: string }, moon: { x: number, y: number, o: number }, stars: number, birds: number, cloud: { o: number, c: string } };
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -61,7 +61,7 @@ export function skyAt(min: number, o: { rise?: number, set?: number, wx?: Wx } =
     phase, top: grey(mix(a[1], b[1], t)), mid: grey(mix(a[2], b[2], t)), bot: grey(mix(a[3], b[3], t)),
     sun: { ...arc(clamp(ts, 0, 1)), o: up ? r1(fade(ts) * f.sun) : 0, c: mix('#ff8a2a', '#ffe9a8', Math.min(1, el * 2)) },
     moon: { ...arc(Math.min(1, tm)), o: nightUp ? r1(fade(tm) * (.4 + .6 * f.sun)) : 0 },
-    birds: r1(Math.min(1, el * 4) * f.birds), cloud: { o: r1(Math.max(.16 + .4 * el, f.cloud)), c: up ? mix('#f0a070', '#e8f0fa', Math.min(1, el * 3)) : '#55627a' },
+    birds: r1(Math.min(1, el * 4) * f.birds), cloud: { o: r1(Math.max(.16 + .4 * el, f.cloud)), c: mix(up ? mix('#f0a070', '#e8f0fa', Math.min(1, el * 3)) : '#55627a', '#2a3242', f.dark) },
     stars: r1(dark * f.stars) };
 }
 const NAMES = ['--sky-top', '--sky-mid', '--sky-bot', '--sun-x', '--sun-y', '--sun-o', '--sun-c', '--moon-x', '--moon-y', '--moon-o', '--star-o', '--bird-o', '--cloud-o', '--cloud-c'];
@@ -71,10 +71,12 @@ export function paintSky(min: number, o: { rise?: number, set?: number, wx?: Wx 
   if (o.wx && o.wx !== 'clear') d.setAttribute('data-wx', o.wx); else d.removeAttribute('data-wx');
 }
 // The scene itself: one fixed layer behind the page (built once, removed when the theme is off). CSS draws and animates it.
-const SCENE = '<i class="sk-stars"></i><i class="sk-stars b"></i><i class="sk-shoot"></i><i class="sk-moon"></i><i class="sk-sun"></i>'
-  + '<i class="sk-cloud c1"></i><i class="sk-cloud c2"></i><i class="sk-cloud c3"></i><i class="sk-cloud c4"></i>'
+const BOLT = '<svg class="sk-bolt b1" viewBox="0 0 60 200"><path d="M38 0L22 70L34 74L14 200L46 96L32 92Z"/></svg><svg class="sk-bolt b2" viewBox="0 0 60 200"><path d="M26 0L40 62L28 66L50 170L20 88L32 84Z"/></svg>';
+const SCENE = '<i class="sk-stars"></i><i class="sk-stars b"></i><i class="sk-shoot"></i><i class="sk-moon"></i><i class="sk-sun"></i><i class="sk-over"></i>'
+  + [1, 2, 3, 4, 5, 6, 7].map(n => '<i class="sk-cloud c' + n + '"></i>').join('')
   + [1, 2, 3, 4, 5].map(n => '<svg class="sk-bird b' + n + '" viewBox="0 0 24 10"><path d="M1 8Q6 0 12 7Q18 0 23 8"/></svg>').join('')
-  + '<i class="sk-fog"></i><i class="sk-rain"></i><i class="sk-rain b"></i><i class="sk-snow"></i><i class="sk-snow b"></i><i class="sk-flash"></i>';
+  + '<i class="sk-fog"></i><i class="sk-fog b"></i><i class="sk-fog c"></i><i class="sk-rain far"></i><i class="sk-rain"></i><i class="sk-rain near"></i><i class="sk-mist"></i>'
+  + '<i class="sk-snow far"></i><i class="sk-snow"></i><i class="sk-snow near"></i><i class="sk-flash"></i>' + BOLT;
 function scene(on: boolean) {
   let e = document.getElementById('sky');
   if (!on) { if (e) e.remove(); return; }
@@ -84,6 +86,8 @@ function scene(on: boolean) {
 // What you chose in Settings (kept on this device): a place, rounded to about 10 km, and the weather source
 const pref = (k: string): unknown => { try { return JSON.parse(localStorage.getItem('money.' + k) || 'null'); } catch (e) { return null; } };
 function place(): [number, number] | null { const p = pref('skyLoc') as { lat?: number, lon?: number } | null; return p && typeof p.lat === 'number' && typeof p.lon === 'number' ? [p.lat, p.lon] : null; }
+// With no place chosen, the sun follows this device's time zone: the middle of it for longitude, and a mid latitude so the seasons still show
+export const zonePlace = (d = new Date()): [number, number] => [38, clamp(Math.round(-d.getTimezoneOffset() / 4 * 10) / 10, -180, 180)];
 let timer = 0, live: Wx | null = null, liveAt = 0, liveFor = '';
 // Real weather comes from this server's relay (/wx), never from the browser; when it can't be had, no weather is shown rather than an old one
 async function fetchLive(loc: [number, number]) {
@@ -101,7 +105,7 @@ export function syncSky(refetch = true) {
   clearInterval(timer); timer = 0; scene(on);
   if (!on) { NAMES.forEach(n => d.style.removeProperty(n)); d.removeAttribute('data-sky'); d.removeAttribute('data-wx'); live = null; return; }
   const tick = (fetching = true) => {
-    const n = new Date(), loc = place(), w = pref('skyWx') as string | null, sun = loc ? sunToday(loc[0], loc[1], n) : [6 * H, 18 * H];
+    const n = new Date(), loc = place(), w = pref('skyWx') as string | null, zp = loc || zonePlace(n), sun = sunToday(zp[0], zp[1], n);
     let wx: Wx | undefined;
     if (w && (WX as string[]).includes(w)) wx = w as Wx;                                           // a preview you picked
     else if (w === 'live' && loc) { if (fetching && (Date.now() - liveAt > 15 * 60000 || liveFor !== loc.join(','))) fetchLive(loc); wx = live || undefined; }

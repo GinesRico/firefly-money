@@ -357,6 +357,15 @@ class H(BaseHTTPRequestHandler):
             elif re.match(r'^/tile/\d+/\d+/\d+\.png$', u.path):   # stands in for nginx's map pictures: a plain grid square
                 body = b'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#ecebe4"/><path d="M0 .5H256M.5 0V256M0 128H256M128 0V256" stroke="#d6d4ca"/></svg>'
                 self.send_response(200); self.send_header('Content-Type', 'image/svg+xml'); self.end_headers(); self.wfile.write(body)
+            elif u.path == '/geo':   # stands in for nginx's place search (Settings > Interstellar)
+                q = (parse_qs(u.query).get('q') or [''])[0].lower()
+                places = [{'name': 'Philadelphia', 'admin1': 'Pennsylvania', 'country': 'United States', 'latitude': 39.95233, 'longitude': -75.16379}, {'name': 'Lubbock', 'admin1': 'Texas', 'country': 'United States', 'latitude': 33.57786, 'longitude': -101.85517},
+                          {'name': 'London', 'admin1': 'England', 'country': 'United Kingdom', 'latitude': 51.50853, 'longitude': -0.12574}, {'name': 'Tromsø', 'admin1': 'Troms', 'country': 'Norway', 'latitude': 69.6496, 'longitude': 18.95508}]
+                body = json.dumps({'results': [x for x in places if q and x['name'].lower().startswith(q[:3])]}).encode()
+                self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers(); self.wfile.write(body)
+            elif u.path.startswith('/wx/'):   # stands in for nginx's weather relay
+                body = json.dumps({'current': {'weather_code': 61}}).encode()
+                self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers(); self.wfile.write(body)
             elif re.match(r'^/fx/[ab]/USD(/[A-Z,]+)?$', u.path):   # stands in for nginx's exchange-rate proxy (core/fx.ts)
                 body = json.dumps({'base': 'USD', 'date': '2026-01-02', 'rates': {'INR': 83.9, 'EUR': 0.92, 'JPY': 150.25}}).encode()
                 self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers(); self.wfile.write(body)
