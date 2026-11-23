@@ -32,3 +32,11 @@ describe('chart tables do not resize a card after it is drawn', () => {
     expect(a11y).not.toContain('}, 250)');
   });
 });
+
+describe('the demo keeps card heights across its reset', () => {
+  it('carries money.skh through the localStorage wipe', () => {
+    const demo = readFileSync('app/src/demo/demo.ts', 'utf8');
+    expect(demo).toContain("skh = localStorage.getItem('money.skh')");
+    expect(demo).toContain("localStorage.setItem('money.skh', skh)");
+  });
+});

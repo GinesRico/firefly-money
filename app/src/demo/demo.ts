@@ -10,7 +10,8 @@ import { NotFound, createMockApi } from './mockapi';
 // and device: whatever was saved before (theme, layout, Customize picks, What's new, edits' leftovers) is wiped first,
 // and the data is made up in memory, so a reload or a new visit always shows the same starting point.
 window.MONEY_DEMO = true;
-let lang: string | null = null;
+let lang: string | null = null, skh: string | null = null;
+try { skh = localStorage.getItem('money.skh'); } catch (e) { /* storage blocked */ }      // card heights (no data) survive too, so placeholders are true to size on a revisit
 try { lang = localStorage.getItem('money.lang'); } catch (e) { /* storage blocked */ }   // the language pick survives the wipe, or the switcher's reload would undo it
 try { localStorage.clear(); sessionStorage.clear(); } catch (e) { /* storage blocked */ }
 try { indexedDB.databases?.().then(dbs => dbs.forEach(d => d.name && indexedDB.deleteDatabase(d.name))).catch(() => {}); } catch (e) { /* no IndexedDB */ }
@@ -19,6 +20,7 @@ try { navigator.serviceWorker?.getRegistrations().then(rs => rs.forEach(r => r.u
 try {
   {
     if (lang) localStorage.setItem('money.lang', lang);
+    if (skh) localStorage.setItem('money.skh', skh);
     localStorage.setItem('moneyTheme', 'interstellar');
     localStorage.setItem('money.skyLoc', JSON.stringify({ lat: 40.7, lon: -74, name: 'New York, New York, United States' }));   // set here, so the browser never asks for a location
     localStorage.setItem('money.skyWx', 'clear');                                                                           // the demo has no weather relay, so the sky shows the clear preview
