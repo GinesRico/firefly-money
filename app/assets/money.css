@@ -2627,6 +2627,30 @@ html { --ag: var(--spend); }
 .ag-c.today { outline: 2px solid var(--text); outline-offset: 1px; }
 html[data-theme="glass"] .ag-c.l3, html[data-theme="glass"] .ag-c.l4 { box-shadow: 0 0 8px color-mix(in srgb, var(--ag) 55%, transparent); }
 
+/* Activity in 3D: the card opens a drawer with the same days as a skyline, a taller bar for more spent */
+.ag-card { cursor: pointer; position: relative; }
+.ag-open { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ag-open:focus-visible { width: auto; height: auto; clip: auto; top: 6px; right: 8px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: var(--fs-xs); z-index: 1; }
+@property --k { syntax: "<number>"; inherits: true; initial-value: 1; }
+.ag3-cap { margin: 0 0 8px; }
+.ag3-stage { --s: 1; --k: 0; --c: 14px; height: 300px; position: relative; overflow: hidden; perspective: 1400px; }
+.ag3-stage.on { --k: 1; }
+.ag3-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, var(--c)); grid-auto-columns: var(--c); gap: 3px; transform-style: preserve-3d; position: absolute; left: 50%; top: 50%; width: calc(var(--cols) * 17px - 3px); height: calc(7 * 17px - 3px);
+  transform: translate(-50%, -50%) rotateX(calc(58deg * var(--k))) rotateZ(calc(-40deg * var(--k))) scale(var(--s)); }
+.ag3-grid .ag-c { --z: 1px; position: relative; aspect-ratio: auto; border-radius: 2px; transform-style: preserve-3d; transform: translateZ(calc(var(--z) * var(--k))); box-shadow: none; }
+.ag3-grid .ag-c.l1 { --z: 6px; } .ag3-grid .ag-c.l2 { --z: 14px; } .ag3-grid .ag-c.l3 { --z: 24px; } .ag3-grid .ag-c.l4 { --z: 36px; }
+.ag3-grid .ag-c.pad { visibility: hidden; }
+.ag3-grid .ag-c::before, .ag3-grid .ag-c::after { content: ""; position: absolute; background: inherit; transform-origin: 0 0; }
+.ag3-grid .ag-c::before { left: 0; top: 100%; width: 100%; height: var(--z); transform: rotateX(-90deg); filter: brightness(.8); }
+.ag3-grid .ag-c::after { left: 100%; top: 0; width: var(--z); height: 100%; transform: rotateY(90deg); filter: brightness(.62); }
+.ag3-grid .ag-c.today { outline: 0; }
+.ag3-grid .ag-c[data-go] { cursor: pointer; }
+.ag3-key { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 10px; font-size: var(--fs-2xs); color: var(--muted); }
+.ag3-key .ag-c { width: 12px; height: 12px; aspect-ratio: auto; display: inline-block; }
+.ag3-key span { margin: 0 4px; }
+@media (prefers-reduced-motion: no-preference) { .ag3-stage { transition: --k .7s var(--ease-glide); } }
+@media (prefers-reduced-motion: reduce) { .ag3-stage { --k: 1; } }
+
 /* Activity card: no title; the range lives in the card's settings. No legend row (meaning is in the grid's label); month labels then a fixed-height 7-row grid (same for every range) */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .panel.ag-card { padding: 10px 12px; }
