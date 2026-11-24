@@ -248,7 +248,7 @@ export function activityPanel(buys: { date: string, amount: number }[], start: s
   for (let i = 0; i < lead; i++) cells = html`${cells}<span class="ag-c pad"></span>`;
   days.forEach(d => {
     const tip = fmtD(d.iso, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) + (d.v ? ' · ' + money(d.v) + ' · ' + d.n + ' purchase' + (d.n === 1 ? '' : 's') : ' · nothing spent');
-    cells = html`${cells}<span class="ag-c l${d.level}${d.iso === t ? ' today' : ''}" data-tip="${tip}"${d.v ? html` data-go="${txHref({ type: 'withdrawal' }, { start: d.iso, end: d.iso })}"` : ''}></span>`;
+    cells = html`${cells}<span class="ag-c l${d.level}${d.iso === t ? ' today' : ''}" data-tip="${tip}"${d.v ? html` data-d="${txHref({ type: 'withdrawal' }, { start: d.iso, end: d.iso })}"` : ''}></span>`;
   });
   // A month label over the column where each month's first week begins
   const cols = Math.ceil((lead + days.length) / 7);
@@ -274,7 +274,7 @@ export function activityPanel(buys: { date: string, amount: number }[], start: s
   const priv = !!LS.get('privacy', false);
   const summary = active + ' of ' + days.length + ' days with spending' + (top && top.v ? '; the biggest was ' + fmtDate(top.iso) + (priv ? '' : ' at ' + money0(top.v)) : '');
   const rows = htmlList([...byMonth].map(([m, x]) => html`<tr><td><a href="${txHref({ type: 'withdrawal' }, { start: m + '-01', end: days.filter(d => d.iso.startsWith(m)).pop()!.iso })}">${fmtD(m + '-01', { month: 'long', year: 'numeric' })}</a></td><td class="num">${x.d}</td><td class="num">${x.n}</td><td class="num">${money0(x.v)}</td></tr>`));
-  return html`<section class="panel chart ag-card" aria-label="Activity"><div class="ag-scroll"><div class="ag-wrap" style="--agm:${activityCell(cols)}px"><div class="ag-months" aria-hidden="true">${months}</div><div class="ag-grid" role="img" aria-label="Spending each day, stronger colour means more spent: ${summary}">${cells}</div></div></div><div class="sr-only"><p>${summary}</p><table class="tbl"><caption>Spending by month</caption><thead><tr><th scope="col">Month</th><th scope="col">Days</th><th scope="col">Purchases</th><th scope="col">Spent</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  return html`<section class="panel chart ag-card" aria-label="Activity" data-onclick="App.activity3d(this)"><button type="button" class="ag-open" data-onclick="event.stopPropagation();App.activity3d(this)">Open 3D view</button><div class="ag-scroll"><div class="ag-wrap" style="--agm:${activityCell(cols)}px"><div class="ag-months" aria-hidden="true">${months}</div><div class="ag-grid" role="img" aria-label="Spending each day, stronger colour means more spent: ${summary}">${cells}</div></div></div><div class="sr-only"><p>${summary}</p><table class="tbl"><caption>Spending by month</caption><thead><tr><th scope="col">Month</th><th scope="col">Days</th><th scope="col">Purchases</th><th scope="col">Spent</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }
 
 /* ---------- Daily spending heatmap ---------- */
