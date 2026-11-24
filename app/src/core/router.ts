@@ -7,12 +7,11 @@ import { lists } from './lists';
 import { loadBegin } from './progress';
 import { pagedHtml } from './pagescroll';
 import { labelHtml, monthLabel, morph, morphOk, sameLayout, slideLabel, snapshot } from './morph';
-import { t } from './spanish';
 
 /* ================= Router ================= */
 // The placeholder shows the shape of the page that's coming (KPI row, chart, list rows, table), so nothing jumps when it arrives
 const SKELETONS: Record<string, string> = {
-  '': 'dash', reports: 'dash', recap: 'dash', year: 'dash', timeline: 'dash', forecast: 'dash',
+  '': 'dash', reports: 'dash', recap: 'dash', year: 'dash', scorecard: 'dash', timeline: 'dash', forecast: 'dash',
   transactions: 'feed', account: 'feed', review: 'feed', unusual: 'cards', inbox: 'feed', places: 'feed', map: 'chart',
   budgets: 'table', categories: 'table', bills: 'table', accounts: 'table', rules: 'table', recurring: 'table', loans: 'table', piggy: 'cards',
 };
@@ -236,17 +235,19 @@ export async function route(opts: { nav?: boolean, quiet?: boolean, instant?: bo
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
     const onError = !!v.querySelector(':scope > .pg > .error');
-    if (opts.quiet && S.pageLive && !onError) { toast(t('Couldn’t refresh: {error}', { error: (e as Error).message })); return; }
+    if (opts.quiet && S.pageLive && !onError) { toast('Couldn’t refresh: ' + (e as Error).message); return; }
     if ((e as ApiError).network) {
-      paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${(e as Error).message}<br>Trying again by itself…<br><br><button class="btn small" data-onclick="App.reload()">Try again now</button></div>`);
+      paint(html`<div class="error" role="alert"><strong>Couldn’t load this page.</strong><br>${errText(e)}<br>Trying again by itself…<br><br><button class="btn small" data-onclick="App.reload()">Try again now</button></div>`);
       if (tok === S.tok) retryWhenBack(tok);
       return;
     }
-    paint(html`<div class="error"><strong>Couldn’t load this page.</strong><br>${(e as Error).message}<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>`);
+    paint(html`<div class="error" role="alert"><strong>Couldn’t load this page.</strong><br>${errText(e)}<br><br><button class="btn small" data-onclick="App.reload()">Try again</button></div>`);
   } finally { endLoad(); }
 }
 // The server couldn't be reached: try the page again after a short wait (longer each time, up to 30 s),
 // or straight away when the device comes back online or the tab is shown again. Stops once you go elsewhere.
+// A server message is worth showing; a JavaScript error ("Cannot read properties of undefined…") is not
+export const errText = (e: unknown) => e instanceof TypeError || e instanceof ReferenceError || e instanceof RangeError || e instanceof SyntaxError ? 'Something went wrong while showing this page.' : (e as Error)?.message || 'Something went wrong.';
 let netFails = 0, netTimer: ReturnType<typeof setTimeout> | undefined;
 function retryWhenBack(tok: number) {
   const go = () => {
@@ -311,7 +312,7 @@ async function recalcAll(btn?: HTMLButtonElement) {
     toast('Recalculated everything from Firefly III');
   } catch (e) {
     if (e instanceof AuthError) return showLogin(e.message);
-    toast(t('Couldn’t recalculate: {error}', { error: (e as Error).message }));
+    toast('Couldn’t recalculate: ' + (e as Error).message);
   } finally {
     S.recalcing = false; endLoad();
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = label; }

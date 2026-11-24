@@ -15,7 +15,7 @@ describe('UI UX Pro Max audit fixes', () => {
     expect(css).not.toMatch(/\.bud-s, \.tag-s \{[^}]*opacity/);
   });
   it('keeps small text at 10.5px or more', () => {
-    expect(css).toContain('.av.sm { width: 26px; height: 26px; font-size: 11px; }');
+    expect(css).toContain('.av.sm { width: 26px; height: 26px; font-size: var(--fs-2xs); }');
     expect(css).not.toContain('.eyebrow { font-size: 9.5px; }');
   });
 });

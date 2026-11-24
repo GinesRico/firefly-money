@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { tileOn, tileOpt } from '../app/src/features/dashboard';
 
 const save = (v: unknown) => localStorage.setItem('money.dash', JSON.stringify(v));
@@ -21,5 +22,19 @@ describe('which Overview cards are on', () => {
     expect(tileOn('pace')).toBe(true);
     expect(tileOn('bills')).toBe(false);
     expect(tileOn('payees')).toBe(false);
+  });
+});
+
+describe('Add cards offers every card that is off', () => {
+  it('marks habits and the scorecard "off" (not empty) so Customize lists them', () => {
+    const src = readFileSync('app/src/pages/overview.ts', 'utf8');
+    expect(src).toContain("const scoreCard = (k: string, slow: unknown, card: () => Html) => !scorecardOn() ? '' : !tileOn(k) ? 'off' : slow ? card() : skeletonPanel(k)");
+    expect(src).toMatch(/\['habits', !habitsShown\(\) \? \(!tileOn\('habits'\) && habitsOn\(\) \? 'off' : ''\)/);
+  });
+  it('the scorecard is off by default but can be added', () => {
+    expect(tileOn('scorecard')).toBe(false);
+    save({ v: 3, order: [], hidden: [], shown: ['scorecard'] });
+    expect(tileOn('scorecard')).toBe(true);
+    for (const k of ['scSavings', 'scConsistency', 'scBills', 'scCushion', 'scTidiness', 'scDebt']) { expect(tileOn(k)).toBe(false); save({ v: 3, order: [], hidden: [], shown: [k] }); expect(tileOn(k)).toBe(true); }
   });
 });

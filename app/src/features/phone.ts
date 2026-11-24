@@ -1,18 +1,21 @@
-import { html, htmlList } from '../core/html';
+import { html, htmlList, raw } from '../core/html';
 import { App, el } from '../core/base';
+import { LS } from '../core/helpers';
 import { BUZZ_DELETE, buzz } from '../core/haptics';
-import { NAV_GROUPS, icon, navItem, openDrawer } from '../core/dom';
+import { icon, navGroups, navItem, openDrawer } from '../core/dom';
 
 /* ---------- Phone: tab bar, More sheet, swipe to delete ---------- */
 function drawTabbar(active: string) {
   const tb = el('tabbar'); tb.hidden = false;
+  const moreOn = !['', 'transactions', 'budgets'].includes(active);      // on a page behind More, More is the lit tab
   // Drawn once, then only the current tab changes, so the pill behind it (Frosted glass) can slide across
   if (tb.querySelector('.tab-pill')) {
-    tb.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#/' + active));
+    tb.querySelectorAll('a').forEach(a => { const on = a.getAttribute('href') === '#/' + active; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    const mb = tb.querySelector('button.more'); if (mb) { mb.classList.toggle('on', moreOn); if (moreOn) mb.setAttribute('aria-current', 'page'); else mb.removeAttribute('aria-current'); }
     return movePill();
   }
-  const t = (r: string, label: string, ic: string) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}">${icon(ic)}<span>${label}</span></a>`;
-  tb.innerHTML = String(html`<i class="tab-pill" aria-hidden="true"></i>${t('', 'Home', 'overview')}${t('transactions', 'Activity', 'transactions')}<button type="button" class="plus" data-onclick="App.quickAdd()" aria-label="Add transaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>${t('budgets', 'Budgets', 'budgets')}<button type="button" data-onclick="App.moreSheet()">${icon('categories')}<span>More</span></button>`);
+  const t = (r: string, label: string, ic: string) => html`<a href="#/${r}" class="${r === active ? 'on' : ''}"${r === active ? raw(' aria-current="page"') : ''}>${icon(ic)}<span>${label}</span></a>`;
+  tb.innerHTML = String(html`<i class="tab-pill" aria-hidden="true"></i>${t('', 'Overview', 'overview')}${t('transactions', 'Activity', 'transactions')}<button type="button" class="plus" data-onclick="App.quickAdd()" aria-label="Add transaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>${t('budgets', 'Budgets', 'budgets')}<button type="button" class="more${moreOn ? ' on' : ''}"${moreOn ? raw(' aria-current="page"') : ''} data-onclick="App.moreSheet()">${icon('more')}<span>More</span></button>`);
   movePill();
   tapThrough(tb); tapThrough(el('fab'));
   requestAnimationFrame(() => tb.classList.add('pill-ready'));     // no slide in from the edge the first time
@@ -30,7 +33,7 @@ function tapThrough(node: HTMLElement) {
   });
 }
 function movePill() {
-  const tb = el('tabbar'), on = tb.querySelector<HTMLElement>('a.on'), pill = tb.querySelector<HTMLElement>('.tab-pill');
+  const tb = el('tabbar'), on = tb.querySelector<HTMLElement>('a.on, button.more.on'), pill = tb.querySelector<HTMLElement>('.tab-pill');
   if (!pill) return;
   pill.classList.toggle('off', !on || !on.offsetWidth);
   if (on && on.offsetWidth) { pill.style.width = on.offsetWidth + 'px'; pill.style.transform = 'translateX(' + on.offsetLeft + 'px)'; }
@@ -59,8 +62,8 @@ addEventListener('resize', movePill);
 export function moreSheet() {
   const link = (r: string) => { const [, label, ic] = navItem(r); return html`<a class="row" href="#/${r}" data-onclick="App.closeDrawer()"><span class="name"><span class="ic">${icon(ic)}</span>${label}</span><span class="neutral">›</span></a>`; };
   // the tab bar already has Home, Activity and Budgets
-  const groups = NAV_GROUPS.concat([['', ['settings']]]).map(([t, rs]) => [t, rs.filter(r => !['', 'transactions', 'budgets'].includes(r))] as const).filter(g => g[1].length);
-  openDrawer('Menu', html`${App.ffPill ? App.ffPill(true) : ''}<button type="button" class="sheet-search" data-onclick="App.openPalette()">${icon('search')}<span>Search everything</span></button>${htmlList(groups.map(([t, rs]) => html`${t ? html`<div class="eyebrow menu-h">${t}</div>` : ''}<div class="list menu">${htmlList(rs.map(link))}</div>`))}<div class="toggles sheet"><button type="button" class="btn" data-tg="privacy" data-onclick="App.togglePrivacy()"></button></div><div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-onclick="App.closeDrawer();App.recalcAll()">Recalculate everything</button>${el('ffLink').hidden ? '' : html`<a class="btn" href="${el('ffLink').getAttribute('href')}" target="_blank" rel="noopener">Open Firefly III ↗</a>`}${window.MONEY_NATIVE ? html`<button class="btn" data-onclick="App.nativeSettings()">App settings</button>` : ''}<button class="btn" data-onclick="App.signOut()">Sign out</button></div>`);
+  const groups = navGroups().concat([['', ['settings']]]).map(([t, rs]) => [t, rs.filter(r => !['', 'transactions', 'budgets'].includes(r))] as const).filter(g => g[1].length);
+  openDrawer('More', html`${App.ffPill ? App.ffPill(true) : ''}<button type="button" class="sheet-search" data-onclick="App.openPalette()">${icon('search')}<span>Search everything</span></button>${htmlList(groups.map(([t, rs]) => html`${t ? html`<div class="eyebrow menu-h">${t}</div>` : ''}<div class="list menu">${htmlList(rs.map(link))}</div>`))}<div class="toggles sheet"><button type="button" class="btn" data-tg="privacy" data-onclick="App.togglePrivacy()"></button></div><div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-onclick="App.closeDrawer();App.recalcAll()">Recalculate everything</button>${el('ffLink').hidden ? '' : html`<a class="btn" href="${el('ffLink').getAttribute('href')}" target="_blank" rel="noopener">Open Firefly III ↗</a>`}${window.MONEY_NATIVE ? html`<button class="btn" data-onclick="App.nativeSettings()">App settings</button>` : ''}<button class="btn" data-onclick="App.signOut()">Sign out</button></div>`);
   if (App.drawToggles) App.drawToggles();
 }
 // Swipe a row left to show Categorize and Delete behind it, as in Mail; tap anywhere else to put it back
@@ -76,6 +79,7 @@ const BIN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 // The buttons behind a row, added the first time it's swiped
 function swipeActions(tr: HTMLElement) {
   if (tr.querySelector('.swacts')) return;
+  LS.set('swipeHint', true); document.querySelector('.swipe-hint')?.remove();
   const td = document.createElement('td'), gid = tr.dataset.gid!;
   td.className = 'swacts';
   const btn = (cls: string, svg: string, label: string, go: () => void) => {
@@ -105,6 +109,14 @@ export function bindSwipe() {
       if (Date.now() < swallowTo && (e.target as Element).closest('#view tr[data-gid]')) { e.stopPropagation(); e.preventDefault(); }
       swallowTo = 0;
     }, true);
+  }
+  // Nothing on a row shows that it slides, so say so once, until it is dismissed or the first swipe
+  const feed = document.querySelector('#view table.feed');
+  if (feed && !LS.get('swipeHint', false) && !document.querySelector('.swipe-hint')) {
+    const p = document.createElement('p'); p.className = 'sub-s swipe-hint'; p.textContent = 'Swipe a row left for Categorize and Delete. ';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'link'; b.textContent = 'Got it';
+    b.onclick = () => { LS.set('swipeHint', true); p.remove(); };
+    p.appendChild(b); feed.before(p);
   }
   document.querySelectorAll<HTMLElement>('#view tr[data-gid]:not([data-sw])').forEach(tr => {
     tr.dataset.sw = '1';

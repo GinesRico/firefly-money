@@ -1,7 +1,6 @@
 import { type Html, html, htmlList, raw } from './html';
 import { App, S, type State, el, fmtDate, fmtDay, monthRange, nowMonth } from './base';
 import { BUZZ_DELETE, buzz } from './haptics';
-import { t } from './spanish';
 
 /* ================= UI plumbing ================= */
 const ICONS: Record<string, Html> = {
@@ -9,6 +8,7 @@ const ICONS: Record<string, Html> = {
   transactions: html`<path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/>`,
   accounts: html`<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/>`,
   budgets: html`<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 5"/>`,
+  more: html`<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>`,
   categories: html`<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>`,
   bills: html`<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/>`,
   forecast: html`<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>`,
@@ -23,6 +23,7 @@ const ICONS: Record<string, Html> = {
   settings: html`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>`,
   piggy: html`<path d="M5 11a7 6 0 0 1 13-2h2v4l-2 1-1 4h-3v-2h-4v2H7l-1-4a5 5 0 0 1-1-3z"/><circle cx="15" cy="11" r=".6"/>`,
   search: html`<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>`,
+  scorecard: html`<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 16v-3M12 16V8M16 16v-5"/>`,
   year: html`<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M12 11.5l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z"/>`,
   timeline: html`<path d="M12 2v20"/><circle cx="12" cy="6" r="2.2"/><circle cx="12" cy="14" r="2.2"/><path d="M14.5 6H20M4 14h5.5M14.5 14H18"/>`,
   spark: html`<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>`,
@@ -31,14 +32,16 @@ const ICONS: Record<string, Html> = {
   density: html`<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>`,
 };
 export const icon = (k: string) => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
-export const NAV = [['', 'Resumen', 'overview'], ['forecast', 'Previsión', 'forecast'], ['transactions', 'Movimientos', 'transactions'], ['review', 'Pendientes', 'review'],
-  ['accounts', 'Cuentas', 'accounts'], ['loans', 'Planificador de préstamos', 'loans'],
-  ['budgets', 'Presupuestos', 'budgets'], ['categories', 'Categorías y etiquetas', 'categories'], ['bills', 'Facturas', 'bills'], ['recurring', 'Recurrentes', 'recurring'],
-  ['piggy', 'Huchas', 'piggy'], ['rules', 'Reglas', 'rules'], ['recap', 'Resumen mensual', 'recap'], ['year', 'El año en Money', 'year'], ['timeline', 'Cronología', 'timeline'], ['ask', 'Preguntar', 'spark'], ['unusual', 'Anomalías', 'eye'], ['map', 'Mapa', 'map'], ['reports', 'Informes', 'reports'], ['settings', 'Ajustes', 'settings']];
+export const NAV = [['', 'Overview', 'overview'], ['forecast', 'Forecast', 'forecast'], ['transactions', 'Transactions', 'transactions'], ['review', 'To do', 'review'],
+  ['accounts', 'Accounts', 'accounts'], ['loans', 'Loan planner', 'loans'],
+  ['budgets', 'Budgets', 'budgets'], ['categories', 'Categories & tags', 'categories'], ['bills', 'Bills', 'bills'], ['recurring', 'Recurring', 'recurring'],
+  ['piggy', 'Piggy banks', 'piggy'], ['rules', 'Rules', 'rules'], ['recap', 'Monthly recap', 'recap'], ['year', 'Year in Money', 'year'], ['scorecard', 'Money scorecard', 'scorecard'], ['timeline', 'Timeline', 'timeline'], ['ask', 'Ask a question', 'spark'], ['unusual', 'Unusual charges', 'eye'], ['map', 'Spending map', 'map'], ['reports', 'Reports', 'reports'], ['settings', 'Settings', 'settings']];
 // How the sidebar and the phone's More menu group the pages (Settings sits at the bottom of the sidebar)
 export const NAV_GROUPS: [string, string[]][] = [['', ['', 'transactions', 'review']],
-  ['Planificación', ['budgets', 'bills', 'recurring', 'piggy', 'forecast', 'loans']], ['Análisis', ['reports', 'timeline', 'recap', 'year', 'unusual', 'ask', 'map']],
-  ['Administración', ['accounts', 'categories', 'rules']]];
+  ['Plan', ['budgets', 'bills', 'recurring', 'piggy', 'forecast', 'loans']], ['Insights', ['reports', 'timeline', 'recap', 'year', 'scorecard', 'unusual', 'ask', 'map']],
+  ['Manage', ['accounts', 'categories', 'rules']]];
+// The scorecard page can be switched off in Settings; it then leaves the menus (the address still works)
+export const navGroups = (): [string, string[]][] => { let off = false; try { off = localStorage.getItem('money.scorecardPage') === 'false'; } catch (e) { /* storage blocked */ } return NAV_GROUPS.map(([t, rs]) => [t, rs.filter(r => !(off && r === 'scorecard'))]); };
 export const navItem = (r: string) => NAV.find(n => n[0] === r)!;
 // To do: Review (new transactions to look over) and Categorize (ones without a category), as two tabs of one page
 export const todoTabs = (on: string) => html`<div class="tabs"><a href="#/review" class="${on === 'review' ? 'on' : ''}">Review new</a><a href="#/inbox" class="${on === 'inbox' ? 'on' : ''}">Categorize</a><a href="#/places" class="${on === 'places' ? 'on' : ''}">Places</a></div>`;
@@ -46,19 +49,29 @@ export function drawNav(active: string) {
   const cur = NAV.find(n => n[0] === active);
   document.title = cur && cur[0] ? cur[1] + ' · Money' : 'Money';      // one title per page, for the tab, history and bookmarks
   const a = (r: string) => { const [, label, ic] = navItem(r); return html`<a href="#/${r}" class="${r === active ? 'on' : ''}" title="${label}" data-onmouseenter="App.prefetch('${r}')">${icon(ic)}<span>${label}</span></a>`; };
-  el('nav').innerHTML = String(htmlList(NAV_GROUPS.map(([title, rs]) => html`${title ? html`<div class="nav-h">${title}</div>` : ''}${htmlList(rs.map(a))}`)));
+  el('nav').innerHTML = String(htmlList(navGroups().map(([title, rs]) => html`${title ? html`<div class="nav-h">${title}</div>` : ''}${htmlList(rs.map(a))}`)));
   el('navFoot').innerHTML = String(a('settings'));
   if (window.App && App.drawTabbar) App.drawTabbar(active);
 }
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
-export function toast(msg: string) {
-  const t = el('toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+// A message about something that failed stays until it is dismissed (button, tap or Esc); a status message fades by itself
+const FAILED = /couldn’t|could not|didn’t|can’t|failed|error|went wrong|not accept|timed out|timeout/i;
+export function toast(msg: string, failed = FAILED.test(msg)) {
+  const t = el('toast'); t.textContent = msg; clearTimeout(toastTimer);
+  t.classList.toggle('sticky', failed);
+  t.setAttribute('role', failed ? 'alert' : 'status'); t.setAttribute('aria-live', failed ? 'assertive' : 'polite');   // a failure is announced at once, a status politely
+  if (failed) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-x'; b.textContent = 'Dismiss';
+    b.onclick = () => t.classList.remove('show', 'sticky'); t.appendChild(b);
+  }
+  t.classList.add('show');
+  if (!failed) toastTimer = setTimeout(() => t.classList.remove('show'), Math.min(8000, 2600 + msg.length * 60));   // longer messages stay long enough to read
 }
+document.addEventListener('keydown', e => { const t = document.getElementById('toast'); if (e.key === 'Escape' && t && t.classList.contains('sticky')) t.classList.remove('show', 'sticky'); });
 export function confirmBox(title: string, text: string, okLabel = 'Delete') {
   return new Promise<boolean>(res => {
     const d = el<HTMLDialogElement>('confirm');
-    d.innerHTML = String(html`<h3>${title}</h3><p>${text}</p><div class="btns"><button class="btn" value="no">Cancel</button><button class="btn primary" value="yes">${okLabel}</button></div>`);
+    d.innerHTML = String(html`<h3>${title}</h3><p>${text}</p><div class="btns"><button class="btn" value="no">Cancel</button><button class="btn primary${/^(Delete|Remove|Unlink|Discard)$/.test(okLabel) ? ' danger' : ''}" value="yes">${okLabel}</button></div>`);
     d.querySelectorAll('button').forEach(b => b.onclick = () => { if (b.value === 'yes') buzz(BUZZ_DELETE); d.close(); res(b.value === 'yes'); });
     d.oncancel = () => res(false);
     d.showModal();
@@ -112,15 +125,24 @@ export function openDrawer(title: string, bodyHtml: Html | string, footHtml?: Ht
     d.insertAdjacentHTML('beforeend', String(html`<div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`));
     return;
   }
-  d.innerHTML = String(html`<div class="grab" aria-hidden="true"></div><header>${h ? drawerHeroHtml({ ...h, kicker: title === 'Loading…' ? h.kicker : title }) : html`<h2>${title}</h2>`}<button class="round" type="button" data-onclick="App.closeDrawer()" aria-label="Close">${ICON_X}</button></header><div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`);
-  if (!wasOpen) S.drawerReturn = document.activeElement as HTMLElement | null;
+  d.innerHTML = String(html`<div class="grab" aria-hidden="true"></div><header>${h ? drawerHeroHtml({ ...h, kicker: title === 'Loading…' ? h.kicker : title }) : html`<h2>${title}</h2>`}<button class="round" type="button" data-onclick="App.closeDrawerAsk()" aria-label="Close">${ICON_X}</button></header><div class="body" id="drawerBody">${bodyHtml}</div>${footHtml ? html`<footer>${footHtml}</footer>` : ''}`);
+  if (!wasOpen) { S.drawerReturn = document.activeElement as HTMLElement | null; d.removeAttribute('data-dirty'); }
   d.setAttribute('aria-label', String(title === 'Loading…' && h ? h.name : title));
   d.classList.add('open'); d.setAttribute('aria-hidden', 'false'); d.inert = false; el('app').inert = true; el('scrim').classList.add('open');      // the page behind can't be tabbed into while the drawer is up
-  if (!wasOpen) setTimeout(() => { const f = d.querySelector<HTMLElement>('input:not([type=hidden]):not([type=checkbox]):not([type=date]), select'); if (f && innerWidth > 900) f.focus(); }, 280);
+  if (!wasOpen) setTimeout(() => {
+    const f = d.querySelector<HTMLElement>('input:not([type=hidden]):not([type=checkbox]):not([type=date]), select');
+    if (f && innerWidth > 900) { f.focus(); return; }
+    // On a phone the keyboard stays down, but focus still moves in so a screen reader lands on the sheet, not the inert page behind it
+    const head = d.querySelector<HTMLElement>('header h2, header .dname, header');
+    if (head && d.classList.contains('open')) { head.tabIndex = -1; head.focus({ preventScroll: true }); }
+  }, 280);
 }
+// Typing in any drawer form other than the transaction form marks it, so Esc or a backdrop tap can ask before throwing the edits away
+document.addEventListener('input', e => { const t = e.target as HTMLElement; if (t.closest && t.closest('#drawer form') && !t.closest('#txForm')) el('drawer').setAttribute('data-dirty', '1'); });
+export const drawerDirty = () => el('drawer').getAttribute('data-dirty') === '1';
 export function closeDrawer() {
   const d = el('drawer'), h = S.drawerHero;
-  S.form = null; S.drawerHero = null;
+  S.form = null; S.drawerHero = null; d.removeAttribute('data-dirty');
   const row = h && d.classList.contains('open') && VT_OK && document.querySelector<HTMLElement>('#view tr[data-gid="' + h.id + '"] .av');
   const my = S.drawerTok = (S.drawerTok || 0) + 1;
   const shut = () => {
@@ -159,12 +181,9 @@ export function monthNav() {
   const isNow = ahead >= 12;   // allow planning up to a year ahead
   return html`<div class="month"><button class="round" data-onclick="App.shiftMonth(-1)" aria-label="Previous month">${ICON_PREV}</button><span title="${fmtDate(r.start)} – ${fmtDate(r.end)}"><i class="ml">${r.label}</i><i class="ms">${r.short} ${r.y}</i>${r.start.endsWith('-01') ? '' : html`<small class="cycle">${fmtDay(r.start)} – ${fmtDay(r.end)}</small>`}</span><button class="round" data-onclick="App.shiftMonth(1)" aria-label="Next month"${isNow ? ' disabled' : ''}>${ICON_NEXT}</button>${ahead !== 0 ? html`<button class="btn small" style="margin-left:6px" data-onclick="App.thisMonth()">Today</button>` : html`<button class="btn small today-gap" style="margin-left:6px" aria-hidden="true" tabindex="-1" disabled>Today</button>`}<button class="btn small" style="margin-left:6px" data-onclick="App.allTime()">All time</button></div>`;
 }
-const FIXED_HEADINGS = new Set(['Overview', 'Forecast', 'Transactions', 'To do', 'Accounts', 'Loan planner', 'Budgets', 'Categories & tags', 'Bills', 'Recurring', 'Piggy banks', 'Rules', 'Monthly recap', 'Year in Money', 'Timeline', 'Ask', 'Unusual', 'Map', 'Reports', 'Settings', 'Clean up', 'Reconcile']);
-export function head(title: string | Html, sub: string | Html, actions?: string | Html) {
+export function head(title: string | Html, sub: string | Html = '', actions?: string | Html) {
   // Under the title, when an account is in another currency: the rate the page's totals use (features/fxnote.ts)
-  const label = typeof title === 'string' && FIXED_HEADINGS.has(title) ? t(title) : title;
-  const description = typeof sub === 'string' ? t(sub) : sub;
-  return html`<div class="head"><div><h1 data-user-content>${label}</h1>${description ? html`<p class="sub"${typeof sub === 'string' ? ' data-user-content' : ''}>${description}</p>` : ''}${App.fxNote ? App.fxNote() : ''}</div><div class="actions">${actions || ''}</div></div>`;
+  return html`<div class="head"><div><h1>${title}</h1>${sub ? html`<p class="sub">${sub}</p>` : ''}${App.fxNote ? App.fxNote() : ''}</div><div class="actions">${actions || ''}</div></div>`;
 }
 /* ---------- Empty states: a drawn icon, what the page is for, and the one thing to do next ---------- */
 const EMPTY_ICONS: Record<string, string> = {
@@ -178,7 +197,7 @@ const EMPTY_ICONS: Record<string, string> = {
 };
 export function emptyState(kind: keyof typeof EMPTY_ICONS | string, title: string, text: string, actions?: string | Html) {
   const d = EMPTY_ICONS[kind] || EMPTY_ICONS.list;
-  return html`<div class="empty-state"><div class="es-ic" aria-hidden="true">${raw(`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`)}</div><h3>${title}</h3><p>${text}</p>${actions ? html`<div class="es-act">${actions}</div>` : ''}</div>`;
+  return html`<div class="empty-state"><div class="es-ic" aria-hidden="true">${raw(`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`)}</div><h2>${title}</h2><p>${text}</p>${actions ? html`<div class="es-act">${actions}</div>` : ''}</div>`;
 }
 export const opt = (v: string | number, label: string | number, sel: unknown) => html`<option value="${v}"${String(v) === String(sel) ? ' selected' : ''}>${label}</option>`;
 

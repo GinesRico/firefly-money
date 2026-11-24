@@ -9,7 +9,6 @@ import { type RouteInfo, VIEWS, parseHash, route } from '../core/router';
 import { openPalette } from './palette';
 import { bindSwipe } from './phone';
 import { newTx } from './txform';
-import { t } from '../core/spanish';
 
 /* Polish: prefetch on hover, after-paint effects, chart tooltips, quick add and keyboard shortcuts,
    payee memory, undo for deletes, instant rules filter. */
@@ -165,7 +164,7 @@ document.addEventListener('click', e => {
   const go = t.getAttribute('data-go'); if (!go) return;
   // On touch, the first tap expands a category into its tags. Keep the chart open so the next tap can inspect a tag;
   // category transactions remain available from the category name in the legend.
-  if (lastPointer !== 'mouse' && t.matches('.donut .cat-seg.cat-expanded')) { e.preventDefault(); return; }
+  if (lastPointer !== 'mouse' && t.matches('.donut [data-cat].cat-expanded')) { e.preventDefault(); return; }
   if (lastPointer !== 'mouse' && t.hasAttribute('data-tip')) {
     if (!goArm || goArm.node !== t || Date.now() - goArm.at > 2500) {
       goArm = { node: t, at: Date.now() };
@@ -207,6 +206,16 @@ export async function payeeFill(i: number, name: string) {
 }
 
 /* ---------- Undo for deleting transactions ---------- */
+const UNDO_MS = 10000;
+// Hovering or focusing the bar pauses the countdown (someone reaching for Undo, or a keyboard user who Tabbed to it)
+let undoArm: (() => void) | null = null;
+{
+  const box = el('undo');
+  const hold = () => { if (S.undoCommit) { clearTimeout(S.undoT); box.classList.add('held'); } };
+  const release = () => { if (S.undoCommit && undoArm && !box.matches(':hover, :focus-within')) { box.classList.remove('held'); undoArm(); } };
+  box.addEventListener('pointerenter', hold); box.addEventListener('focusin', hold);
+  box.addEventListener('pointerleave', release); box.addEventListener('focusout', () => setTimeout(release, 0));
+}
 function softDeleteTx(ids: string[]) {
   ids.forEach(id => S.pendingDel.add(id));
   const before = rowTops(el('view'));               // the rows below close the gap, gliding up
@@ -217,22 +226,24 @@ function softDeleteTx(ids: string[]) {
   const box = el('undo'); clearTimeout(S.undoT);
   let undone = false;
   const commit = async (leaving = false) => {
-    box.hidden = true;
+    if (box.contains(document.activeElement)) el('view').focus();      // focus must not fall back to the page's start when the bar goes
+    box.hidden = true; box.classList.remove('held');
     if (undone) return;
     let failed = 0;
     await eachLimited(ids, 4, async id => { try { await api('/transactions/' + id, { method: 'DELETE', keepalive: leaving }); } catch (e) { failed++; } S.pendingDel.delete(id); });
-    if (failed) toast(t('{count} items couldn’t be deleted', { count: failed }));
+    if (failed) toast(failed + ' couldn’t be deleted');
     if (['', 'transactions', 'account'].includes(parseHash().name)) route();
   };
   if (S.undoCommit) S.undoCommit();              // finish any earlier pending delete first
   S.undoCommit = (leaving?: boolean) => { clearTimeout(S.undoT); S.undoCommit = null; commit(leaving === true); };
-  box.innerHTML = String(html`<span>${ids.length === 1 ? t('Transaction deleted') : t('{count} transactions deleted', { count: ids.length })}</span><button type="button">${t('Undo')}</button><span class="bar"></span>`);
+  box.innerHTML = String(html`<span>${ids.length === 1 ? 'Transaction deleted' : ids.length + ' transactions deleted'}</span><button type="button">Undo</button><span class="bar"></span>`);
   box.hidden = false;
   box.querySelector('button')!.onclick = () => {
-    undone = true; clearTimeout(S.undoT); S.undoCommit = null; box.hidden = true;
-    ids.forEach(id => S.pendingDel.delete(id)); toast(t('Restored')); route();
+    undone = true; clearTimeout(S.undoT); S.undoCommit = null; box.classList.remove('held'); box.hidden = true; el('view').focus();
+    ids.forEach(id => S.pendingDel.delete(id)); toast('Restored'); route();
   };
-  S.undoT = setTimeout(() => S.undoCommit && S.undoCommit(), 5000);
+  undoArm = () => { clearTimeout(S.undoT); S.undoT = setTimeout(() => S.undoCommit && S.undoCommit(), UNDO_MS); };
+  undoArm();
 }
 // Closing the tab, or an iPhone putting the app away, must not bring the row back: send the deletes now, with
 // keepalive so the browser finishes them after the page is gone. (pagehide and a hidden page cover what

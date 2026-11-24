@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { THEMES, THEME_GROUPS, themeButtons } from '../app/src/core/themepick';
+import { THEMES, MODES, ACCENTS, modeOf, themeButtons } from '../app/src/core/themepick';
 import { activityDays, activityPanel } from '../app/src/features/charts';
 
 const css = readFileSync('app/assets/money.css', 'utf8');
@@ -14,12 +14,14 @@ const block = (k: string) => { const at = css.indexOf('html[data-theme="' + k + 
 const v = (b: string, name: string) => new RegExp('--' + name + ': (#[0-9a-f]{6})', 'i').exec(b)![1].toLowerCase();
 
 describe('Pastel themes', () => {
-  it('has 21 themes plus Auto and the picker groups every one of them once', () => {
-    expect(THEMES).toHaveLength(22);
-    const grouped = THEME_GROUPS.flatMap(g => g[1].map(x => x[0]));
-    expect(new Set(grouped).size).toBe(22);
-    expect([...grouped].sort()).toEqual(THEMES.map(t => t[0]).sort());
-    expect(THEME_GROUPS.map(g => g[0])).toEqual(['Calm', 'Pastel', 'Bold', 'Glass']);
+  it('has 22 themes plus Auto, each reachable as a mode or an accent once', () => {
+    expect(THEMES).toHaveLength(23);
+    const reach = [...MODES.map(m => m[0]), ...Object.values(ACCENTS).flat().map(a => a[0])];
+    expect(new Set(reach)).toEqual(new Set(THEMES.map(t => t[0])));
+    expect(MODES.map(m => m[0]).filter(k => ['light', 'dark'].includes(k))).toHaveLength(2);
+    for (const k of PASTEL) expect(modeOf(k)).toBe('light');
+    for (const k of ['carbon', 'midnight', 'neon', 'ocean', 'forest', 'nord']) expect(modeOf(k)).toBe('dark');
+    expect(modeOf('frosted')).toBe('frosted');
   });
   it('uses the agreed page, card and accent colours', () => {
     const want: Record<string, string[]> = { sakura: ['#fff5f7', '#e8a0b4'], mint: ['#f2fbf6', '#8fd3b0'], lavender: ['#f6f3fd', '#b7a6e8'], peach: ['#fff6ef', '#f4b393'], sky: ['#f1f7fd', '#9cc6ee'], butter: ['#fbfaee', '#a9c7a0'] };
@@ -44,7 +46,7 @@ describe('Pastel themes', () => {
 describe('Spatial glass theme', () => {
   const b = block('spatial');
   it('is in the Glass group with a swatch', () => {
-    expect(THEME_GROUPS.find(g => g[0] === 'Glass')![1].map(x => x[0])).toContain('spatial');
+    expect(MODES.map(x => x[0])).toContain('spatial');
     expect(THEMES.find(t => t[0] === 'spatial')![2]).toContain('#9ac6ff');
   });
   it('keeps text, muted text and the accent at 4.5:1 on the page and on the brightest card glass', () => {
@@ -65,7 +67,7 @@ describe('Spatial glass theme', () => {
 describe('Matte glass theme', () => {
   const b = block('matte');
   it('is in the Glass group with a Storm Grey, Matte Black and Safety Orange swatch', () => {
-    expect(THEME_GROUPS.find(g => g[0] === 'Glass')![1].map(x => x[0])).toContain('matte');
+    expect(MODES.map(x => x[0])).toContain('matte');
     const sw = THEMES.find(t => t[0] === 'matte')![2];
     for (const c of ['#3a3f47', '#14151a', '#ff5f00']) expect(sw).toContain(c);
     expect(v(b, 'accent')).toBe('#ff5f00');
@@ -89,7 +91,7 @@ describe('Matte glass theme', () => {
 describe('Polar glass theme', () => {
   const b = block('polar');
   it('is in the Glass group with a Polar White, Glacier Blue and Racing Red swatch', () => {
-    expect(THEME_GROUPS.find(g => g[0] === 'Glass')![1].map(x => x[0])).toContain('polar');
+    expect(MODES.map(x => x[0])).toContain('polar');
     const sw = THEMES.find(t => t[0] === 'polar')![2];
     for (const c of ['#f5f8fb', '#b3d3e8', '#e4002b']) expect(sw).toContain(c);
     expect(v(b, 'accent')).toBe('#e4002b');
@@ -110,18 +112,34 @@ describe('Polar glass theme', () => {
 });
 
 describe('Theme picker', () => {
-  it('is one radio group with a single tab stop and a swatch and name for every theme', () => {
+  it('has a mode row and, for a pastel, an accent row, each one radio group with a single tab stop', () => {
     document.documentElement.setAttribute('data-theme', 'mint');
     const host = document.createElement('div'); host.innerHTML = String(themeButtons()); document.body.append(host);
-    expect(host.querySelector('[role=radiogroup]')).not.toBeNull();
-    const radios = [...host.querySelectorAll<HTMLElement>('[role=radio]')];
-    expect(radios).toHaveLength(22);
-    expect(radios.filter(r => r.tabIndex === 0)).toHaveLength(1);
-    expect(radios.filter(r => r.getAttribute('aria-checked') === 'true').map(r => r.getAttribute('aria-label'))).toEqual(['Mint Cream']);
-    for (const r of radios) { expect(r.querySelector('.tp-sw')).not.toBeNull(); expect(r.querySelector('.tp-name')!.textContent).not.toBe(''); }
+    const groups = [...host.querySelectorAll<HTMLElement>('[role=radiogroup]')];
+    expect(groups.map(g => g.getAttribute('aria-label'))).toEqual(['Mode', 'Accent']);
+    for (const g of groups) expect([...g.querySelectorAll<HTMLElement>('[role=radio]')].filter(r => r.tabIndex === 0)).toHaveLength(1);
+    const on = (g: HTMLElement) => [...g.querySelectorAll('[aria-checked=true]')].map(r => r.getAttribute('aria-label'));
+    expect(on(groups[0])).toEqual(['Calm light']);
+    expect(on(groups[1])).toEqual(['Mint Cream']);
+    for (const r of host.querySelectorAll('[role=radio]')) { expect(r.querySelector('.tp-sw')).not.toBeNull(); expect(r.querySelector('.tp-name')!.textContent).not.toBe(''); }
     host.remove(); document.documentElement.removeAttribute('data-theme');
   });
-  it('moves between themes with the arrow keys', () => {
+  it('shows no accent row for the glass looks and keeps a saved theme selected', () => {
+    for (const k of ['frosted', 'interstellar', 'auto']) {
+      document.documentElement.setAttribute('data-theme', k);
+      const host = document.createElement('div'); host.innerHTML = String(themeButtons());
+      expect(host.querySelectorAll('[role=radiogroup]')).toHaveLength(1);
+    }
+    document.documentElement.removeAttribute('data-theme');
+  });
+  it('remembers the accent per mode when you switch away and back', () => {
+    localStorage.setItem('moneyAccent', JSON.stringify({ light: 'sakura' }));
+    document.documentElement.setAttribute('data-theme', 'dark');
+    const host = document.createElement('div'); host.innerHTML = String(themeButtons());
+    expect(host.querySelector('[aria-label="Calm light"]')!.getAttribute('data-onclick')).toBe("App.setTheme('sakura')");
+    document.documentElement.removeAttribute('data-theme'); localStorage.removeItem('moneyAccent');
+  });
+  it('moves between modes with the arrow keys', () => {
     const host = document.createElement('div'); host.innerHTML = String(themeButtons()); document.body.append(host);
     const first = host.querySelector<HTMLElement>('.tp')!; first.focus();
     const clicked: string[] = []; host.addEventListener('click', e => clicked.push((e.target as HTMLElement).closest('.tp')!.getAttribute('data-onclick')!));

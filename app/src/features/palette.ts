@@ -8,7 +8,6 @@ import { isAsset, isCard, isLiab, lists } from '../core/lists';
 import { THEMES, setTheme } from '../core/login';
 import { normPiggy } from '../pages/piggy';
 import { drafts, draftLabel } from './txform';
-import { t } from '../core/spanish';
 
 /* ---------- Universal search (⌘K, / , the search button on phones) ----------
    One box for pages, settings, actions, accounts, budgets, categories, tags, bills, payees, piggy banks,
@@ -21,7 +20,7 @@ const PAGE_KEYS: Record<string, string> = {
   '': 'home dashboard summary net worth', forecast: 'future cash flow safe to spend what if scenarios', transactions: 'activity spending history expenses income transfers',
   places: 'stores pin map locations suggestions to do', inbox: 'uncategorized categorize sort', review: 'new imported check', unusual: 'anomalies duplicate double charged odd spike merchants payees trends rising falling new', accounts: 'banks balances checking savings credit cards', loans: 'debt payoff mortgage interest',
   budgets: 'limits spending plan', categories: 'tags labels', bills: 'subscriptions due calendar', recurring: 'repeating scheduled automatic',
-  piggy: 'savings goals', rules: 'automation auto categorize', recap: 'month summary', year: 'wrapped year review annual story recap', timeline: 'history past months net worth over time story milestones scroll back', ask: 'question how much', map: 'places locations',
+  piggy: 'savings goals', rules: 'automation auto categorize', recap: 'month summary', scorecard: 'grades ratings personality habits score share report card', year: 'wrapped year review annual story recap', timeline: 'history past months net worth over time story milestones scroll back', ask: 'question how much', map: 'places locations',
   reports: 'charts compare year csv sankey', settings: 'preferences options',
 };
 // Settings: [label, extra words, where on the Settings page: a group (#set-…) or a folded section (data-k), which opens]
@@ -29,6 +28,7 @@ const SETTINGS: [string, string, string][] = [
   ['Month start day (payday)', 'cycle pay period month starts budget period', '#set-months'],
   ['Budget warning', 'alert warn threshold 80% percent budget full', '#set-months'],
   ['Appearance', 'theme dark light color look', '#set-look'],
+  ['Language', 'language idioma spanish español english interface translation', '#set-look'],
   ['Number & date format', 'locale region language format currency decimal comma date week monday sunday euro', '#set-look'],
   ['Customize theme colors', 'theme color colour background accent liquid glass frosted blur tint frost glow light custom scene background wallpaper photo', 'theme-custom'],
   ['Payee and bank logos', 'logos icons images duckduckgo merchant', '#set-look'],
@@ -74,12 +74,14 @@ function baseItems(): PalItem[] {
     { label: 'Hours of work: show what purchases cost in hours', kind: 'Setting', keys: 'settings lens wage hourly time', run: () => App.toggleWorkLens(!LS.get('workLens', false)) },
     { label: 'Compact view', kind: 'Setting', keys: 'settings density compact spacing', run: () => App.toggleDensity() },
     { label: 'Sign out', kind: 'Setting', keys: 'log out', run: () => App.signOut() });
-  THEMES.forEach(([k, label]) => items.push({ label: t('Theme: {theme}', { theme: t(label) }), kind: 'Setting', keys: 'settings appearance dark light color', run: () => setTheme(k) }));
+  THEMES.forEach(([k, label]) => items.push({ label: 'Theme: ' + label, kind: 'Setting', keys: 'settings appearance dark light color', run: () => setTheme(k) }));
   drafts().forEach(d => items.push({ label: draftLabel(d), kind: 'Draft', keys: 'draft unfinished', run: () => App.openDraft(d.id) }));
   if (S.rules) Object.entries<any>(S.rules).forEach(([id, r]) => items.push({ label: r.title, kind: 'Rule', run: () => { location.hash = '#/rules'; setTimeout(() => App.ruleForm(id), 500); }, low: true }));
   return items;
 }
+let palOpener: HTMLElement | null = null;
 export async function openPalette() {
+  const was = document.activeElement; palOpener = was instanceof HTMLElement && was !== document.body && !was.closest('#palette') ? was : palOpener;
   closeDrawer();
   const q = el<HTMLInputElement>('palQ');
   clearTimeout(palOut); el('palette').classList.remove('out');
@@ -162,10 +164,10 @@ function palFilter(keepIdx?: boolean) {
     shown = palItems.map(it => ({ it, s: itemScore(it, q) - (it.low && q.length < 3 ? 50 : 0) })).filter(x => x.s > 0)
       .sort((a, b) => b.s - a.s).slice(0, 30).map(x => x.it);
     // A question goes first unless something matched it well
-    if (q.includes(' ') && q.length > 6) shown.splice(palItems.some(it => itemScore(it, q) >= 28) ? Math.min(shown.length, 3) : 0, 0, { label: t('Ask: {question}', { question: typed }), kind: 'Ask', go: '#/ask?q=' + encodeURIComponent(typed) });
+    if (q.includes(' ') && q.length > 6) shown.splice(palItems.some(it => itemScore(it, q) >= 28) ? Math.min(shown.length, 3) : 0, 0, { label: 'Ask: ' + typed, kind: 'Ask', go: '#/ask?q=' + encodeURIComponent(typed) });
     if (!keepIdx) txSearch(typed);
     if (txFor === typed) shown.push(...txHits);
-    shown.push({ label: t('Search all transactions for “{query}”', { query: typed }), kind: 'Search', go: '#/transactions?search=' + encodeURIComponent(typed) });
+    shown.push({ label: 'Search all transactions for “' + typed + '”', kind: 'Search', go: '#/transactions?search=' + encodeURIComponent(typed) });
   }
   palShown = shown;
   const at = prev ? palShown.indexOf(prev) : -1;
@@ -173,7 +175,7 @@ function palFilter(keepIdx?: boolean) {
 }
 function itemHtml(it: PalItem, i: number): Html {
   const right = it.tx ? html`<span class="num ${it.amt! < 0 ? 'neg' : it.amt! > 0 ? 'pos' : 'neutral'}">${it.amt! > 0 ? '+' : ''}${money(it.amt!)}</span>` : html`<span class="k">${it.kind}</span>`;
-  return html`<div class="pal-item${i === palIdx ? ' on' : ''}" role="option" data-i="${i}" data-onmousemove="App.palHover(${i})" data-onclick="App.palRun(${i})"><span class="pal-main"><span class="pal-l">${it.label}</span>${it.sub ? html`<span class="pal-sub">${it.sub}</span>` : ''}</span>${right}</div>`;
+  return html`<div class="pal-item${i === palIdx ? ' on' : ''}" role="option" id="palopt${i}" aria-selected="${i === palIdx ? 'true' : 'false'}" data-i="${i}" data-onmousemove="App.palHover(${i})" data-onclick="App.palRun(${i})"><span class="pal-main"><span class="pal-l">${it.label}</span>${it.sub ? html`<span class="pal-sub">${it.sub}</span>` : ''}</span>${right}</div>`;
 }
 function drawPal() {
   const q = el<HTMLInputElement>('palQ').value.trim();
@@ -188,6 +190,7 @@ function drawPal() {
   });
   el('palList').innerHTML = String(htmlList(parts));
   const on = el('palList').querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+  const qi = el<HTMLInputElement>('palQ'); if (on) qi.setAttribute('aria-activedescendant', on.id); else qi.removeAttribute('aria-activedescendant');   // a screen reader follows the highlighted result
 }
 function palHover(i: number) { if (i !== palIdx) { palIdx = i; drawPal(); } }
 function palKey(e: KeyboardEvent) {
@@ -222,7 +225,7 @@ let palOut: ReturnType<typeof setTimeout> | undefined;
 function closePalette() {
   const p = el('palette'); if (p.hidden) return;
   clearTimeout(txTimer); document.documentElement.classList.remove('pal-open');
-  if (p.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();     // the keyboard goes with it
+  if (p.contains(document.activeElement)) { (document.activeElement as HTMLElement).blur(); if (palOpener && palOpener.isConnected && palOpener.matches('a,button,[tabindex]')) palOpener.focus({ preventScroll: true }); }     // the keyboard goes with it, and focus goes back to what opened the search
   const hide = () => { p.hidden = true; p.classList.remove('out'); };
   if (getComputedStyle(p).animationName === 'none') return hide();
   p.classList.add('out'); clearTimeout(palOut); palOut = setTimeout(hide, 140);

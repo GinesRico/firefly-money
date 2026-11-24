@@ -16,7 +16,7 @@ export function covers(fab: DOMRect, stack: Element[]) {
   const hit = (a: DOMRect, b: DOMRect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   return stack.some(e => {
     if (e === document.body || e === document.documentElement || e.closest('#fab')) return false;
-    if (/^(INPUT|SELECT|TEXTAREA|IMG|CANVAS)$/.test(e.tagName)) return true;
+    if (/^(INPUT|SELECT|TEXTAREA|IMG|CANVAS)$/.test(e.tagName) || e.matches('a[href], button, [data-onclick]')) return true;      // a control is covered even where its box has no text
     for (const n of e.childNodes) {
       if (n.nodeType !== 3 || !(n.textContent || '').trim()) continue;
       const r = document.createRange(); r.selectNodeContents(n);
@@ -33,7 +33,7 @@ export function covers(fab: DOMRect, stack: Element[]) {
       const r = rect(fab), visible = !fab.hidden && r.width > 0 && getComputedStyle(fab).visibility !== 'hidden';
       if (!visible || near || document.activeElement === fab) return fab.classList.remove('peek');
       const stack: Element[] = [];
-      for (const fx of [.15, .5, .85]) for (const fy of [.15, .5, .85]) stack.push(...document.elementsFromPoint(r.left + r.width * fx, r.top + r.height * fy));
+      for (const fx of [.05, .275, .5, .725, .95]) for (const fy of [.05, .275, .5, .725, .95]) stack.push(...document.elementsFromPoint(r.left + r.width * fx, r.top + r.height * fy));
       fab.classList.toggle('peek', covers(r, [...new Set(stack)].filter(e => e !== fab)));
     }, 900);
   };

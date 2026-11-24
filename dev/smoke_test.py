@@ -9,7 +9,7 @@ from playwright.async_api import async_playwright
 
 BASE = os.environ.get('BASE', 'http://127.0.0.1:8765/')   # e.g. a flaky demo server: BASE=http://127.0.0.1:8766/
 PAGES = ['', 'forecast', 'transactions', 'inbox', 'review', 'places', 'accounts', 'account/1', 'account/3?range=all', 'account/102', 'loans', 'budgets', 'categories',
-         'bills', 'recurring', 'piggy', 'rules', 'reports', 'reports?preset=last-3&cmp=year', 'recap', 'year', 'year?y=2025', 'timeline', 'map', 'settings', 'cleanup',
+         'bills', 'recurring', 'piggy', 'rules', 'reports', 'reports?preset=last-3&cmp=year', 'recap', 'year', 'year?y=2025', 'scorecard', 'timeline', 'map', 'settings', 'cleanup',
          'forecast?days=365', 'ask', 'ask?q=why%20did%20I%20spend%20more%20this%20month', 'ask?q=which%20bills%20are%20due%20before%20payday', 'ask?q=biggest%20expense%20last%20month']
 # The markup's event handlers (data-onclick="App.x(…)") in the page and the TypeScript sources (not the minified
 # bundle), with the JS concatenations ' + … + ' and template values ${…} filled in with 1
@@ -22,6 +22,9 @@ SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else No
 # (a function, not an expression: Playwright evals expressions, which the Content-Security-Policy refuses)
 PAINTED = """() => { const r = parseHash(); return !S.vtRun && S.pageKey && S.pageKey.startsWith(r.name + '/' + r.id + '?')
   && document.querySelector('#view .head .actions, #view .error, #story'); }"""
+# A form is open and has finished loading / the form is closed and the page behind it can be used again
+DRAWER_READY = """() => el('drawer').classList.contains('open') && el('drawer').getAttribute('aria-label') !== 'Loading…'"""
+DRAWER_SHUT = """() => !el('drawer').classList.contains('open') && !el('app').inert"""
 
 
 async def goto(page, route):
@@ -77,11 +80,46 @@ async def check(pw, width, height, mobile):
         buttons = page.locator('#view .head .actions button.btn.primary:visible')   # (New transaction is hidden on phones: the + does it)
         for i in range(await buttons.count()):
             await buttons.nth(i).click()
-            await page.wait_for_timeout(600)
-            if not await page.evaluate("el('drawer').classList.contains('open')"):
-                errors.append(f'#{p}: button {i} did not open a form')
+            # Wait for the state, not a fixed time: a form that loads data opens late on a slow server, and an Escape sent
+            # before it opens would leave it open (and the page behind it inert) for the next button
+            try: await page.wait_for_function(DRAWER_READY, timeout=15000)
+            except Exception: errors.append(f'#{p}: button {i} did not open a form')
             await page.keyboard.press('Escape')
-            await page.wait_for_timeout(500)
+            try: await page.wait_for_function(DRAWER_SHUT, timeout=5000)
+            except Exception:
+                errors.append(f'#{p}: button {i}: the form did not close on Escape')
+                await page.evaluate('App.closeDrawer()')
+    # Every donut and ring: the text in the middle sits at the centre of the ring (a table or anything else inside the chart's box pushes it off)
+    for route in ('', 'categories', 'reports'):
+        await goto(page, route); await page.wait_for_timeout(1200)    # the chart tables are added after a short pause
+        off = await page.evaluate("""[...document.querySelectorAll('#view .donut, #view .ring')].map(d => { const m = d.querySelector('.mid'); if (!m) return 0;
+            const s = d.querySelector('svg').getBoundingClientRect(), r = document.createRange(); r.selectNodeContents(m); const t = r.getBoundingClientRect();
+            return Math.max(Math.abs(t.left + t.width / 2 - s.left - s.width / 2), Math.abs(t.top + t.height / 2 - s.top - s.height / 2)); }).reduce((a, b) => Math.max(a, b), 0)""")
+        if off > 1: errors.append(f'#{route}: the text in a donut or ring is {off:.1f}px off its centre')
+    # Loading placeholders are as tall as the cards they stand in for: hold the slow data back, note every card's height, let it
+    # arrive, and compare (the Overview was just visited, so the heights are remembered)
+    await goto(page, ''); await page.wait_for_timeout(1500)
+    held = asyncio.Event()
+    async def hold(route):
+        await held.wait()
+        try: await route.continue_()
+        except Exception: pass      # the page moved on while this was held
+    await page.route(re.compile(r'type=withdrawal'), hold)
+    heights = """() => { const d = document.getElementById('dash'), a = d && d.querySelector('.w[data-w=attention]'), top = a ? a.offsetTop : -1;
+      return d ? Object.fromEntries([...d.querySelectorAll('.w[data-w]')].filter(w => w.offsetTop !== top).map(w => [w.dataset.w, w.getBoundingClientRect().height])) : {}; }"""
+    await page.reload()
+    try: await page.wait_for_selector('#dash [aria-busy]', timeout=20000); shown = True
+    except Exception: shown = False      # drawn at once with no placeholders, so nothing can shift
+    if shown:
+        before = await page.evaluate(heights)
+        held.set()
+        try:
+            await page.wait_for_function("() => !document.querySelector('#view [aria-busy], #view .sk')", timeout=45000); await page.wait_for_timeout(1200)
+            after = await page.evaluate(heights)
+            moved = [f'{k} {before[k]:.0f}→{after[k]:.0f}' for k in before if k in after and abs(before[k] - after[k]) > 1]
+            if moved: errors.append('loading placeholders differ from their cards: ' + ', '.join(moved))
+        except Exception as e: errors.append(f'placeholders never filled in: {type(e).__name__}')
+    held.set(); await page.unroute(re.compile(r'type=withdrawal'), hold)
     # Universal search: from the search button on phones and ⌘K on computers, finds settings and transactions
     await goto(page, '')
     if mobile: await page.click('#searchBtn')
@@ -137,7 +175,7 @@ async def check(pw, width, height, mobile):
         half = await page.evaluate("() => el('dash').querySelector('[data-w=spent]').offsetWidth / el('dash').offsetWidth")
         if not .3 < half < .6: errors.append(f'the Spent tile is not half the width on a phone: {half:.2f}')
         await page.evaluate('App.dashEdit(true)'); await page.wait_for_selector('#dash.bento.editing')
-        await page.locator('#dash [data-w="spent"] .wbtn').click(); await page.wait_for_timeout(400)
+        await page.locator('#dash [data-w="spent"] [data-onclick^="App.dashSize"]').click(); await page.wait_for_timeout(400)
         if await page.evaluate("JSON.parse(localStorage.getItem('money.dash')).size.spent") != 'm': errors.append('Full on a phone tile was not kept')
         await page.evaluate("el('dash').querySelector('[data-w=spent]').scrollIntoView({block: 'start'})"); await page.wait_for_timeout(200)
         a = await page.locator('#dash [data-w="safe"] .grip').bounding_box(); b = await page.locator('#dash [data-w="spent"]').bounding_box()
@@ -179,10 +217,12 @@ async def check(pw, width, height, mobile):
                 errors.append(f'#{p} (all time): page showed an error: ' + await page.inner_text('#view .error'))
             elif p != 'account/1' and await page.locator('#view .month span', has_text='All time').count() != 1:
                 errors.append(f'#{p}: the month selector did not stay on All time')
+        await page.wait_for_function(PAINTED, timeout=15000)
         await page.locator('#view .seg').get_by_role('button', name='Month', exact=True).click(); await page.wait_for_function(PAINTED, timeout=15000)
         if await page.evaluate('S.all'):
             errors.append('picking Month on an account did not leave All time')
-        await page.locator('#view .seg').get_by_role('button', name='Month', exact=True).click()   # back to this month
+        await page.wait_for_function(PAINTED, timeout=15000)
+        await page.locator('#view .seg').get_by_role('button', name='Month', exact=True).click()   # back to this month; await page.wait_for_function(PAINTED, timeout=15000)
         # Customize the overview: a calm set of cards to start with, the rest added from Customize, column count, hiding a tile
         await goto(page, '')
         await page.evaluate('App.dashReset()'); await page.wait_for_function(PAINTED, timeout=15000)     # the demo opens arranged like the README's screenshots
@@ -194,6 +234,9 @@ async def check(pw, width, height, mobile):
         for name in ['Top payees', 'Income sources', 'Savings goals', 'Recent transactions', 'Spending pace', 'Savings rate', 'Category trends']:
             await page.locator('.add-card', has_text=name).click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_selector('#dashCols')
         await page.wait_for_selector('#dash [data-w="payees"] .part', timeout=15000)
+        if not await page.locator('.add-card', has_text='Money personality').count(): errors.append('the Money personality is not offered under Add cards')
+        await page.locator('.add-card', has_text='Money personality').click(); await page.wait_for_function(PAINTED, timeout=15000); await page.wait_for_selector('#dashCols')
+        if not await page.locator('#dash [data-w="scorecard"]').count(): errors.append('adding the Money personality from Customize did not show it')
         for k in ['payees', 'income', 'goals', 'recent', 'pace', 'savings', 'trends']:
             if not await page.locator(f'#dash [data-w="{k}"]').count(): errors.append(f'adding the {k!r} card from Customize did not show it')
         if await page.locator('.add-card', has_text='Top payees').count(): errors.append('an added card is still offered under Add cards')

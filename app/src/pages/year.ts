@@ -2,7 +2,6 @@ import { type Html, html, htmlList } from '../core/html';
 import { getAll } from '../core/api';
 import { absDiff, App, arr, fmtD, fmtDate, fmtDay, fmtNum, isoDate, money, money0, sumDiff, todayIso } from '../core/base';
 import { toast } from '../core/dom';
-import { t } from '../core/spanish';
 import { nameAvatar, normGroup } from '../core/feed';
 import { buzz } from '../core/haptics';
 import { addDays, daysBetween } from '../core/helpers';
@@ -51,8 +50,8 @@ const line = (i: number, body: unknown, cls = '') => html`<div class="st-in ${cl
 
 VIEWS.year = async (r, paint) => {
   await lists();
-  const today = todayIso(), thisY = +today.slice(0, 4), y = Math.min(thisY, Math.max(1990, +r.q.y || thisY));
-  const start = y + '-01-01', yearEnd = y + '-12-31', end = yearEnd < today ? yearEnd : today, done = end === yearEnd;
+  const t = todayIso(), thisY = +t.slice(0, 4), y = Math.min(thisY, Math.max(1990, +r.q.y || thisY));
+  const start = y + '-01-01', yearEnd = y + '-12-31', end = yearEnd < t ? yearEnd : t, done = end === yearEnd;
   const months = [...Array(12)].map((_, i) => ({ i, start: y + '-' + String(i + 1).padStart(2, '0') + '-01', end: isoDate(new Date(y, i + 1, 0, 12)) }))
     .map(m => ({ ...m, end: m.end > end ? end : m.end })).filter(m => m.start <= end);
   const rs = refundsIn(start, end), p = { start, end };
@@ -71,23 +70,23 @@ VIEWS.year = async (r, paint) => {
   const st = yearStats(splits, start, end);
   const catRows = arr(cats).map(x => ({ name: x.name as string, v: absDiff(x) })).concat(sumDiff(noCat) ? [{ name: 'Uncategorized', v: sumDiff(noCat) }] : [])
     .filter(x => x.v > 0).sort((a, b) => b.v - a.v);
-  const span = done ? t('the whole year') : fmtDay(start) + ' – ' + fmtDay(end);
+  const span = done ? 'the whole year' : fmtDay(start) + ' – ' + fmtDay(end);
 
   const cards: Html[] = [];
   const nav = html`<div class="st-years">${y > 1990 ? html`<a class="st-yr" href="#/year?y=${y - 1}">‹ ${y - 1}</a>` : ''}${y < thisY ? html`<a class="st-yr" href="#/year?y=${y + 1}">${y + 1} ›</a>` : ''}</div>`;
-  cards.push(card(html`${line(0, html`<div class="st-kick">${t('Year in Money')}</div>`)}${line(1, html`<h1 class="st-big">${y}</h1>`)}${line(2, html`<p class="st-p">${done ? t('Your year, told in a few cards.') : t('Your year so far, {period}.', { period: span })}</p>`)}${line(3, html`<p class="st-hint">${t('Tap to begin')}</p>`)}${line(4, nav)}`));
+  cards.push(card(html`${line(0, html`<div class="st-kick">Year in Money</div>`)}${line(1, html`<h1 class="st-big">${y}</h1>`)}${line(2, html`<p class="st-p">${done ? 'Your year, told in a few cards.' : 'Your year so far, ' + span + '.'}</p>`)}${line(3, html`<p class="st-hint">Tap to begin</p>`)}${line(4, nav)}`));
   if (!splits.length && !earned) {
-    cards.push(card(html`${line(0, html`<h2 class="st-h">${t('Nothing here yet')}</h2>`)}${line(1, html`<p class="st-p">${t('There are no transactions in {year}. Try another year.', { year: y })}</p>`)}${line(2, nav)}`));
+    cards.push(card(html`${line(0, html`<h2 class="st-h">Nothing here yet</h2>`)}${line(1, html`<p class="st-p">There are no transactions in ${y}. Try another year.</p>`)}${line(2, nav)}`));
   } else {
-    if (earned || spent) cards.push(card(html`${line(0, html`<div class="st-kick">${t('In and out')}</div>`)}${earned ? line(1, html`<p class="st-p">${t('You earned')}</p><div class="st-num">${count(earned)}</div>`) : ''}${line(2, html`<p class="st-p">${t('and spent')}</p><div class="st-num">${count(spent)}</div>`)}${earned ? line(3, html`<p class="st-p">${kept >= 0 ? html`${t('You kept')} <strong>${count(kept / earned * 100, 'pct')}</strong> ${t('of it: {amount}.', { amount: money0(kept) })}` : t('That’s {amount} more than came in.', { amount: money0(-kept) })}</p>`) : ''}${cashOut > 0 ? line(4, html`<p class="st-p" style="font-size:.8em;opacity:.7">${t('Includes {amount} taken out as cash.', { amount: money0(cashOut) })}</p>`) : ''}`));
+    if (earned || spent) cards.push(card(html`${line(0, html`<div class="st-kick">In and out</div>`)}${earned ? line(1, html`<p class="st-p">You earned</p><div class="st-num">${count(earned)}</div>`) : ''}${line(2, html`<p class="st-p">and spent</p><div class="st-num">${count(spent)}</div>`)}${earned ? line(3, html`<p class="st-p">${kept >= 0 ? html`You kept <strong>${count(kept / earned * 100, 'pct')}</strong> of it: ${money0(kept)}.` : html`That’s ${money0(-kept)} more than came in.`}</p>`) : ''}${cashOut > 0 ? line(4, html`<p class="st-p" style="font-size:.8em;opacity:.7">Includes ${money0(cashOut)} taken out as cash.</p>`) : ''}`));
     if (earned > 0 && spent > 0) {
       const day = workHours() / 5, share = Math.min(1, spent / earned), hrs = share * day;
       const worked = workHours() * st.days / 7, paid = share * worked;
-      cards.push(card(html`${line(0, html`<div class="st-kick">${t('Your workday')}</div>`)}${line(1, html`<p class="st-p">${t('Of every {hours}-hour workday,', { hours: Math.round(day * 10) / 10 })}</p><div class="st-num">${count(Math.round(hrs * 10) / 10, 'int')}<small> ${t('hours')}</small></div><p class="st-p">${t(share >= 1 ? 'and more went to what you bought.' : 'went to what you bought.')}</p>`)}${line(2, html`<div class="st-day" style="--p:${(share * 100).toFixed(1)}%"><i></i></div>`)}${line(3, html`<p class="st-p">${t('That’s about {hours} hours of work, at {hoursPerWeek} a week.', { hours: fmtNum(paid), hoursPerWeek: workHours() })}</p>`)}`));
+      cards.push(card(html`${line(0, html`<div class="st-kick">Your workday</div>`)}${line(1, html`<p class="st-p">Of every ${Math.round(day * 10) / 10}-hour workday,</p><div class="st-num">${count(Math.round(hrs * 10) / 10, 'int')}<small> hours</small></div><p class="st-p">${share >= 1 ? 'and more went to what you bought.' : 'went to what you bought.'}</p>`)}${line(2, html`<div class="st-day" style="--p:${(share * 100).toFixed(1)}%"><i></i></div>`)}${line(3, html`<p class="st-p">That’s about <strong>${fmtNum(paid)} hours</strong> of work, at ${workHours()} a week.</p>`)}`));
     }
     if (catRows.length) {
       const c0 = catRows[0], max = c0.v;
-      cards.push(card(html`${line(0, html`<div class="st-kick">${t('Top category')}</div>`)}${line(1, html`<h2 class="st-h">${c0.name}</h2><div class="st-num">${count(c0.v)}</div><p class="st-p">${t('{percentage}% of everything you spent', { percentage: Math.round(c0.v / spent * 100) })}</p>`)}${line(2, html`<div class="st-bars">${htmlList(catRows.slice(0, 5).map((c, i) => html`<div class="st-bar" style="--w:${(c.v / max * 100).toFixed(1)}%;--j:${i}"><span>${c.name}</span><b class="num">${money0(c.v)}</b></div>`))}</div>`)}`));
+      cards.push(card(html`${line(0, html`<div class="st-kick">Top category</div>`)}${line(1, html`<h2 class="st-h">${c0.name}</h2><div class="st-num">${count(c0.v)}</div><p class="st-p">${Math.round(c0.v / spent * 100)}% of everything you spent</p>`)}${line(2, html`<div class="st-bars">${htmlList(catRows.slice(0, 5).map((c, i) => html`<div class="st-bar" style="--w:${(c.v / max * 100).toFixed(1)}%;--j:${i}"><span>${c.name}</span><b class="num">${money0(c.v)}</b></div>`))}</div>`)}`));
     }
     if (st.often) cards.push(card(html`${line(0, html`<div class="st-kick">Your places</div>`)}${line(1, html`<p class="st-p">You went to</p><h2 class="st-h">${st.often.name}</h2><div class="st-num">${count(st.often.n, 'int')}<small> times</small></div><p class="st-p">${money0(st.often.v)} in all</p>`)}${line(2, html`<div class="st-list">${htmlList(st.top.map(p => html`<div class="st-row">${nameAvatar(p.name, 'sm')}<span>${p.name}</span><b class="num">${money0(p.v)}</b></div>`))}</div>`)}`));
     const full = perMonth.map((v, i) => ({ v, i })).filter(m => m.v > 0);
@@ -104,16 +103,25 @@ VIEWS.year = async (r, paint) => {
     }
   }
   cards.push(card(html`${line(0, html`<div class="st-kick">${done ? 'That was' : 'So far'}</div>`)}${line(1, html`<h1 class="st-big">${y}</h1>`)}${line(2, html`<div class="st-btns"><button type="button" class="btn" data-onclick="App.yearShare()">Share</button><button type="button" class="btn" data-onclick="App.yearPlay(0)">Watch again</button><button type="button" class="btn primary" data-onclick="App.yearClose()">Done</button></div>`)}${line(3, nav)}`));
-  SHARE = [t(done ? '{year} in Money' : '{year} in Money (so far)', { year: y }), earned ? t('Earned {earned}, spent {spent}{kept}', { earned: money0(earned), spent: money0(spent), kept: earned > 0 ? t(', kept {percentage}%', { percentage: Math.round(kept / earned * 100) }) : '' }) : t('Spent {amount}', { amount: money0(spent) }),
-    catRows[0] ? t('Top category: {name}', { name: catRows[0].name }) : '', st.often ? t('Most visited: {name} ({count} times)', { name: st.often.name, count: st.often.n }) : '', st.count ? t('{count} no-spend days', { count: st.free }) : ''].filter(Boolean).join('\n');
-  paint(html`<div class="story" id="story" role="dialog" aria-label="${y} in Money"><div class="st-prog">${htmlList(cards.map(() => html`<i><b></b></i>`))}</div><button type="button" class="st-x" aria-label="Close" data-onclick="App.yearClose()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"/></svg></button><div class="st-deck">${htmlList(cards)}</div></div>`);
+  SHARE = [y + ' in Money' + (done ? '' : ' (so far)'), earned ? 'Earned ' + money0(earned) + ', spent ' + money0(spent) + (earned > 0 ? ', kept ' + Math.round(kept / earned * 100) + '%' : '') : 'Spent ' + money0(spent),
+    catRows[0] ? 'Top category: ' + catRows[0].name : '', st.often ? 'Most visited: ' + st.often.name + ' (' + st.often.n + ' times)' : '', st.count ? st.free + ' no-spend days' : ''].filter(Boolean).join('\n');
+  paint(html`<div class="story" id="story" role="dialog" aria-label="${y} in Money"><div class="st-prog">${htmlList(cards.map(() => html`<i><b></b></i>`))}</div><button type="button" class="st-x" aria-label="Close" data-onclick="App.yearClose()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"/></svg></button><button type="button" class="st-x st-pp" aria-label="Pause" aria-pressed="false" data-onclick="App.yearPause(this)"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg></button><div class="st-deck">${htmlList(cards)}</div></div>`);
   play(0);
+  const sy = story(); if (sy) { sy.setAttribute('aria-modal', 'true'); sy.tabIndex = -1; sy.focus({ preventScroll: true }); }     // a screen reader lands in the story
 };
 
 /* ---------- Playing the story ---------- */
 let at = 0, SHARE = '', timer: ReturnType<typeof setTimeout> | undefined, raf = 0;
 const STEP = 6500, still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const story = () => document.getElementById('story');
+const autoplay = (s: HTMLElement) => !still() && !s.classList.contains('manual');
+// The Pause button: stops the cards advancing by themselves (and starts them again), for anyone who reads slowly or can't hold the deck
+function yearPause(b: HTMLElement) {
+  const s = story(); if (!s) return;
+  const on = !s.classList.toggle('manual') ? false : true;
+  pause(on); b.setAttribute('aria-pressed', String(on)); b.setAttribute('aria-label', on ? 'Play' : 'Pause');
+  b.innerHTML = on ? '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 3l8 5-8 5z"/></svg>' : '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="3" width="3" height="10" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/></svg>';
+}
 function play(i: number) {
   const s = story(); if (!s) return;
   const cs = s.querySelectorAll<HTMLElement>('.st-card'), bars = s.querySelectorAll<HTMLElement>('.st-prog i');
@@ -123,7 +131,7 @@ function play(i: number) {
   s.classList.remove('paused');
   countUp(cs[at]);
   clearTimeout(timer);
-  if (at < cs.length - 1) timer = setTimeout(() => play(at + 1), STEP);
+  if (at < cs.length - 1) { if (autoplay(s)) timer = setTimeout(() => play(at + 1), STEP); }     // with reduced motion, or after Pause, the cards wait for you
   else bars[at].className = 'done';
 }
 function countUp(c: HTMLElement) {
@@ -141,7 +149,7 @@ function pause(on: boolean) {
   const s = story(); if (!s) return;
   s.classList.toggle('paused', on);
   if (on) clearTimeout(timer);
-  else { const n = s.querySelectorAll('.st-card').length; if (at < n - 1) timer = setTimeout(() => play(at + 1), STEP / 2); }
+  else { const n = s.querySelectorAll('.st-card').length; if (at < n - 1 && autoplay(s)) timer = setTimeout(() => play(at + 1), STEP / 2); }
 }
 // Tap, swipe and hold, on the deck (not its buttons and links)
 let down: { x: number, y: number, t: number } | null = null;
@@ -160,7 +168,7 @@ document.addEventListener('pointerup', e => {
 document.addEventListener('pointercancel', () => { if (down) { down = null; pause(false); } });
 document.addEventListener('keydown', e => {
   if (!story()) return;
-  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); play(at + 1); }
+  if (e.key === 'ArrowRight' || (e.key === ' ' && !(e.target as Element).closest('button, a, input'))) { e.preventDefault(); play(at + 1); }   // Space still presses Close and Share
   if (e.key === 'ArrowLeft') { e.preventDefault(); play(at - 1); }
   if (e.key === 'Escape') yearClose();
 });
@@ -177,7 +185,7 @@ async function yearShare() {
 }
 
 // The methods markup handlers call (see events.ts), added to App and to its type
-const methods = { yearClose, yearPlay, yearShare };
+const methods = { yearClose, yearPause, yearPlay, yearShare };
 Object.assign(App, methods);
 type Methods = typeof methods;
 declare module '../core/base' { interface AppApi extends Methods {} }

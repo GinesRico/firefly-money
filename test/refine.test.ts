@@ -14,9 +14,9 @@ describe('bundled variable font', () => {
     expect(css).not.toMatch(/fonts\.(googleapis|gstatic)\.com|@import url\(/);
     expect(readFileSync('app/index.html', 'utf8')).toContain('<link rel="preload" href="/assets/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>');
   });
-  it('keeps numbers tabular and labels no smaller than 10.5px', () => {
+  it('keeps numbers tabular and labels no smaller than 11px', () => {
     expect(block).toMatch(/\.num \{ font-variant-numeric: tabular-nums/);
-    expect(block).toContain('.eyebrow { font-size: 11px;');
+    expect(block).toContain('.eyebrow { font-size: var(--fs-2xs);');
   });
   it('is copied into the demo build', () => {
     expect(readFileSync('build.mjs', 'utf8')).toContain("cpSync('app/assets/fonts', 'site/assets/fonts'");

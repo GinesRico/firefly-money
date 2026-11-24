@@ -141,6 +141,72 @@ server {
         limit_req zone=relay burst=20 nodelay;
     }
 
+    # Weather for the Interstellar theme's sky (app/src/core/sky.ts), only if you turn on Live weather in Settings. Same idea
+    # as the rates below: this server asks Open-Meteo (no key), so the browser never contacts another site and Open-Meteo
+    # only sees this server, never your device. The place is whatever your browser sent, already rounded to one decimal
+    # (about 10 km); only that shape fits the path. Kept 15 minutes.
+    location ~ "^/wx/(?<wxla>-?[0-9]{1,2}\.[0-9])/(?<wxlo>-?[0-9]{1,3}\.[0-9])$" {
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=300s;
+        resolver_timeout 5s;
+        set $wxu "https://api.open-meteo.com/v1/forecast?latitude=$wxla&longitude=$wxlo&current=weather_code";
+        proxy_pass $wxu;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.open-meteo.com;
+        proxy_set_header Cookie "";
+        proxy_set_header Referer "";
+        proxy_set_header Authorization "";
+        proxy_set_header Accept "application/json";
+        proxy_set_header Accept-Encoding "";
+        proxy_set_header User-Agent "Money/1 (self-hosted Firefly III frontend; +https://github.com/Muffy0906/firefly-money)";
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie Cache-Control Expires;
+        proxy_cache tiles;
+        proxy_cache_valid 200 15m;
+        proxy_cache_valid any 1m;
+        proxy_cache_lock on;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        add_header X-Content-Type-Options "nosniff";
+        limit_except GET { deny all; }
+        limit_req zone=relay burst=20 nodelay;
+    }
+
+    # Place search for the Interstellar theme's sky (Settings > Appearance): turns a typed city or postcode into a place and
+    # its coordinates. Same idea as /wx: this server asks Open-Meteo's geocoder (no key), so the browser never contacts
+    # another site. Only the typed words (letters, digits and a few marks, kept short) and en or es go upstream.
+    location = /geo {
+        if ($arg_q !~ "^[A-Za-z0-9%+._,'-]{2,120}$") { return 400; }
+        resolver ${NGINX_LOCAL_RESOLVERS} valid=300s;
+        resolver_timeout 5s;
+        set $geol en;
+        if ($arg_l = es) { set $geol es; }
+        set $geou "https://geocoding-api.open-meteo.com/v1/search?name=$arg_q&count=6&language=$geol&format=json";
+        proxy_pass $geou;
+        proxy_ssl_server_name on;
+        proxy_set_header Host geocoding-api.open-meteo.com;
+        proxy_set_header Cookie "";
+        proxy_set_header Referer "";
+        proxy_set_header Authorization "";
+        proxy_set_header Accept "application/json";
+        proxy_set_header Accept-Encoding "";
+        proxy_set_header User-Agent "Money/1 (self-hosted Firefly III frontend; +https://github.com/Muffy0906/firefly-money)";
+        proxy_hide_header Set-Cookie;
+        proxy_ignore_headers Set-Cookie Cache-Control Expires;
+        proxy_cache tiles;
+        proxy_cache_valid 200 1d;
+        proxy_cache_valid any 1m;
+        proxy_cache_lock on;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        add_header X-Content-Type-Options "nosniff";
+        limit_except GET { deny all; }
+        limit_req zone=relay burst=20 nodelay;
+    }
+
     # Exchange rates for accounts in another currency (app/src/core/fx.ts). This server asks, so the browser never
     # contacts another site (the page's connect-src stays 'self') and the services only see this server. Neither
     # needs a key. /fx/a is Frankfurter (the European Central Bank's daily rates) for just the currencies asked for;
@@ -230,7 +296,7 @@ server {
         add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
         add_header X-Frame-Options "DENY";
         add_header Cross-Origin-Opener-Policy "same-origin";
-        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(self), payment=(), usb=()";
         try_files /index.html =404;
     }
 

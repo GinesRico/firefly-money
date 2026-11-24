@@ -1,7 +1,6 @@
 import { AuthError, CACHE, PAGES, dropSavedCopies } from './api';
 import { S, el } from './base';
 import { closeDrawer, formError, toast } from './dom';
-import { t } from './spanish';
 
 /* Signing in and out, and what happens when Firefly or the session check says no.
    The server keeps the session in an HttpOnly cookie that scripts can't read (see app/session.js), so the page
@@ -16,7 +15,7 @@ export async function signIn(password: string, remember: boolean) {
   const r = await fetch(SESSION, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-Money': '1' }, body: JSON.stringify({ password, remember: !!remember }) });
   if (r.status === 401) throw new AuthError('That password isn’t right.');
   if (r.status === 429) throw new Error('Too many sign-in attempts. Wait a minute, then try again.');
-  if (!r.ok) throw new Error(t('Couldn’t sign in ({status}).', { status: r.status }));
+  if (!r.ok) throw new Error('Couldn’t sign in (' + r.status + ').');
   S.signedIn = true; setRemembered(!!remember);
 }
 // Ends the session on the server. Resolves false when that didn't happen (offline, server down): the cookie is
@@ -47,7 +46,7 @@ export function showLogin(msg?: string) {
   const e = el('loginErr'); e.hidden = !msg; e.textContent = msg || '';
   el<HTMLInputElement>('loginPw').value = ''; el<HTMLInputElement>('loginPw').focus();
 }
-export async function withAuth<T>(fn: () => Promise<T>) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message); } }
+export async function withAuth<T>(fn: () => Promise<T>) { try { return await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); toast((e as Error).message, true); } }
 export async function busy(btn: HTMLButtonElement | null | undefined, fn: () => Promise<unknown>) {
   if (btn) { btn.disabled = true; btn.dataset.l = btn.textContent; btn.textContent = 'Saving…'; }
   try { await fn(); } catch (e) { if (e instanceof AuthError) return showLogin(e.message); formError((e as Error).message); }

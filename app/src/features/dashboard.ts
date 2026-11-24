@@ -5,7 +5,6 @@ import { vt, vtName } from '../core/dom';
 import { buzz } from '../core/haptics';
 import { LS } from '../core/helpers';
 import { route } from '../core/router';
-import { t } from '../core/spanish';
 import { GRID, ROW, type Tile, gridDrop, gridSettle, snapStep } from './grid';
 import { tilePreview } from './tilepreview';
 
@@ -18,7 +17,7 @@ const DASH_WIDE = ['flow', 'cashflow', 'recent'];
 export const DASH_NAMES: Record<string, string> = { safe: 'Safe to spend', attention: 'Needs attention', spending: 'Where it went', budgets: 'Budgets', cash: 'Cash & savings', cards: 'Credit cards',
   loans: 'Loans', bills: 'Coming up', heatmap: 'Daily spending', activity: 'Activity', flow: 'Money flow', cashflow: 'Cash flow', recent: 'Recent transactions',
   payees: 'Top payees', income: 'Income sources', goals: 'Savings goals', networth: 'Net worth', pace: 'Spending pace', savings: 'Savings rate',
-  trends: 'Category trends', subs: 'Subscriptions', spent: 'Spent', earned: 'Earned', insights: 'Insights' };
+  trends: 'Category trends', subs: 'Subscriptions', habits: 'Habits', scorecard: 'Money personality', scSavings: 'Savings rating', scConsistency: 'Consistency rating', scBills: 'Bills on time rating', scCushion: 'Cushion rating', scTidiness: 'Tidiness rating', scDebt: 'Debt rating', spent: 'Spent', earned: 'Earned', insights: 'Insights' };
 // One line on each card, for the Add cards list in Customize
 const DASH_ABOUT: Record<string, string> = { safe: 'What you can spend until payday', attention: 'Drafts, bills due, budgets running out',
   spending: 'Spending by category', budgets: 'How each budget is doing', cash: 'Bank account balances', cards: 'What you owe on each card',
@@ -26,18 +25,19 @@ const DASH_ABOUT: Record<string, string> = { safe: 'What you can spend until pay
   cashflow: 'Earned vs. spent by month', recent: 'Your latest transactions', payees: 'Who you paid the most', income: 'Where your money came from',
   goals: 'Piggy bank progress', networth: 'Net worth over time', pace: 'This month’s spending against last month, day by day',
   savings: 'How much of your income you kept, month by month', trends: 'Your biggest categories over the last months',
-  spent: 'What you spent, against last month', earned: 'What came in and how much you kept', insights: 'What changed this month', subs: 'What your subscriptions cost, price rises and quiet ones' };
+  spent: 'What you spent, against last month', earned: 'What came in and how much you kept', insights: 'What changed this month', subs: 'What your subscriptions cost, price rises and quiet ones', habits: 'Streaks, this week’s challenges and a short to-do', scorecard: 'Your money personality, with a way to share it', scSavings: 'How much of what came in you kept', scConsistency: 'How steady your monthly spending is', scBills: 'How many bills were paid when due',
+  scCushion: 'How many months your cash and savings cover', scTidiness: 'How many purchases have a category', scDebt: 'Whether what you owe is going down' };
 // A new Overview starts with these, in this order; the rest are one tap away under Customize → Add cards
 // (rows of tiles about as tall as each other: the numbers, then the two short cards, then the charts with the lists)
-const DASH_DEFAULT = ['networth', 'spent', 'earned', 'safe', 'attention', 'spending', 'budgets', 'bills', 'insights', 'cashflow', 'activity'];
+const DASH_DEFAULT = ['networth', 'spent', 'earned', 'safe', 'attention', 'spending', 'budgets', 'bills', 'insights', 'cashflow', 'activity', 'habits'];
 // Each card's bento size: s is a quarter of a wide screen (a sixth of a big one, half a phone), m twice that, l the full width
 type Size = 's' | 'm' | 'l';
-const DASH_SIZE: Record<string, Size> = { spent: 's', earned: 's', budgets: 's', bills: 's', subs: 's', insights: 'l', cashflow: 'l', heatmap: 'l', activity: 'l', flow: 'l', recent: 'l' };
+const DASH_SIZE: Record<string, Size> = { spent: 's', earned: 's', budgets: 's', bills: 's', subs: 's', scSavings: 's', scConsistency: 's', scBills: 's', scCushion: 's', scTidiness: 's', scDebt: 's', insights: 'l', cashflow: 'l', heatmap: 'l', activity: 'l', flow: 'l', recent: 'l' };
 const SIZES: Size[] = ['s', 'm', 'l'];
 const sizeOf = (L: DashLayout, k: string): Size => SIZES.includes((L.size || {})[k] as Size) ? (L.size || {})[k] as Size : DASH_SIZE[k] || 'm';
 // Rough card heights, only used to deal cards into columns evenly the first time
 const DASH_EST: Record<string, number> = { spent: 170, earned: 170, insights: 200, safe: 200, attention: 200, spending: 640, budgets: 300, cash: 300, cards: 290, loans: 250, bills: 220, heatmap: 420, activity: 330, payees: 640, income: 260, goals: 260, networth: 330,
-  pace: 380, savings: 330, trends: 420, subs: 200 };
+  pace: 380, savings: 330, trends: 420, subs: 200, habits: 330, scorecard: 200, scSavings: 170, scConsistency: 170, scBills: 170, scCushion: 170, scTidiness: 170, scDebt: 170 };
 // Each tile's own settings (the ⚙ button while customizing), saved in money.dash opts {tile: {setting: value}}
 const yes = [true, false];
 type TileOpt = { id: string, label: string, options: (number | boolean | string)[], def: number | boolean | string, unit?: string, names?: Record<string, string> };
@@ -191,11 +191,11 @@ function phoneCards(cards: [Size, unknown][]) {
   let used = 0; const cut = cards.findIndex(([z]) => (used += z === 's' ? 1 : 2) > PHONE_SLOTS);
   if (cut < 0 || cut >= cards.length - 1) return htmlList(cards.map(c => c[1]));
   const more = cards.length - cut;
-  return html`${htmlList(cards.slice(0, cut).map(c => c[1]))}<div class="dash-rest" id="dashRest"${S.dashMore ? '' : ' hidden'}>${htmlList(cards.slice(cut).map(c => c[1]))}</div><button type="button" class="btn dash-more" data-more="${more}" data-onclick="App.dashMore(this)">${S.dashMore ? t('Show fewer') : t('Show {count} more', { count: more })}</button>`;
+  return html`${htmlList(cards.slice(0, cut).map(c => c[1]))}<div class="dash-rest" id="dashRest"${S.dashMore ? '' : ' hidden'}>${htmlList(cards.slice(cut).map(c => c[1]))}</div><button type="button" class="btn dash-more" data-more="${more}" data-onclick="App.dashMore(this)">${S.dashMore ? 'Show fewer' : 'Show ' + more + ' more'}</button>`;
 }
 function dashMore(b: HTMLElement) {
   S.dashMore = !S.dashMore; el('dashRest').hidden = !S.dashMore;
-  b.textContent = S.dashMore ? t('Show fewer') : t('Show {count} more', { count: b.dataset.more || '0' });
+  b.textContent = S.dashMore ? 'Show fewer' : 'Show ' + b.dataset.more + ' more';
   if (!S.dashMore) el('dash').scrollIntoView({ block: 'start' });
 }
 function dashButton() { return S.dashEdit ? '' : html`<button class="btn small dash-edit" data-onclick="App.dashEdit(true)" title="Move, resize or hide cards" aria-label="Customize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Customize</span></button>`; }
@@ -228,14 +228,14 @@ function dashboard(W: [string, unknown][]) {
     const body = map[k]; if (!body || tileOff(L, k)) return '';     // cards that are off wait in Customize's Add cards list
     const g = spot[k], z = sizeOf(L, k), name = DASH_NAMES[k] || k;
     if (grid) return html`<div class="w ${z}" data-w="${k}" data-gx="${g.x}" data-gy="${g.y}" data-gw="${g.w}"${g.float ? html` data-float="1"` : ''} style="grid-column:${g.x + 1} / span ${g.w};grid-row:${g.y + 1} / span ${g.h}">${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${name}</strong><span class="grow"></span>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashWide('${k}')">${g.w === GRID ? 'Narrow' : 'Wide'}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">Hide</button></div>${tileOptsPanel(k)}<span class="rsz" title="Drag to resize" aria-hidden="true"></span>` : ''}${body}</div>`;
-    return html`<div class="w ${z}" data-w="${k}"${span[k] ? html` style="grid-column:span ${span[k]}"` : ''}>${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${name}</strong><span class="grow"></span>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashSize('${k}')" title="Change its size">${sizeLabel(z, units)}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">Hide</button></div>${tileOptsPanel(k)}` : ''}${body}</div>`;
+    return html`<div class="w ${z}" data-w="${k}"${span[k] ? html` style="grid-column:span ${span[k]}"` : ''}>${edit ? html`<div class="wctl"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span><strong>${name}</strong><span class="grow"></span>${optsButton(k)}<button type="button" class="wbtn" data-onclick="App.dashMove('${k}', -1)" aria-label="Move ${name} up" title="Move up">↑</button><button type="button" class="wbtn" data-onclick="App.dashMove('${k}', 1)" aria-label="Move ${name} down" title="Move down">↓</button><button type="button" class="wbtn" data-onclick="App.dashSize('${k}')" title="Change its size">Size: ${sizeLabel(z, units)}</button><button type="button" class="hbtn" data-onclick="App.dashHide('${k}')">Hide</button></div>${tileOptsPanel(k)}` : ''}${body}</div>`;
   };
   const tiles = order.filter(on).map(k => [sizeOf(L, k), card(k)] as [Size, unknown]).filter(t => t[1]);
   const body = grid ? htmlList(keys.map(card)) : edit || wideScreen ? htmlList(tiles.map(t => t[1])) : phoneCards(tiles);
   const offs = keys.filter(k => map[k] && tileOff(L, k));
   const adds = edit && offs.length ? html`<div class="dash-add"><div class="eyebrow">Add cards</div><div class="add-list">${htmlList(offs.map(k => html`<button type="button" class="add-card" data-onclick="App.dashHide('${k}')"><span class="plus-i" aria-hidden="true">+</span><span><strong>${DASH_NAMES[k] || k}</strong><span class="sub-s">${DASH_ABOUT[k] || ''}</span></span><span class="pv">${tilePreview(k)}</span></button>`))}</div></div>` : '';
-  return html`<div class="dash-wrap" data-n="${n}" style="--n:${n}">${edit ? html`<div class="dash-bar"><span>${grid ? t('Drag a tile anywhere and drag its corner to resize; tiles snap to the grid and push others down.') :
-      t(units === 2 ? 'Drag a tile to move it (on a touch screen, by its ⠿ handle). Half and Full set how wide it is.' : 'Drag a tile to move it (on a touch screen, by its ⠿ handle). Size sets how wide it is: small, medium or the whole row.')}</span><span class="grow"></span>${grid ? html`<button class="link" data-onclick="App.dashTidy()" title="Close the gaps by moving tiles up">Tidy up</button>` : ''}<button class="link" data-onclick="App.dashReset()">Reset</button><button class="btn small" data-onclick="App.dashCancel()">Cancel</button><button class="btn small primary" data-onclick="App.dashEdit(false)">Done</button>${wideScreen ? html`<div class="dash-opts"><span>Arrange as</span><div class="seg mini" id="dashCols">${htmlList(DASH_COLS.map(c => html`<button type="button" class="${String(L.cols || '') === String(c) ? 'on' : ''}" data-onclick="App.dashCols('${c}')">${c ? t(c === 1 ? '{count} column' : '{count} columns', { count: c }) : 'Bento'}</button>`))}</div></div>` : ''}${adds}</div>` : ''}<div class="cards ${grid ? 'grid' : 'bento'}${edit ? ' editing' : ''}" id="dash" data-n="${n}" data-mode="${grid ? 'grid' : 'bento'}" data-units="${units}" style="--units:${units};--cols:${units * BENTO_SUB}"${L.cols ? html` data-cols="${String(L.cols)}"` : ''}>${body}</div></div>`;
+  return html`<div class="dash-wrap" data-n="${n}" style="--n:${n}">${edit ? html`<div class="dash-bar"><span>${grid ? 'Drag a tile anywhere and drag its corner to resize; tiles snap to the grid and push others down.' :
+      'Drag a tile to move it (on a touch screen, by its ⠿ handle). ' + (units === 2 ? 'Half and Full set how wide it is.' : 'Size sets how wide it is: small, medium or the whole row.')}</span><span class="grow"></span>${grid ? html`<button class="link" data-onclick="App.dashTidy()" title="Close the gaps by moving tiles up">Tidy up</button>` : ''}<button class="link" data-onclick="App.dashReset()">Reset</button><button class="btn small" data-onclick="App.dashCancel()">Cancel</button><button class="btn small primary" data-onclick="App.dashEdit(false)">Done</button>${wideScreen ? html`<div class="dash-opts"><span>Arrange as</span><div class="seg mini" id="dashCols">${htmlList(DASH_COLS.map(c => html`<button type="button" class="${String(L.cols || '') === String(c) ? 'on' : ''}" data-onclick="App.dashCols('${c}')">${c ? c + ' col' + (c === 1 ? '' : 's') : 'Bento'}</button>`))}</div></div>` : ''}${adds}</div>` : ''}<div class="cards ${grid ? 'grid' : 'bento'}${edit ? ' editing' : ''}" id="dash" data-n="${n}" data-mode="${grid ? 'grid' : 'bento'}" data-units="${units}" style="--units:${units};--cols:${units * BENTO_SUB}"${L.cols ? html` data-cols="${String(L.cols)}"` : ''}>${body}</div></div>`;
 }
 // Keep the change `mut` makes, and while customizing on a phone the tile order on the page (hidden tiles are not on it,
 // so they keep their place in the order)
@@ -319,6 +319,15 @@ function dashHide(k: string) {
     x.shown = add && !DASH_DEFAULT.includes(k) ? [...shown, k] : shown;
   });
   buzz(8); dashRedraw();
+}
+// Move a card one place up or down among the cards that are showing (the keyboard's way to do what dragging does)
+function dashMove(k: string, dir: number) {
+  dashSave(x => {
+    const ord = dashOrder(x, Object.keys(DASH_NAMES)), shown = ord.filter(y => !tileOff(x, y)), i = shown.indexOf(k), j = i + dir;
+    if (i < 0 || j < 0 || j >= shown.length) return;
+    const a = ord.indexOf(k), b = ord.indexOf(shown[j]); [ord[a], ord[b]] = [ord[b], ord[a]]; x.order = ord;
+  });
+  buzz(6); dashRedraw();
 }
 function dashCols(c: string) {
   const grid = el('dash') && el('dash').classList.contains('grid');      // freeform: start over from that many columns
@@ -548,6 +557,7 @@ const methods = {
   dashOpt,
   dashWide,
   dashHide,
+  dashMove,
   dashReset, dashCancel,
   dashCols,
   dashSize,
